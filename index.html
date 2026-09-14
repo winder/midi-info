@@ -92,6 +92,7 @@
     <strong>MIDI Piano</strong>
     <span id="status">Checking for Web MIDI support&hellip;</span>
     <select id="inputSelect" style="display:none;"></select>
+    <label for="keySelect">Key: <select id="keySelect"></select></label>
   </div>
 
   <div id="chordDisplay">
@@ -112,7 +113,29 @@
   const MIN_MIDI = 21;  // A0
   const MAX_MIDI = 108; // C8
 
-  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const SHARP_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
+  // The 12 major keys, each paired with the accidental spelling it
+  // conventionally uses. Selecting a key controls how sharps/flats are
+  // spelled in note labels and detected chord roots.
+  const KEYS = [
+    { name: 'C',  names: SHARP_NAMES },
+    { name: 'Db', names: FLAT_NAMES },
+    { name: 'D',  names: SHARP_NAMES },
+    { name: 'Eb', names: FLAT_NAMES },
+    { name: 'E',  names: SHARP_NAMES },
+    { name: 'F',  names: FLAT_NAMES },
+    { name: 'F#', names: SHARP_NAMES },
+    { name: 'G',  names: SHARP_NAMES },
+    { name: 'Ab', names: FLAT_NAMES },
+    { name: 'A',  names: SHARP_NAMES },
+    { name: 'Bb', names: FLAT_NAMES },
+    { name: 'B',  names: SHARP_NAMES },
+  ];
+
+  let currentNoteNames = SHARP_NAMES;
+
   const BLACK_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
 
   function isBlackPitch(midi) {
@@ -120,7 +143,7 @@
   }
 
   function noteName(midi) {
-    return NOTE_NAMES[midi % 12];
+    return currentNoteNames[midi % 12];
   }
 
   function octaveOf(midi) {
@@ -171,7 +194,7 @@
   }
 
   function chordLabel(match) {
-    return NOTE_NAMES[match.root] + match.formula.symbol;
+    return currentNoteNames[match.root] + match.formula.symbol;
   }
 
   // Name of the interval between two notes, indexed by semitone distance mod 12.
@@ -228,11 +251,11 @@
     if (primary) {
       let text = chordLabel(primary);
       if (primary.root !== bassPc) {
-        text += '/' + NOTE_NAMES[bassPc];
+        text += '/' + currentNoteNames[bassPc];
       }
       main.textContent = text;
     } else {
-      main.textContent = NOTE_NAMES[bassPc] + ' n.c.';
+      main.textContent = currentNoteNames[bassPc] + ' n.c.';
     }
     el.appendChild(main);
 
@@ -345,6 +368,19 @@
     const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
     updateChordDisplay(activeMidiSorted, pitchClasses);
   }
+
+  // ---- Key selection ----
+  const keySelect = document.getElementById('keySelect');
+  KEYS.forEach((key, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = key.name;
+    keySelect.appendChild(opt);
+  });
+  keySelect.addEventListener('change', () => {
+    currentNoteNames = KEYS[Number(keySelect.value)].names;
+    render();
+  });
 
   function noteOn(midi) {
     activeNotes.add(midi);
