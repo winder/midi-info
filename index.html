@@ -116,25 +116,50 @@
   const SHARP_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 
-  // The 12 major keys, each paired with the accidental spelling it
-  // conventionally uses. Selecting a key controls how sharps/flats are
-  // spelled in note labels and detected chord roots.
+  const LETTERS = ['C','D','E','F','G','A','B'];
+  const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11];
+
+  // The 12 major keys. tonicLetter/tonicAccidental define the key signature;
+  // fallback supplies names for the 5 non-diatonic (chromatic) pitch classes,
+  // which don't have a single settled spelling the way scale tones do.
   const KEYS = [
-    { name: 'C',  names: SHARP_NAMES },
-    { name: 'Db', names: FLAT_NAMES },
-    { name: 'D',  names: SHARP_NAMES },
-    { name: 'Eb', names: FLAT_NAMES },
-    { name: 'E',  names: SHARP_NAMES },
-    { name: 'F',  names: FLAT_NAMES },
-    { name: 'F#', names: SHARP_NAMES },
-    { name: 'G',  names: SHARP_NAMES },
-    { name: 'Ab', names: FLAT_NAMES },
-    { name: 'A',  names: SHARP_NAMES },
-    { name: 'Bb', names: FLAT_NAMES },
-    { name: 'B',  names: SHARP_NAMES },
+    { name: 'C',  tonicLetter: 'C', tonicAccidental: 0,  fallback: SHARP_NAMES },
+    { name: 'Db', tonicLetter: 'D', tonicAccidental: -1, fallback: FLAT_NAMES },
+    { name: 'D',  tonicLetter: 'D', tonicAccidental: 0,  fallback: SHARP_NAMES },
+    { name: 'Eb', tonicLetter: 'E', tonicAccidental: -1, fallback: FLAT_NAMES },
+    { name: 'E',  tonicLetter: 'E', tonicAccidental: 0,  fallback: SHARP_NAMES },
+    { name: 'F',  tonicLetter: 'F', tonicAccidental: 0,  fallback: FLAT_NAMES },
+    { name: 'F#', tonicLetter: 'F', tonicAccidental: 1,  fallback: SHARP_NAMES },
+    { name: 'G',  tonicLetter: 'G', tonicAccidental: 0,  fallback: SHARP_NAMES },
+    { name: 'Ab', tonicLetter: 'A', tonicAccidental: -1, fallback: FLAT_NAMES },
+    { name: 'A',  tonicLetter: 'A', tonicAccidental: 0,  fallback: SHARP_NAMES },
+    { name: 'Bb', tonicLetter: 'B', tonicAccidental: -1, fallback: FLAT_NAMES },
+    { name: 'B',  tonicLetter: 'B', tonicAccidental: 0,  fallback: SHARP_NAMES },
   ];
 
-  let currentNoteNames = SHARP_NAMES;
+  // Builds the 12-entry note-name table for a key: the 7 diatonic scale
+  // tones get their theoretically correct letter (e.g. E# in F# major,
+  // not F), while the 5 chromatic pitch classes fall back to the key's
+  // sharp/flat convention.
+  function buildKeyNoteNames(key) {
+    const names = key.fallback.slice();
+    const tonicPc = (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
+    const letterIndex = LETTERS.indexOf(key.tonicLetter);
+    MAJOR_SCALE_STEPS.forEach((step, degree) => {
+      const letter = LETTERS[(letterIndex + degree) % 7];
+      const expectedPc = (tonicPc + step) % 12;
+      const accidental = ((expectedPc - NATURAL_PC[letter]) % 12 + 12) % 12;
+      if (accidental === 0) names[expectedPc] = letter;
+      else if (accidental === 1) names[expectedPc] = letter + '#';
+      else if (accidental === 11) names[expectedPc] = letter + 'b';
+      // Any other value would require a double sharp/flat, which none of
+      // these 12 keys need.
+    });
+    return names;
+  }
+
+  let currentNoteNames = buildKeyNoteNames(KEYS[0]);
 
   const BLACK_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
 
@@ -378,7 +403,7 @@
     keySelect.appendChild(opt);
   });
   keySelect.addEventListener('change', () => {
-    currentNoteNames = KEYS[Number(keySelect.value)].names;
+    currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)]);
     render();
   });
 
