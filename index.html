@@ -170,6 +170,22 @@
     return NOTE_NAMES[match.root] + match.formula.symbol;
   }
 
+  // Name of the interval between two notes, indexed by semitone distance mod 12.
+  const INTERVAL_NAMES = [
+    'Octave',      // 0
+    'Minor 2nd',   // 1
+    'Major 2nd',   // 2
+    'Minor 3rd',   // 3
+    'Major 3rd',   // 4
+    'Perfect 4th', // 5
+    'Tritone',     // 6
+    'Perfect 5th', // 7
+    'Minor 6th',   // 8
+    'Major 6th',   // 9
+    'Minor 7th',   // 10
+    'Major 7th',   // 11
+  ];
+
   function updateChordDisplay(activeMidiSorted, pitchClasses) {
     const el = document.getElementById('chordDisplay');
     el.innerHTML = '';
@@ -183,6 +199,19 @@
       main.className = 'chord-main';
       main.textContent = noteName(activeMidiSorted[0]);
       el.appendChild(main);
+      return;
+    }
+    if (activeMidiSorted.length === 2) {
+      const distance = activeMidiSorted[1] - activeMidiSorted[0];
+      const main = document.createElement('div');
+      main.className = 'chord-main';
+      main.textContent = INTERVAL_NAMES[distance % 12];
+      el.appendChild(main);
+
+      const alt = document.createElement('div');
+      alt.className = 'chord-alt';
+      alt.textContent = noteName(activeMidiSorted[0]) + '  →  ' + noteName(activeMidiSorted[1]);
+      el.appendChild(alt);
       return;
     }
 
