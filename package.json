@@ -5,10 +5,13 @@
   "scripts": {
     "build": "tsc --noEmit && esbuild src/app.ts --bundle --outfile=app.js",
     "watch": "esbuild src/app.ts --bundle --outfile=app.js --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.5.1",
     "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   }
 }

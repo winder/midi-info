@@ -11,11 +11,10 @@ Connects to a MIDI keyboard and shows what notes and chords you're playing on an
 ## Run locally
 
 ```
-npm install
-npm run build
-go run main.go
+make install
+make run
 ```
 
 Then open http://localhost:8080 and allow MIDI access when prompted. Browser support for the Web MIDI API varies, so if it doesn't work try a different browser.
 
-Run `npm run watch` while working on `src/` to rebuild `app.js` on save.
+Other Makefile targets: `make dev` (rebuild `app.js` on save), `make test` (unit tests), `make typecheck`.
