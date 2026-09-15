@@ -155,6 +155,22 @@
   function chordLabel(match, noteNames) {
     return noteNames[match.root] + match.formula.symbol;
   }
+  function parseChordFormulas(raw) {
+    if (!Array.isArray(raw)) return null;
+    const result = [];
+    for (const item of raw) {
+      if (typeof item !== "object" || item === null) return null;
+      const f = item;
+      if (!Array.isArray(f.intervals)) return null;
+      result.push({
+        symbol: String(f.symbol ?? ""),
+        intervals: Array.from(new Set(
+          f.intervals.map((n) => (Number(n) % 12 + 12) % 12).filter((n) => !Number.isNaN(n))
+        ))
+      });
+    }
+    return result;
+  }
   var INTERVAL_NAMES = [
     "Octave",
     // 0
@@ -394,6 +410,21 @@
     panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
   }
+  function downloadJSON(filename, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function setErrorMessage(el, message) {
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
 
   // src/app.ts
   function getCookie(name) {
@@ -413,14 +444,7 @@
     const raw = getCookie("chordFormulas");
     if (!raw) return cloneDefaultChordFormulas();
     try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) throw new Error("not an array");
-      return parsed.map((f) => ({
-        symbol: String(f.symbol || ""),
-        intervals: Array.isArray(f.intervals) ? Array.from(new Set(
-          f.intervals.map((n) => (Number(n) % 12 + 12) % 12).filter((n) => !Number.isNaN(n))
-        )) : []
-      }));
+      return parseChordFormulas(JSON.parse(raw)) ?? cloneDefaultChordFormulas();
     } catch (e) {
       return cloneDefaultChordFormulas();
     }
@@ -443,6 +467,10 @@
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
   var resetChordsBtn = document.getElementById("resetChordsBtn");
+  var exportChordsBtn = document.getElementById("exportChordsBtn");
+  var importChordsBtn = document.getElementById("importChordsBtn");
+  var importFileInput = document.getElementById("importFileInput");
+  var chordImportError = document.getElementById("chordImportError");
   var menuButton = document.getElementById("menuButton");
   var settingsPanel = document.getElementById("settingsPanel");
   var statusEl = document.getElementById("status");
@@ -504,8 +532,42 @@
   resetChordsBtn.addEventListener("click", () => {
     chordFormulas = cloneDefaultChordFormulas();
     deleteCookie("chordFormulas");
+    setErrorMessage(chordImportError, null);
     refreshChordTable();
     render();
+  });
+  exportChordsBtn.addEventListener("click", () => {
+    downloadJSON("midi-info-chords.json", chordFormulas);
+  });
+  importChordsBtn.addEventListener("click", () => {
+    importFileInput.click();
+  });
+  importFileInput.addEventListener("change", () => {
+    const file = importFileInput.files?.[0];
+    importFileInput.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(String(reader.result));
+      } catch (e) {
+        setErrorMessage(chordImportError, "That file is not valid JSON.");
+        return;
+      }
+      const normalized = parseChordFormulas(parsed);
+      if (!normalized) {
+        setErrorMessage(chordImportError, "That file doesn't look like a chord table export.");
+        return;
+      }
+      chordFormulas = normalized;
+      saveChordFormulas();
+      setErrorMessage(chordImportError, null);
+      refreshChordTable();
+      render();
+    };
+    reader.onerror = () => setErrorMessage(chordImportError, "Could not read that file.");
+    reader.readAsText(file);
   });
   refreshChordTable();
   menuButton.addEventListener("click", (e) => {

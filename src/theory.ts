@@ -160,6 +160,29 @@ export function chordLabel(match: ChordMatch, noteNames: string[]): string {
   return noteNames[match.root] + match.formula.symbol;
 }
 
+// Validates and normalizes arbitrary parsed JSON (from a cookie or an
+// imported file) into a chord formula list. Intervals are deduped and
+// wrapped into 0-11. Returns null if the shape isn't a chord table at all,
+// so callers can decide how to react (silently fall back, or show an error).
+export function parseChordFormulas(raw: unknown): ChordFormula[] | null {
+  if (!Array.isArray(raw)) return null;
+  const result: ChordFormula[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) return null;
+    const f = item as { symbol?: unknown; intervals?: unknown };
+    if (!Array.isArray(f.intervals)) return null;
+    result.push({
+      symbol: String(f.symbol ?? ''),
+      intervals: Array.from(new Set(
+        (f.intervals as unknown[])
+          .map(n => ((Number(n) % 12) + 12) % 12)
+          .filter(n => !Number.isNaN(n))
+      )),
+    });
+  }
+  return result;
+}
+
 // Name of the interval between two notes, indexed by semitone distance mod 12.
 export const INTERVAL_NAMES = [
   'Octave', // 0

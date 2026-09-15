@@ -9,6 +9,7 @@ import {
   detectChords,
   isBlackPitch,
   octaveOf,
+  parseChordFormulas,
 } from './theory';
 
 describe('isBlackPitch', () => {
@@ -123,5 +124,44 @@ describe('INTERVAL_NAMES', () => {
     assert.equal(INTERVAL_NAMES.length, 12);
     assert.equal(INTERVAL_NAMES[6], 'Tritone');
     assert.equal(INTERVAL_NAMES[0], 'Octave');
+  });
+});
+
+describe('parseChordFormulas', () => {
+  test('normalizes a valid chord table (dedup + mod-12 wrap)', () => {
+    const result = parseChordFormulas([{ symbol: 'x', intervals: [0, 12, 24, -1, 4, 4] }]);
+    assert.ok(result);
+    assert.equal(result![0].symbol, 'x');
+    assert.deepEqual(result![0].intervals.slice().sort((a, b) => a - b), [0, 4, 11]);
+  });
+
+  test('accepts an empty chord table', () => {
+    assert.deepEqual(parseChordFormulas([]), []);
+  });
+
+  test('rejects a non-array', () => {
+    assert.equal(parseChordFormulas({ symbol: '', intervals: [0, 4, 7] }), null);
+    assert.equal(parseChordFormulas('not json'), null);
+    assert.equal(parseChordFormulas(null), null);
+  });
+
+  test('rejects an array with a non-object entry', () => {
+    assert.equal(parseChordFormulas(['nope']), null);
+  });
+
+  test('rejects an entry missing an intervals array', () => {
+    assert.equal(parseChordFormulas([{ symbol: 'x' }]), null);
+    assert.equal(parseChordFormulas([{ symbol: 'x', intervals: 'not an array' }]), null);
+  });
+
+  test('defaults a missing symbol to an empty string', () => {
+    const result = parseChordFormulas([{ intervals: [0, 4, 7] }]);
+    assert.ok(result);
+    assert.equal(result![0].symbol, '');
+  });
+
+  test('round-trips the full default chord library', () => {
+    const roundTripped = parseChordFormulas(JSON.parse(JSON.stringify(DEFAULT_CHORD_FORMULAS)));
+    assert.deepEqual(roundTripped, DEFAULT_CHORD_FORMULAS);
   });
 });

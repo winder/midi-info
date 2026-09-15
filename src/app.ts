@@ -6,14 +6,17 @@ import {
   DEFAULT_CHORD_FORMULAS,
   KEYS,
   buildKeyNoteNames,
+  parseChordFormulas,
 } from './theory';
 import {
   attachPianoMouseInput,
   centerOnMiddleC,
   createPiano,
+  downloadJSON,
   renderChordDisplay,
   renderChordTable,
   renderKeyboard,
+  setErrorMessage,
   setSettingsOpen,
 } from './ui';
 
@@ -41,18 +44,7 @@ function loadChordFormulas(): ChordFormula[] {
   const raw = getCookie('chordFormulas');
   if (!raw) return cloneDefaultChordFormulas();
   try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error('not an array');
-    return parsed.map((f: { symbol?: unknown; intervals?: unknown }) => ({
-      symbol: String(f.symbol || ''),
-      intervals: Array.isArray(f.intervals)
-        ? Array.from(new Set(
-            (f.intervals as unknown[])
-              .map(n => ((Number(n) % 12) + 12) % 12)
-              .filter(n => !Number.isNaN(n))
-          ))
-        : [],
-    }));
+    return parseChordFormulas(JSON.parse(raw)) ?? cloneDefaultChordFormulas();
   } catch (e) {
     return cloneDefaultChordFormulas();
   }
@@ -86,6 +78,10 @@ const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
 const resetChordsBtn = document.getElementById('resetChordsBtn') as HTMLButtonElement;
+const exportChordsBtn = document.getElementById('exportChordsBtn') as HTMLButtonElement;
+const importChordsBtn = document.getElementById('importChordsBtn') as HTMLButtonElement;
+const importFileInput = document.getElementById('importFileInput') as HTMLInputElement;
+const chordImportError = document.getElementById('chordImportError') as HTMLElement;
 const menuButton = document.getElementById('menuButton') as HTMLElement;
 const settingsPanel = document.getElementById('settingsPanel') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
@@ -164,8 +160,46 @@ addChordBtn.addEventListener('click', () => {
 resetChordsBtn.addEventListener('click', () => {
   chordFormulas = cloneDefaultChordFormulas();
   deleteCookie('chordFormulas');
+  setErrorMessage(chordImportError, null);
   refreshChordTable();
   render();
+});
+
+exportChordsBtn.addEventListener('click', () => {
+  downloadJSON('midi-info-chords.json', chordFormulas);
+});
+
+importChordsBtn.addEventListener('click', () => {
+  importFileInput.click();
+});
+
+importFileInput.addEventListener('change', () => {
+  const file = importFileInput.files?.[0];
+  importFileInput.value = ''; // allow re-importing the same file later
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(String(reader.result));
+    } catch (e) {
+      setErrorMessage(chordImportError, 'That file is not valid JSON.');
+      return;
+    }
+    const normalized = parseChordFormulas(parsed);
+    if (!normalized) {
+      setErrorMessage(chordImportError, "That file doesn't look like a chord table export.");
+      return;
+    }
+    chordFormulas = normalized;
+    saveChordFormulas();
+    setErrorMessage(chordImportError, null);
+    refreshChordTable();
+    render();
+  };
+  reader.onerror = () => setErrorMessage(chordImportError, 'Could not read that file.');
+  reader.readAsText(file);
 });
 
 refreshChordTable();
