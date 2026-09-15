@@ -84,7 +84,7 @@
   function octaveOf(midi) {
     return Math.floor(midi / 12) - 1;
   }
-  var DEFAULT_CHORD_FORMULAS = [
+  var BASE_CHORD_FORMULAS = [
     // Major
     { symbol: "", intervals: [0, 4, 7] },
     { symbol: "add2", intervals: [0, 2, 4, 7] },
@@ -133,9 +133,25 @@
     { symbol: "7#9", intervals: [0, 4, 7, 10, 3] },
     { symbol: "7#9#5", intervals: [0, 4, 8, 10, 3] },
     { symbol: "7b9#5", intervals: [0, 4, 8, 10, 1] },
+    { symbol: "7#11", intervals: [0, 4, 7, 10, 2, 6] },
     { symbol: "7#11b9", intervals: [0, 4, 7, 10, 1, 6] },
     { symbol: "13b9", intervals: [0, 4, 7, 10, 1, 9] },
     { symbol: "13#11", intervals: [0, 4, 7, 10, 2, 6, 9] }
+  ];
+  var PERFECT_FIFTH = 7;
+  function withoutPerfectFifth(formulas) {
+    const variants = [];
+    formulas.forEach((f) => {
+      if (!f.intervals.includes(PERFECT_FIFTH)) return;
+      const intervals = f.intervals.filter((i) => i !== PERFECT_FIFTH);
+      if (intervals.length < 3) return;
+      variants.push({ symbol: f.symbol, intervals });
+    });
+    return variants;
+  }
+  var DEFAULT_CHORD_FORMULAS = [
+    ...BASE_CHORD_FORMULAS,
+    ...withoutPerfectFifth(BASE_CHORD_FORMULAS)
   ];
   function detectChords(pitchClasses, chordFormulas2) {
     if (pitchClasses.length < 3) return [];

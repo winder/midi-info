@@ -106,6 +106,24 @@ describe('detectChords + chordLabel', () => {
     assert.equal(labelOf([0, 2, 3, 5, 7, 10]), 'C-11');
   });
 
+  test('recognizes the plain dominant 7#11 chord, with or without the perfect 5th', () => {
+    assert.equal(labelOf([0, 4, 7, 10, 2, 6]), 'C7#11'); // C-E-G-Bb-D-F#
+    assert.equal(labelOf([0, 4, 10, 2, 6]), 'C7#11'); // C-E-Bb-D-F# (5th omitted)
+  });
+
+  test('a plain dominant 7th with the 5th omitted is still labeled C7', () => {
+    assert.equal(labelOf([0, 4, 10]), 'C7'); // C-E-Bb, no G
+  });
+
+  test('altered 5ths are not treated as omittable', () => {
+    // 'aug' (#5) and '7b5' have no perfect 5th in their formula, so no
+    // shorter "5th omitted" variant should exist for them.
+    const hasShorterVariant = (symbol: string, fullLength: number) =>
+      DEFAULT_CHORD_FORMULAS.some(f => f.symbol === symbol && f.intervals.length < fullLength);
+    assert.equal(hasShorterVariant('aug', 3), false);
+    assert.equal(hasShorterVariant('7b5', 4), false);
+  });
+
   test('finds a chord rooted anywhere in the pitch-class set (for inversions)', () => {
     // E-G-C is a C major triad in first inversion; root should still be found as C (pc 0).
     const matches = detectChords([4, 7, 0], DEFAULT_CHORD_FORMULAS);

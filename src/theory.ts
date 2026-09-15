@@ -74,7 +74,7 @@ export interface ChordFormula {
 // Suspended, Augmented, and Dominant. Minor uses "-", diminished uses
 // "°"/"°7", half-diminished uses "ø7" (real jazz lead-sheet notation),
 // matching the project's earlier switch to "Δ" for major 7th.
-export const DEFAULT_CHORD_FORMULAS: ChordFormula[] = [
+const BASE_CHORD_FORMULAS: ChordFormula[] = [
   // Major
   { symbol: '', intervals: [0, 4, 7] },
   { symbol: 'add2', intervals: [0, 2, 4, 7] },
@@ -128,9 +128,33 @@ export const DEFAULT_CHORD_FORMULAS: ChordFormula[] = [
   { symbol: '7#9', intervals: [0, 4, 7, 10, 3] },
   { symbol: '7#9#5', intervals: [0, 4, 8, 10, 3] },
   { symbol: '7b9#5', intervals: [0, 4, 8, 10, 1] },
+  { symbol: '7#11', intervals: [0, 4, 7, 10, 2, 6] },
   { symbol: '7#11b9', intervals: [0, 4, 7, 10, 1, 6] },
   { symbol: '13b9', intervals: [0, 4, 7, 10, 1, 9] },
   { symbol: '13#11', intervals: [0, 4, 7, 10, 2, 6, 9] },
+];
+
+const PERFECT_FIFTH = 7;
+
+// Dropping the plain perfect 5th never changes a chord's quality or name -
+// it's the least color-defining tone (unlike an altered b5/#5, which IS
+// the point of the chord) and is routinely left out of real voicings, e.g.
+// C7#11 as C-E-Bb-D-F# instead of C-E-G-Bb-D-F#. For every base formula
+// that includes it, also recognize the same chord with the 5th omitted.
+function withoutPerfectFifth(formulas: ChordFormula[]): ChordFormula[] {
+  const variants: ChordFormula[] = [];
+  formulas.forEach(f => {
+    if (!f.intervals.includes(PERFECT_FIFTH)) return;
+    const intervals = f.intervals.filter(i => i !== PERFECT_FIFTH);
+    if (intervals.length < 3) return; // fewer than 3 notes isn't a chord anymore
+    variants.push({ symbol: f.symbol, intervals });
+  });
+  return variants;
+}
+
+export const DEFAULT_CHORD_FORMULAS: ChordFormula[] = [
+  ...BASE_CHORD_FORMULAS,
+  ...withoutPerfectFifth(BASE_CHORD_FORMULAS),
 ];
 
 export interface ChordMatch {
