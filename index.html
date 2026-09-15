@@ -177,27 +177,67 @@
 
   // ---- Chord detection ----
   // Each formula lists intervals (semitones) from the chord root.
-  // Ordered so more specific/longer chords are preferred when lengths tie.
+  // Covers every chord family in chords.md: Major, Minor, Diminished,
+  // Suspended, Augmented, and Dominant. Minor uses "-", diminished uses
+  // "°"/"°7", half-diminished uses "ø7" (real jazz lead-sheet notation),
+  // matching the project's earlier switch to "Δ" for major 7th.
   const CHORD_FORMULAS = [
-    { symbol: '',      intervals: [0, 4, 7] },       // Major
-    { symbol: 'm',     intervals: [0, 3, 7] },       // Minor
-    { symbol: 'dim',   intervals: [0, 3, 6] },       // Diminished
-    { symbol: 'aug',   intervals: [0, 4, 8] },       // Augmented
-    { symbol: 'sus2',  intervals: [0, 2, 7] },       // Suspended 2nd
-    { symbol: 'sus4',  intervals: [0, 5, 7] },       // Suspended 4th
-    { symbol: 'Δ7',    intervals: [0, 4, 7, 11] },   // Major 7th
-    { symbol: '7',     intervals: [0, 4, 7, 10] },   // Dominant 7th
-    { symbol: 'm7',    intervals: [0, 3, 7, 10] },   // Minor 7th
-    { symbol: 'mΔ7',   intervals: [0, 3, 7, 11] },   // Minor Major 7th
-    { symbol: 'dim7',  intervals: [0, 3, 6, 9] },    // Diminished 7th
-    { symbol: 'm7b5',  intervals: [0, 3, 6, 10] },   // Half-diminished 7th
-    { symbol: 'aug7',  intervals: [0, 4, 8, 10] },   // Augmented 7th
-    { symbol: '6',     intervals: [0, 4, 7, 9] },    // Major 6th
-    { symbol: 'm6',    intervals: [0, 3, 7, 9] },    // Minor 6th
-    { symbol: 'add2',        intervals: [0, 2, 4, 7] },       // Major add 2
-    { symbol: 'Δ7(9)',       intervals: [0, 4, 7, 11, 2] },   // Major 9th
-    { symbol: 'Δ7#11',       intervals: [0, 4, 7, 11, 2, 6] }, // Major 7#11
-    { symbol: 'Δ7(13, #11)', intervals: [0, 4, 7, 11, 2, 6, 9] }, // Major 13#11
+    // Major
+    { symbol: '',            intervals: [0, 4, 7] },
+    { symbol: 'add2',        intervals: [0, 2, 4, 7] },
+    { symbol: '6',           intervals: [0, 4, 7, 9] },
+    { symbol: 'Δ7',          intervals: [0, 4, 7, 11] },
+    { symbol: 'Δ7(9)',       intervals: [0, 4, 7, 11, 2] },
+    { symbol: 'Δ7(9, 13)',   intervals: [0, 4, 7, 11, 2, 9] },
+    { symbol: 'Δ7#5',        intervals: [0, 4, 8, 11] },
+    { symbol: 'Δ9#5',        intervals: [0, 4, 8, 11, 2] },
+    { symbol: '6/9',         intervals: [0, 4, 7, 9, 2] },
+    { symbol: '6/9#11',      intervals: [0, 4, 7, 9, 2, 6] },
+    { symbol: 'Δ7#11',       intervals: [0, 4, 7, 11, 2, 6] },
+    { symbol: 'Δ7#11#5',     intervals: [0, 4, 8, 11, 2, 6] },
+    { symbol: 'Δ7(13, #11)', intervals: [0, 4, 7, 11, 2, 6, 9] },
+
+    // Minor
+    { symbol: '-',        intervals: [0, 3, 7] },
+    { symbol: '-add2',    intervals: [0, 2, 3, 7] },
+    { symbol: '-6',       intervals: [0, 3, 7, 9] },
+    { symbol: '-7',       intervals: [0, 3, 7, 10] },
+    { symbol: '-Δ7',      intervals: [0, 3, 7, 11] },
+    { symbol: '-9',       intervals: [0, 3, 7, 10, 2] },
+    { symbol: '-Δ9',      intervals: [0, 3, 7, 11, 2] },
+    { symbol: '-6/9',     intervals: [0, 3, 7, 9, 2] },
+    { symbol: '-6/9(11)', intervals: [0, 3, 7, 9, 2, 5] },
+    { symbol: '-Δ7(13)',  intervals: [0, 3, 7, 11, 9] },
+    { symbol: '-11',      intervals: [0, 2, 3, 5, 7, 10] },
+
+    // Diminished
+    { symbol: '°',  intervals: [0, 3, 6] },
+    { symbol: 'ø7', intervals: [0, 3, 6, 10] },
+    { symbol: '°7', intervals: [0, 3, 6, 9] },
+
+    // Suspended
+    { symbol: 'sus2',  intervals: [0, 2, 7] },
+    { symbol: 'sus4',  intervals: [0, 5, 7] },
+    { symbol: '7sus4', intervals: [0, 5, 7, 10] },
+    { symbol: '13sus', intervals: [0, 5, 7, 10, 2, 9] },
+
+    // Augmented
+    { symbol: 'aug', intervals: [0, 4, 8] },
+
+    // Dominant
+    { symbol: '7',        intervals: [0, 4, 7, 10] },
+    { symbol: '9',        intervals: [0, 4, 7, 10, 2] },
+    { symbol: '9(add11)', intervals: [0, 4, 7, 10, 2, 5] },
+    { symbol: '13',       intervals: [0, 4, 7, 10, 2, 9] },
+    { symbol: '7+5',      intervals: [0, 4, 8, 10] },
+    { symbol: '7b5',      intervals: [0, 4, 6, 10] },
+    { symbol: '7b9',      intervals: [0, 4, 7, 10, 1] },
+    { symbol: '7#9',      intervals: [0, 4, 7, 10, 3] },
+    { symbol: '7#9#5',    intervals: [0, 4, 8, 10, 3] },
+    { symbol: '7b9#5',    intervals: [0, 4, 8, 10, 1] },
+    { symbol: '7#11b9',   intervals: [0, 4, 7, 10, 1, 6] },
+    { symbol: '13b9',     intervals: [0, 4, 7, 10, 1, 9] },
+    { symbol: '13#11',    intervals: [0, 4, 7, 10, 2, 6, 9] },
   ];
 
   // Finds every (root, formula) pair whose notes exactly match the given
