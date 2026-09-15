@@ -1,0 +1,14 @@
+{
+  "name": "midi-info",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc --noEmit && esbuild src/app.ts --bundle --outfile=app.js",
+    "watch": "esbuild src/app.ts --bundle --outfile=app.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -20,6 +20,13 @@ jobs:
         with:
           go-version: stable
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npm run build
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
