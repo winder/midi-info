@@ -19,6 +19,7 @@
     gap: 16px;
     padding: 10px 16px;
     border-bottom: 1px solid #eee;
+    flex-wrap: wrap;
   }
   #status {
     font-size: 13px;
@@ -26,6 +27,12 @@
   }
   #status.connected { color: #2a7a2a; }
   #status.error { color: #b33; }
+  #inputRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
   select {
     font-size: 13px;
     padding: 4px 8px;
@@ -131,9 +138,9 @@
   <div id="topBar">
     <strong>MIDI Piano</strong>
     <span id="status">Checking for Web MIDI support&hellip;</span>
+    <label for="inputSelect" id="inputRow" style="display:none;">Controller <select id="inputSelect"></select></label>
     <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">&#9776;</button>
     <div id="settingsPanel" hidden>
-      <label for="inputSelect" id="inputRow" style="display:none;">Controller <select id="inputSelect"></select></label>
       <label for="keySelect">Key <select id="keySelect"></select></label>
     </div>
   </div>
