@@ -13,12 +13,12 @@
     color: #222;
   }
   #topBar {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 16px;
     padding: 10px 16px;
     border-bottom: 1px solid #eee;
-    flex-wrap: wrap;
   }
   #status {
     font-size: 13px;
@@ -29,6 +29,43 @@
   select {
     font-size: 13px;
     padding: 4px 8px;
+  }
+  #menuButton {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    line-height: 1;
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #333;
+  }
+  #menuButton:hover {
+    background: #f5f5f5;
+  }
+  #settingsPanel {
+    position: absolute;
+    top: 100%;
+    margin-top: 6px;
+    right: 16px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+    font-size: 13px;
+  }
+  #settingsPanel label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
   #chordDisplay {
     min-height: 90px;
@@ -91,8 +128,11 @@
   <div id="topBar">
     <strong>MIDI Piano</strong>
     <span id="status">Checking for Web MIDI support&hellip;</span>
-    <select id="inputSelect" style="display:none;"></select>
-    <label for="keySelect">Key: <select id="keySelect"></select></label>
+    <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">&#9776;</button>
+    <div id="settingsPanel" hidden>
+      <label for="inputSelect" id="inputRow" style="display:none;">Controller <select id="inputSelect"></select></label>
+      <label for="keySelect">Key <select id="keySelect"></select></label>
+    </div>
   </div>
 
   <div id="chordDisplay">
@@ -447,6 +487,25 @@
     render();
   });
 
+  // ---- Settings popup ----
+  const menuButton = document.getElementById('menuButton');
+  const settingsPanel = document.getElementById('settingsPanel');
+
+  function setSettingsOpen(open) {
+    settingsPanel.hidden = !open;
+    menuButton.setAttribute('aria-expanded', String(open));
+  }
+
+  menuButton.addEventListener('click', e => {
+    e.stopPropagation();
+    setSettingsOpen(settingsPanel.hidden);
+  });
+  settingsPanel.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => setSettingsOpen(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') setSettingsOpen(false);
+  });
+
   function noteOn(midi) {
     activeNotes.add(midi);
     render();
@@ -491,6 +550,7 @@
   // ---- Web MIDI setup ----
   const statusEl = document.getElementById('status');
   const inputSelect = document.getElementById('inputSelect');
+  const inputRow = document.getElementById('inputRow');
   const attachedInputs = new Set();
 
   function handleMIDIMessage(event) {
@@ -515,10 +575,10 @@
     if (inputs.length === 0) {
       statusEl.textContent = 'No MIDI devices found. Connect a device.';
       statusEl.className = '';
-      inputSelect.style.display = 'none';
+      inputRow.style.display = 'none';
       return;
     }
-    inputSelect.style.display = '';
+    inputRow.style.display = '';
     inputs.forEach(input => {
       const opt = document.createElement('option');
       opt.value = input.id;
