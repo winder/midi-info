@@ -3,13 +3,60 @@
 
 import { ChordFormula, INTERVAL_NAMES, chordLabel, detectChords, isBlackPitch, octaveOf } from './theory';
 
-const WHITE_W = 40;
-const WHITE_H = 180;
-const BLACK_W = 24;
-const BLACK_H = 110;
-const LABEL_AREA_H = 40;
-export const MIN_MIDI = 21; // A0
-export const MAX_MIDI = 108; // C8
+// Base key dimensions for the default (never-shrink-below-this) size; also
+// used as the reference for scaling every other dimension proportionally.
+const BASE_WHITE_W = 40;
+const BASE_WHITE_H = 180;
+const BASE_BLACK_W = 24;
+const BASE_BLACK_H = 110;
+const BASE_LABEL_AREA_H = 40;
+const MIN_WHITE_W = BASE_WHITE_W;
+const MAX_WHITE_W = 90;
+
+export interface KeyRange {
+  label: string;
+  min: number;
+  max: number;
+}
+
+// Standard MIDI-controller key counts and their conventional note ranges.
+export const RANGES: KeyRange[] = [
+  { label: '25 keys', min: 48, max: 72 }, // C3-C5
+  { label: '49 keys', min: 36, max: 84 }, // C2-C6
+  { label: '61 keys', min: 36, max: 96 }, // C2-C7
+  { label: '76 keys', min: 28, max: 103 }, // E1-G7
+  { label: '88 keys', min: 21, max: 108 }, // A0-C8
+];
+export const DEFAULT_RANGE_INDEX = RANGES.length - 1; // 88 keys, matches a full piano
+
+export interface KeyDimensions {
+  whiteW: number;
+  whiteH: number;
+  blackW: number;
+  blackH: number;
+  labelAreaH: number;
+}
+
+// Scales key size to the chosen range: fewer keys get bigger keys (up to
+// MAX_WHITE_W) so small ranges fill the available width instead of leaving
+// it mostly empty; larger ranges never shrink below the base size, so an
+// 88-key layout looks the same as before and simply scrolls if needed.
+export function computeKeyDimensions(minMidi: number, maxMidi: number, availableWidth: number): KeyDimensions {
+  let whiteCount = 0;
+  for (let m = minMidi; m <= maxMidi; m++) {
+    if (!isBlackPitch(m)) whiteCount++;
+  }
+  const rawWhiteW = availableWidth / Math.max(whiteCount, 1);
+  const whiteW = Math.min(Math.max(rawWhiteW, MIN_WHITE_W), MAX_WHITE_W);
+  const scale = whiteW / BASE_WHITE_W;
+  return {
+    whiteW,
+    whiteH: BASE_WHITE_H * scale,
+    blackW: BASE_BLACK_W * scale,
+    blackH: BASE_BLACK_H * scale,
+    labelAreaH: BASE_LABEL_AREA_H * scale,
+  };
+}
 
 export interface PianoKey {
   midi: number;
@@ -19,26 +66,26 @@ export interface PianoKey {
   height: number;
 }
 
-function buildKeys(minMidi: number, maxMidi: number): { keys: PianoKey[]; totalWhiteWidth: number } {
+function buildKeys(minMidi: number, maxMidi: number, dims: KeyDimensions): { keys: PianoKey[]; totalWhiteWidth: number } {
   const whiteX: Record<number, number> = {};
   let whiteIndex = 0;
   for (let m = minMidi; m <= maxMidi; m++) {
     if (!isBlackPitch(m)) {
-      whiteX[m] = whiteIndex * WHITE_W;
+      whiteX[m] = whiteIndex * dims.whiteW;
       whiteIndex++;
     }
   }
-  const totalWhiteWidth = whiteIndex * WHITE_W;
+  const totalWhiteWidth = whiteIndex * dims.whiteW;
 
   const keys: PianoKey[] = [];
   for (let m = minMidi; m <= maxMidi; m++) {
     if (!isBlackPitch(m)) {
-      keys.push({ midi: m, isBlack: false, x: whiteX[m], width: WHITE_W, height: WHITE_H });
+      keys.push({ midi: m, isBlack: false, x: whiteX[m], width: dims.whiteW, height: dims.whiteH });
     } else {
       const nextWhite = whiteX[m + 1];
       const prevWhite = whiteX[m - 1];
-      const boundary = nextWhite !== undefined ? nextWhite : prevWhite + WHITE_W;
-      keys.push({ midi: m, isBlack: true, x: boundary - BLACK_W / 2, width: BLACK_W, height: BLACK_H });
+      const boundary = nextWhite !== undefined ? nextWhite : prevWhite + dims.whiteW;
+      keys.push({ midi: m, isBlack: true, x: boundary - dims.blackW / 2, width: dims.blackW, height: dims.blackH });
     }
   }
   return { keys, totalWhiteWidth };
@@ -49,15 +96,19 @@ export interface Piano {
   rectByMidi: Map<number, SVGRectElement>;
   labelGroup: SVGGElement;
   keyGroup: SVGGElement;
+  dims: KeyDimensions;
 }
 
 // Builds the piano SVG (white/black key rects + octave labels) inside the
 // given <svg> element and returns handles needed to render note state.
-export function createPiano(svg: SVGSVGElement): Piano {
-  const { keys, totalWhiteWidth } = buildKeys(MIN_MIDI, MAX_MIDI);
+// Replaces any previous contents of svg, so it's safe to call again (with a
+// different range/dims) to rebuild the piano in place.
+export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number, dims: KeyDimensions): Piano {
+  const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
   const svgWidth = totalWhiteWidth;
-  const svgHeight = LABEL_AREA_H + WHITE_H;
+  const svgHeight = dims.labelAreaH + dims.whiteH;
 
+  svg.innerHTML = '';
   svg.setAttribute('width', String(svgWidth));
   svg.setAttribute('height', String(svgHeight));
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
@@ -70,7 +121,7 @@ export function createPiano(svg: SVGSVGElement): Piano {
   function makeRect(key: PianoKey): SVGRectElement {
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('x', String(key.x));
-    rect.setAttribute('y', String(LABEL_AREA_H));
+    rect.setAttribute('y', String(dims.labelAreaH));
     rect.setAttribute('width', String(key.width));
     rect.setAttribute('height', String(key.height));
     rect.setAttribute('class', key.isBlack ? 'black-key' : 'white-key');
@@ -88,7 +139,7 @@ export function createPiano(svg: SVGSVGElement): Piano {
       // C key: label octave
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', String(key.x + key.width / 2));
-      text.setAttribute('y', String(LABEL_AREA_H + WHITE_H - 8));
+      text.setAttribute('y', String(dims.labelAreaH + dims.whiteH - 8));
       text.setAttribute('class', 'octave-label');
       text.textContent = 'C' + octaveOf(key.midi);
       octaveGroup.appendChild(text);
@@ -104,17 +155,24 @@ export function createPiano(svg: SVGSVGElement): Piano {
   svg.appendChild(octaveGroup);
   svg.appendChild(labelGroup);
 
-  return { keys, rectByMidi, labelGroup, keyGroup };
+  return { keys, rectByMidi, labelGroup, keyGroup, dims };
+}
+
+// Tracks whether the mouse button is currently down, globally. Call once;
+// share the returned getter across any number of attachPianoMouseInput
+// calls (e.g. across piano rebuilds) instead of re-registering document
+// listeners each time.
+export function trackMouseIsDown(): () => boolean {
+  let mouseDown = false;
+  document.addEventListener('mousedown', () => (mouseDown = true));
+  document.addEventListener('mouseup', () => (mouseDown = false));
+  return () => mouseDown;
 }
 
 // Registers mouse/touch interaction on the piano so it can be played
 // without hardware. onMidi(midi, isOn) is called for both directions.
-export function attachPianoMouseInput(piano: Piano, onMidi: (midi: number, isOn: boolean) => void): void {
+export function attachPianoMouseInput(piano: Piano, isMouseDown: () => boolean, onMidi: (midi: number, isOn: boolean) => void): void {
   const keyGroup = piano.keyGroup;
-
-  let mouseDown = false;
-  document.addEventListener('mousedown', () => (mouseDown = true));
-  document.addEventListener('mouseup', () => (mouseDown = false));
 
   function midiFromEvent(e: Event): number | undefined {
     const target = e.target as (HTMLElement | SVGElement) & { dataset?: DOMStringMap };
@@ -135,7 +193,7 @@ export function attachPianoMouseInput(piano: Piano, onMidi: (midi: number, isOn:
     if (midi !== undefined) onMidi(midi, false);
   }, true);
   keyGroup.addEventListener('mouseenter', e => {
-    if (mouseDown) {
+    if (isMouseDown()) {
       const midi = midiFromEvent(e);
       if (midi !== undefined) onMidi(midi, true);
     }
@@ -162,7 +220,7 @@ export function renderKeyboard(piano: Piano, activeNotes: Set<number>, noteNames
     if (!key) return;
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', String(key.x + key.width / 2));
-    text.setAttribute('y', String(LABEL_AREA_H - 12));
+    text.setAttribute('y', String(piano.dims.labelAreaH - 12));
     text.setAttribute('class', 'note-label');
     text.textContent = noteNames[midi % 12];
     piano.labelGroup.appendChild(text);

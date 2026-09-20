@@ -231,40 +231,70 @@
   ];
 
   // src/ui.ts
-  var WHITE_W = 40;
-  var WHITE_H = 180;
-  var BLACK_W = 24;
-  var BLACK_H = 110;
-  var LABEL_AREA_H = 40;
-  var MIN_MIDI = 21;
-  var MAX_MIDI = 108;
-  function buildKeys(minMidi, maxMidi) {
+  var BASE_WHITE_W = 40;
+  var BASE_WHITE_H = 180;
+  var BASE_BLACK_W = 24;
+  var BASE_BLACK_H = 110;
+  var BASE_LABEL_AREA_H = 40;
+  var MIN_WHITE_W = BASE_WHITE_W;
+  var MAX_WHITE_W = 90;
+  var RANGES = [
+    { label: "25 keys", min: 48, max: 72 },
+    // C3-C5
+    { label: "49 keys", min: 36, max: 84 },
+    // C2-C6
+    { label: "61 keys", min: 36, max: 96 },
+    // C2-C7
+    { label: "76 keys", min: 28, max: 103 },
+    // E1-G7
+    { label: "88 keys", min: 21, max: 108 }
+    // A0-C8
+  ];
+  var DEFAULT_RANGE_INDEX = RANGES.length - 1;
+  function computeKeyDimensions(minMidi, maxMidi, availableWidth) {
+    let whiteCount = 0;
+    for (let m = minMidi; m <= maxMidi; m++) {
+      if (!isBlackPitch(m)) whiteCount++;
+    }
+    const rawWhiteW = availableWidth / Math.max(whiteCount, 1);
+    const whiteW = Math.min(Math.max(rawWhiteW, MIN_WHITE_W), MAX_WHITE_W);
+    const scale = whiteW / BASE_WHITE_W;
+    return {
+      whiteW,
+      whiteH: BASE_WHITE_H * scale,
+      blackW: BASE_BLACK_W * scale,
+      blackH: BASE_BLACK_H * scale,
+      labelAreaH: BASE_LABEL_AREA_H * scale
+    };
+  }
+  function buildKeys(minMidi, maxMidi, dims) {
     const whiteX = {};
     let whiteIndex = 0;
     for (let m = minMidi; m <= maxMidi; m++) {
       if (!isBlackPitch(m)) {
-        whiteX[m] = whiteIndex * WHITE_W;
+        whiteX[m] = whiteIndex * dims.whiteW;
         whiteIndex++;
       }
     }
-    const totalWhiteWidth = whiteIndex * WHITE_W;
+    const totalWhiteWidth = whiteIndex * dims.whiteW;
     const keys = [];
     for (let m = minMidi; m <= maxMidi; m++) {
       if (!isBlackPitch(m)) {
-        keys.push({ midi: m, isBlack: false, x: whiteX[m], width: WHITE_W, height: WHITE_H });
+        keys.push({ midi: m, isBlack: false, x: whiteX[m], width: dims.whiteW, height: dims.whiteH });
       } else {
         const nextWhite = whiteX[m + 1];
         const prevWhite = whiteX[m - 1];
-        const boundary = nextWhite !== void 0 ? nextWhite : prevWhite + WHITE_W;
-        keys.push({ midi: m, isBlack: true, x: boundary - BLACK_W / 2, width: BLACK_W, height: BLACK_H });
+        const boundary = nextWhite !== void 0 ? nextWhite : prevWhite + dims.whiteW;
+        keys.push({ midi: m, isBlack: true, x: boundary - dims.blackW / 2, width: dims.blackW, height: dims.blackH });
       }
     }
     return { keys, totalWhiteWidth };
   }
-  function createPiano(svg2) {
-    const { keys, totalWhiteWidth } = buildKeys(MIN_MIDI, MAX_MIDI);
+  function createPiano(svg2, minMidi, maxMidi, dims) {
+    const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
     const svgWidth = totalWhiteWidth;
-    const svgHeight = LABEL_AREA_H + WHITE_H;
+    const svgHeight = dims.labelAreaH + dims.whiteH;
+    svg2.innerHTML = "";
     svg2.setAttribute("width", String(svgWidth));
     svg2.setAttribute("height", String(svgHeight));
     svg2.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
@@ -275,7 +305,7 @@
     function makeRect(key) {
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("x", String(key.x));
-      rect.setAttribute("y", String(LABEL_AREA_H));
+      rect.setAttribute("y", String(dims.labelAreaH));
       rect.setAttribute("width", String(key.width));
       rect.setAttribute("height", String(key.height));
       rect.setAttribute("class", key.isBlack ? "black-key" : "white-key");
@@ -289,7 +319,7 @@
       if (key.midi % 12 === 0) {
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
         text.setAttribute("x", String(key.x + key.width / 2));
-        text.setAttribute("y", String(LABEL_AREA_H + WHITE_H - 8));
+        text.setAttribute("y", String(dims.labelAreaH + dims.whiteH - 8));
         text.setAttribute("class", "octave-label");
         text.textContent = "C" + octaveOf(key.midi);
         octaveGroup.appendChild(text);
@@ -303,13 +333,16 @@
     svg2.appendChild(keyGroup);
     svg2.appendChild(octaveGroup);
     svg2.appendChild(labelGroup);
-    return { keys, rectByMidi, labelGroup, keyGroup };
+    return { keys, rectByMidi, labelGroup, keyGroup, dims };
   }
-  function attachPianoMouseInput(piano2, onMidi) {
-    const keyGroup = piano2.keyGroup;
+  function trackMouseIsDown() {
     let mouseDown = false;
     document.addEventListener("mousedown", () => mouseDown = true);
     document.addEventListener("mouseup", () => mouseDown = false);
+    return () => mouseDown;
+  }
+  function attachPianoMouseInput(piano2, isMouseDown2, onMidi) {
+    const keyGroup = piano2.keyGroup;
     function midiFromEvent(e) {
       const target = e.target;
       const midi = target?.dataset?.midi;
@@ -328,7 +361,7 @@
       if (midi !== void 0) onMidi(midi, false);
     }, true);
     keyGroup.addEventListener("mouseenter", (e) => {
-      if (mouseDown) {
+      if (isMouseDown2()) {
         const midi = midiFromEvent(e);
         if (midi !== void 0) onMidi(midi, true);
       }
@@ -350,7 +383,7 @@
       if (!key) return;
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
       text.setAttribute("x", String(key.x + key.width / 2));
-      text.setAttribute("y", String(LABEL_AREA_H - 12));
+      text.setAttribute("y", String(piano2.dims.labelAreaH - 12));
       text.setAttribute("class", "note-label");
       text.textContent = noteNames[midi % 12];
       piano2.labelGroup.appendChild(text);
@@ -485,6 +518,14 @@
   function saveDebug(value) {
     setCookie("debugMode", value ? "1" : "0", 365);
   }
+  function loadRangeIndex() {
+    const raw = getCookie("range");
+    const index = raw !== null ? Number(raw) : NaN;
+    return Number.isInteger(index) && index >= 0 && index < RANGES.length ? index : DEFAULT_RANGE_INDEX;
+  }
+  function saveRangeIndex(index) {
+    setCookie("range", String(index), 365);
+  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -509,12 +550,14 @@
   var chordFormulas = loadChordFormulas();
   var currentLevel = loadLevel();
   var debugMode = loadDebug();
+  var currentRangeIndex = loadRangeIndex();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
   var svg = document.getElementById("piano");
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
+  var rangeSelect = document.getElementById("rangeSelect");
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
   var modeLabelText = document.getElementById("modeLabelText");
@@ -534,8 +577,9 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"6c91c25"}`;
-  var piano = createPiano(svg);
+  versionInfoEl.textContent = `Build ${"2e8b99c"}`;
+  var piano;
+  var isMouseDown = trackMouseIsDown();
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames);
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
@@ -563,9 +607,28 @@
       render();
     }
   }
-  attachPianoMouseInput(piano, (midi, isOn) => isOn ? noteOn(midi) : noteOff(midi));
-  render();
-  centerOnMiddleC(pianoContainer, piano);
+  function rebuildPiano() {
+    const range = RANGES[currentRangeIndex];
+    const availableWidth = Math.max(pianoContainer.clientWidth - 32, 200);
+    const dims = computeKeyDimensions(range.min, range.max, availableWidth);
+    piano = createPiano(svg, range.min, range.max, dims);
+    attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => isOn ? noteOn(midi) : noteOff(midi));
+    centerOnMiddleC(pianoContainer, piano);
+    render();
+  }
+  RANGES.forEach((range, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = range.label;
+    rangeSelect.appendChild(opt);
+  });
+  rangeSelect.value = String(currentRangeIndex);
+  rangeSelect.addEventListener("change", () => {
+    currentRangeIndex = Number(rangeSelect.value);
+    saveRangeIndex(currentRangeIndex);
+    rebuildPiano();
+  });
+  rebuildPiano();
   KEYS.forEach((key, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);

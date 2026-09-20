@@ -12,8 +12,12 @@ import {
   parseChordFormulas,
 } from './theory';
 import {
+  DEFAULT_RANGE_INDEX,
+  Piano,
+  RANGES,
   attachPianoMouseInput,
   centerOnMiddleC,
+  computeKeyDimensions,
   createPiano,
   downloadJSON,
   renderChordDisplay,
@@ -21,6 +25,7 @@ import {
   renderKeyboard,
   setErrorMessage,
   setSettingsOpen,
+  trackMouseIsDown,
 } from './ui';
 
 // ---- Cookie-backed chord table persistence ----
@@ -67,6 +72,18 @@ function saveDebug(value: boolean): void {
   setCookie('debugMode', value ? '1' : '0', 365);
 }
 
+// ---- Range (how many keys the on-screen keyboard shows) ----
+
+function loadRangeIndex(): number {
+  const raw = getCookie('range');
+  const index = raw !== null ? Number(raw) : NaN;
+  return Number.isInteger(index) && index >= 0 && index < RANGES.length ? index : DEFAULT_RANGE_INDEX;
+}
+
+function saveRangeIndex(index: number): void {
+  setCookie('range', String(index), 365);
+}
+
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -100,6 +117,7 @@ let currentNoteNames: string[] = buildKeyNoteNames(KEYS[0]);
 let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
+let currentRangeIndex: number = loadRangeIndex();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -110,6 +128,7 @@ const sustainedNotes = new Set<number>();
 const svg = document.getElementById('piano') as unknown as SVGSVGElement;
 const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
+const rangeSelect = document.getElementById('rangeSelect') as HTMLSelectElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
@@ -134,7 +153,8 @@ versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
 // ---- Piano setup ----
 
-const piano = createPiano(svg);
+let piano: Piano;
+const isMouseDown = trackMouseIsDown();
 
 function render(): void {
   renderKeyboard(piano, activeNotes, currentNoteNames);
@@ -168,10 +188,34 @@ function setSustain(isDown: boolean): void {
   }
 }
 
-attachPianoMouseInput(piano, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
+// Rebuilds the piano for the currently selected range, sizing keys to fit
+// the container so smaller ranges get bigger keys instead of wasted space.
+function rebuildPiano(): void {
+  const range = RANGES[currentRangeIndex];
+  const availableWidth = Math.max(pianoContainer.clientWidth - 32, 200);
+  const dims = computeKeyDimensions(range.min, range.max, availableWidth);
+  piano = createPiano(svg, range.min, range.max, dims);
+  attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
+  centerOnMiddleC(pianoContainer, piano);
+  render();
+}
 
-render();
-centerOnMiddleC(pianoContainer, piano);
+// ---- Range selection ----
+
+RANGES.forEach((range, i) => {
+  const opt = document.createElement('option');
+  opt.value = String(i);
+  opt.textContent = range.label;
+  rangeSelect.appendChild(opt);
+});
+rangeSelect.value = String(currentRangeIndex);
+rangeSelect.addEventListener('change', () => {
+  currentRangeIndex = Number(rangeSelect.value);
+  saveRangeIndex(currentRangeIndex);
+  rebuildPiano();
+});
+
+rebuildPiano();
 
 // ---- Key/mode selection ----
 
