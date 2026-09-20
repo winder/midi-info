@@ -1,6 +1,7 @@
 "use strict";
 (() => {
   // src/midi.ts
+  var SUSTAIN_PEDAL_CONTROLLER = 64;
   function handleMIDIMessage(callbacks, event) {
     const data = event.data;
     if (!data) return;
@@ -10,6 +11,8 @@
       callbacks.onNoteOn(data1);
     } else if (command === 128 || command === 144 && data2 === 0) {
       callbacks.onNoteOff(data1);
+    } else if (command === 176 && data1 === SUSTAIN_PEDAL_CONTROLLER) {
+      callbacks.onSustainChange(data2 >= 64);
     }
   }
   function initMIDI(callbacks) {
@@ -476,6 +479,8 @@
   var currentNoteNames = buildKeyNoteNames(KEYS[0]);
   var chordFormulas = loadChordFormulas();
   var activeNotes = /* @__PURE__ */ new Set();
+  var sustainOn = false;
+  var sustainedNotes = /* @__PURE__ */ new Set();
   var svg = document.getElementById("piano");
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
@@ -500,12 +505,25 @@
     renderChordDisplay(chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames);
   }
   function noteOn(midi) {
+    sustainedNotes.delete(midi);
     activeNotes.add(midi);
     render();
   }
   function noteOff(midi) {
+    if (sustainOn) {
+      sustainedNotes.add(midi);
+      return;
+    }
     activeNotes.delete(midi);
     render();
+  }
+  function setSustain(isDown) {
+    sustainOn = isDown;
+    if (!isDown) {
+      sustainedNotes.forEach((midi) => activeNotes.delete(midi));
+      sustainedNotes.clear();
+      render();
+    }
   }
   attachPianoMouseInput(piano, (midi, isOn) => isOn ? noteOn(midi) : noteOff(midi));
   render();
@@ -598,6 +616,7 @@
   initMIDI({
     onNoteOn: noteOn,
     onNoteOff: noteOff,
+    onSustainChange: setSustain,
     onStatusChange(text, className) {
       statusEl.textContent = text;
       statusEl.className = className;

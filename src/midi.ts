@@ -1,9 +1,12 @@
 // Web MIDI API wrapper: requests access, tracks connected inputs, and
 // turns raw MIDI messages into note on/off callbacks.
 
+const SUSTAIN_PEDAL_CONTROLLER = 64;
+
 export interface MidiCallbacks {
   onNoteOn: (midi: number) => void;
   onNoteOff: (midi: number) => void;
+  onSustainChange: (isDown: boolean) => void;
   onStatusChange: (text: string, className: string) => void;
   onInputsChange: (inputNames: string[]) => void;
 }
@@ -17,6 +20,8 @@ function handleMIDIMessage(callbacks: MidiCallbacks, event: MIDIMessageEvent) {
     callbacks.onNoteOn(data1);
   } else if (command === 0x80 || (command === 0x90 && data2 === 0)) {
     callbacks.onNoteOff(data1);
+  } else if (command === 0xb0 && data1 === SUSTAIN_PEDAL_CONTROLLER) {
+    callbacks.onSustainChange(data2 >= 64);
   }
 }
 

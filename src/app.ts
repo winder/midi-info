@@ -68,6 +68,9 @@ function parseIntervals(text: string): number[] {
 let currentNoteNames: string[] = buildKeyNoteNames(KEYS[0]);
 let chordFormulas: ChordFormula[] = loadChordFormulas();
 const activeNotes = new Set<number>();
+let sustainOn = false;
+// Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
+const sustainedNotes = new Set<number>();
 
 // ---- DOM references ----
 
@@ -101,13 +104,27 @@ function render(): void {
 }
 
 function noteOn(midi: number): void {
+  sustainedNotes.delete(midi);
   activeNotes.add(midi);
   render();
 }
 
 function noteOff(midi: number): void {
+  if (sustainOn) {
+    sustainedNotes.add(midi);
+    return;
+  }
   activeNotes.delete(midi);
   render();
+}
+
+function setSustain(isDown: boolean): void {
+  sustainOn = isDown;
+  if (!isDown) {
+    sustainedNotes.forEach(midi => activeNotes.delete(midi));
+    sustainedNotes.clear();
+    render();
+  }
 }
 
 attachPianoMouseInput(piano, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
@@ -221,6 +238,7 @@ document.addEventListener('keydown', e => {
 initMIDI({
   onNoteOn: noteOn,
   onNoteOff: noteOff,
+  onSustainChange: setSustain,
   onStatusChange(text, className) {
     statusEl.textContent = text;
     statusEl.className = className;
