@@ -265,19 +265,15 @@
   }
   .white-key.highlighted {
     fill: var(--highlight-color);
-    stroke: color-mix(in srgb, var(--highlight-color) 55%, black);
-    stroke-width: 3;
   }
   .black-key.highlighted {
     fill: color-mix(in srgb, var(--highlight-color) 55%, black);
-    stroke: color-mix(in srgb, var(--highlight-color) 30%, black);
-    stroke-width: 3;
   }
   .white-key.active.highlighted {
-    fill: var(--active-key-color);
+    fill: color-mix(in srgb, var(--active-key-color) 50%, var(--highlight-color));
   }
   .black-key.active.highlighted {
-    fill: var(--active-key-color);
+    fill: color-mix(in srgb, var(--active-key-color) 50%, color-mix(in srgb, var(--highlight-color) 55%, black));
   }
   #highlighterSection {
     margin: 0 16px 24px 16px;
