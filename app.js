@@ -569,6 +569,17 @@
     root.setProperty("--active-key-color", theme.activeKey);
     root.setProperty("--highlight-color", theme.highlight);
   }
+  var FONT_OPTIONS = [
+    { id: "sans", label: "Sans-serif", family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' },
+    { id: "serif", label: "Serif", family: 'Georgia, "Times New Roman", serif' },
+    { id: "mono", label: "Monospace", family: '"SFMono-Regular", Menlo, Consolas, monospace' },
+    { id: "real-book", label: "Real Book", family: "'Reenie Beanie', cursive" }
+  ];
+  var DEFAULT_FONT_ID = FONT_OPTIONS[0].id;
+  function applyFont(fontId) {
+    const option = FONT_OPTIONS.find((f) => f.id === fontId) ?? FONT_OPTIONS[0];
+    document.documentElement.style.setProperty("--font-family", option.family);
+  }
 
   // src/app.ts
   function getCookie(name) {
@@ -623,6 +634,13 @@
   function saveTheme(theme) {
     setCookie("theme", JSON.stringify(theme), 365);
   }
+  function loadFontId() {
+    const raw = getCookie("fontFamily");
+    return raw !== null && FONT_OPTIONS.some((f) => f.id === raw) ? raw : DEFAULT_FONT_ID;
+  }
+  function saveFontId(id) {
+    setCookie("fontFamily", id, 365);
+  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -649,6 +667,7 @@
   var debugMode = loadDebug();
   var currentVisibleKeys = loadVisibleKeys();
   var currentTheme = loadTheme();
+  var currentFontId = loadFontId();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
@@ -694,7 +713,8 @@
   var themeActiveKeyInput = document.getElementById("themeActiveKeyInput");
   var themeHighlightInput = document.getElementById("themeHighlightInput");
   var themeResetBtn = document.getElementById("themeResetBtn");
-  versionInfoEl.textContent = `Build ${"03de42c"}`;
+  var fontFamilySelect = document.getElementById("fontFamilySelect");
+  versionInfoEl.textContent = `Build ${"2d08ac8"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -772,6 +792,20 @@
     applyTheme(currentTheme);
     deleteCookie("theme");
     syncThemeInputs();
+  });
+  FONT_OPTIONS.forEach((font) => {
+    const opt = document.createElement("option");
+    opt.value = font.id;
+    opt.textContent = font.label;
+    opt.style.fontFamily = font.family;
+    fontFamilySelect.appendChild(opt);
+  });
+  fontFamilySelect.value = currentFontId;
+  applyFont(currentFontId);
+  fontFamilySelect.addEventListener("change", () => {
+    currentFontId = fontFamilySelect.value;
+    applyFont(currentFontId);
+    saveFontId(currentFontId);
   });
   KEYS.forEach((key, i) => {
     const opt = document.createElement("option");

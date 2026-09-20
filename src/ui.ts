@@ -399,3 +399,27 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--active-key-color', theme.activeKey);
   root.setProperty('--highlight-color', theme.highlight);
 }
+
+// ---- Font family selection ----
+
+export interface FontOption {
+  id: string;
+  label: string;
+  family: string;
+}
+
+// 'Real Book' approximates the handwritten/lead-sheet style of the jazz
+// fakebook; loaded from Google Fonts via a <link> in index.html.
+export const FONT_OPTIONS: FontOption[] = [
+  { id: 'sans', label: 'Sans-serif', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' },
+  { id: 'serif', label: 'Serif', family: 'Georgia, "Times New Roman", serif' },
+  { id: 'mono', label: 'Monospace', family: '"SFMono-Regular", Menlo, Consolas, monospace' },
+  { id: 'real-book', label: 'Real Book', family: "'Reenie Beanie', cursive" },
+];
+
+export const DEFAULT_FONT_ID = FONT_OPTIONS[0].id;
+
+export function applyFont(fontId: string): void {
+  const option = FONT_OPTIONS.find(f => f.id === fontId) ?? FONT_OPTIONS[0];
+  document.documentElement.style.setProperty('--font-family', option.family);
+}

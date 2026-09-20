@@ -21,12 +21,15 @@ import {
   scalePitchClasses,
 } from './theory';
 import {
+  DEFAULT_FONT_ID,
   DEFAULT_THEME,
+  FONT_OPTIONS,
   MAX_MIDI,
   MIN_MIDI,
   Piano,
   Theme,
   TOTAL_KEYS,
+  applyFont,
   applyTheme,
   attachPianoMouseInput,
   centerOnMiddleC,
@@ -118,6 +121,17 @@ function saveTheme(theme: Theme): void {
   setCookie('theme', JSON.stringify(theme), 365);
 }
 
+// ---- Font family ----
+
+function loadFontId(): string {
+  const raw = getCookie('fontFamily');
+  return raw !== null && FONT_OPTIONS.some(f => f.id === raw) ? raw : DEFAULT_FONT_ID;
+}
+
+function saveFontId(id: string): void {
+  setCookie('fontFamily', id, 365);
+}
+
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -153,6 +167,7 @@ let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
 let currentTheme: Theme = loadTheme();
+let currentFontId: string = loadFontId();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -204,6 +219,7 @@ const themeBlackKeyInput = document.getElementById('themeBlackKeyInput') as HTML
 const themeActiveKeyInput = document.getElementById('themeActiveKeyInput') as HTMLInputElement;
 const themeHighlightInput = document.getElementById('themeHighlightInput') as HTMLInputElement;
 const themeResetBtn = document.getElementById('themeResetBtn') as HTMLButtonElement;
+const fontFamilySelect = document.getElementById('fontFamilySelect') as HTMLSelectElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -309,6 +325,24 @@ themeResetBtn.addEventListener('click', () => {
   applyTheme(currentTheme);
   deleteCookie('theme');
   syncThemeInputs();
+});
+
+// ---- Font family ----
+
+FONT_OPTIONS.forEach(font => {
+  const opt = document.createElement('option');
+  opt.value = font.id;
+  opt.textContent = font.label;
+  opt.style.fontFamily = font.family;
+  fontFamilySelect.appendChild(opt);
+});
+fontFamilySelect.value = currentFontId;
+applyFont(currentFontId);
+
+fontFamilySelect.addEventListener('change', () => {
+  currentFontId = fontFamilySelect.value;
+  applyFont(currentFontId);
+  saveFontId(currentFontId);
 });
 
 // ---- Key/mode selection ----
