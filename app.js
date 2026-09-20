@@ -552,6 +552,23 @@
     el.textContent = message || "";
     el.hidden = !message;
   }
+  var DEFAULT_THEME = {
+    background: "#ffffff",
+    font: "#222222",
+    whiteKey: "#ffffff",
+    blackKey: "#222222",
+    activeKey: "#4a76c4",
+    highlight: "#ffd54f"
+  };
+  function applyTheme(theme) {
+    const root = document.documentElement.style;
+    root.setProperty("--bg-color", theme.background);
+    root.setProperty("--font-color", theme.font);
+    root.setProperty("--white-key-color", theme.whiteKey);
+    root.setProperty("--black-key-color", theme.blackKey);
+    root.setProperty("--active-key-color", theme.activeKey);
+    root.setProperty("--highlight-color", theme.highlight);
+  }
 
   // src/app.ts
   function getCookie(name) {
@@ -589,6 +606,23 @@
   function saveVisibleKeys(n) {
     setCookie("visibleKeys", String(n), 365);
   }
+  function loadTheme() {
+    const raw = getCookie("theme");
+    if (!raw) return { ...DEFAULT_THEME };
+    try {
+      const parsed = JSON.parse(raw);
+      const theme = { ...DEFAULT_THEME };
+      Object.keys(DEFAULT_THEME).forEach((key) => {
+        if (typeof parsed[key] === "string") theme[key] = parsed[key];
+      });
+      return theme;
+    } catch (e) {
+      return { ...DEFAULT_THEME };
+    }
+  }
+  function saveTheme(theme) {
+    setCookie("theme", JSON.stringify(theme), 365);
+  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -614,6 +648,7 @@
   var currentLevel = loadLevel();
   var debugMode = loadDebug();
   var currentVisibleKeys = loadVisibleKeys();
+  var currentTheme = loadTheme();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
@@ -652,7 +687,14 @@
   var scaleTypeButtonsEl = document.getElementById("scaleTypeButtons");
   var chordRootButtonsEl = document.getElementById("chordRootButtons");
   var chordTypeSelect = document.getElementById("chordTypeSelect");
-  versionInfoEl.textContent = `Build ${"f194a0f"}`;
+  var themeBackgroundInput = document.getElementById("themeBackgroundInput");
+  var themeFontInput = document.getElementById("themeFontInput");
+  var themeWhiteKeyInput = document.getElementById("themeWhiteKeyInput");
+  var themeBlackKeyInput = document.getElementById("themeBlackKeyInput");
+  var themeActiveKeyInput = document.getElementById("themeActiveKeyInput");
+  var themeHighlightInput = document.getElementById("themeHighlightInput");
+  var themeResetBtn = document.getElementById("themeResetBtn");
+  versionInfoEl.textContent = `Build ${"03de42c"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -704,6 +746,33 @@
     resizeTimer = setTimeout(rebuildPiano, 150);
   });
   rebuildPiano();
+  function syncThemeInputs() {
+    themeBackgroundInput.value = currentTheme.background;
+    themeFontInput.value = currentTheme.font;
+    themeWhiteKeyInput.value = currentTheme.whiteKey;
+    themeBlackKeyInput.value = currentTheme.blackKey;
+    themeActiveKeyInput.value = currentTheme.activeKey;
+    themeHighlightInput.value = currentTheme.highlight;
+  }
+  function updateTheme(partial) {
+    currentTheme = { ...currentTheme, ...partial };
+    applyTheme(currentTheme);
+    saveTheme(currentTheme);
+  }
+  applyTheme(currentTheme);
+  syncThemeInputs();
+  themeBackgroundInput.addEventListener("input", () => updateTheme({ background: themeBackgroundInput.value }));
+  themeFontInput.addEventListener("input", () => updateTheme({ font: themeFontInput.value }));
+  themeWhiteKeyInput.addEventListener("input", () => updateTheme({ whiteKey: themeWhiteKeyInput.value }));
+  themeBlackKeyInput.addEventListener("input", () => updateTheme({ blackKey: themeBlackKeyInput.value }));
+  themeActiveKeyInput.addEventListener("input", () => updateTheme({ activeKey: themeActiveKeyInput.value }));
+  themeHighlightInput.addEventListener("input", () => updateTheme({ highlight: themeHighlightInput.value }));
+  themeResetBtn.addEventListener("click", () => {
+    currentTheme = { ...DEFAULT_THEME };
+    applyTheme(currentTheme);
+    deleteCookie("theme");
+    syncThemeInputs();
+  });
   KEYS.forEach((key, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);

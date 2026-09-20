@@ -21,10 +21,13 @@ import {
   scalePitchClasses,
 } from './theory';
 import {
+  DEFAULT_THEME,
   MAX_MIDI,
   MIN_MIDI,
   Piano,
+  Theme,
   TOTAL_KEYS,
+  applyTheme,
   attachPianoMouseInput,
   centerOnMiddleC,
   computeKeyDimensions,
@@ -94,6 +97,27 @@ function saveVisibleKeys(n: number): void {
   setCookie('visibleKeys', String(n), 365);
 }
 
+// ---- Theme (customizable colors) ----
+
+function loadTheme(): Theme {
+  const raw = getCookie('theme');
+  if (!raw) return { ...DEFAULT_THEME };
+  try {
+    const parsed = JSON.parse(raw);
+    const theme = { ...DEFAULT_THEME };
+    (Object.keys(DEFAULT_THEME) as (keyof Theme)[]).forEach(key => {
+      if (typeof parsed[key] === 'string') theme[key] = parsed[key];
+    });
+    return theme;
+  } catch (e) {
+    return { ...DEFAULT_THEME };
+  }
+}
+
+function saveTheme(theme: Theme): void {
+  setCookie('theme', JSON.stringify(theme), 365);
+}
+
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -128,6 +152,7 @@ let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
+let currentTheme: Theme = loadTheme();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -172,6 +197,13 @@ const scaleRootButtonsEl = document.getElementById('scaleRootButtons') as HTMLEl
 const scaleTypeButtonsEl = document.getElementById('scaleTypeButtons') as HTMLElement;
 const chordRootButtonsEl = document.getElementById('chordRootButtons') as HTMLElement;
 const chordTypeSelect = document.getElementById('chordTypeSelect') as HTMLSelectElement;
+const themeBackgroundInput = document.getElementById('themeBackgroundInput') as HTMLInputElement;
+const themeFontInput = document.getElementById('themeFontInput') as HTMLInputElement;
+const themeWhiteKeyInput = document.getElementById('themeWhiteKeyInput') as HTMLInputElement;
+const themeBlackKeyInput = document.getElementById('themeBlackKeyInput') as HTMLInputElement;
+const themeActiveKeyInput = document.getElementById('themeActiveKeyInput') as HTMLInputElement;
+const themeHighlightInput = document.getElementById('themeHighlightInput') as HTMLInputElement;
+const themeResetBtn = document.getElementById('themeResetBtn') as HTMLButtonElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -244,6 +276,40 @@ window.addEventListener('resize', () => {
 });
 
 rebuildPiano();
+
+// ---- Theme (customizable colors) ----
+
+function syncThemeInputs(): void {
+  themeBackgroundInput.value = currentTheme.background;
+  themeFontInput.value = currentTheme.font;
+  themeWhiteKeyInput.value = currentTheme.whiteKey;
+  themeBlackKeyInput.value = currentTheme.blackKey;
+  themeActiveKeyInput.value = currentTheme.activeKey;
+  themeHighlightInput.value = currentTheme.highlight;
+}
+
+function updateTheme(partial: Partial<Theme>): void {
+  currentTheme = { ...currentTheme, ...partial };
+  applyTheme(currentTheme);
+  saveTheme(currentTheme);
+}
+
+applyTheme(currentTheme);
+syncThemeInputs();
+
+themeBackgroundInput.addEventListener('input', () => updateTheme({ background: themeBackgroundInput.value }));
+themeFontInput.addEventListener('input', () => updateTheme({ font: themeFontInput.value }));
+themeWhiteKeyInput.addEventListener('input', () => updateTheme({ whiteKey: themeWhiteKeyInput.value }));
+themeBlackKeyInput.addEventListener('input', () => updateTheme({ blackKey: themeBlackKeyInput.value }));
+themeActiveKeyInput.addEventListener('input', () => updateTheme({ activeKey: themeActiveKeyInput.value }));
+themeHighlightInput.addEventListener('input', () => updateTheme({ highlight: themeHighlightInput.value }));
+
+themeResetBtn.addEventListener('click', () => {
+  currentTheme = { ...DEFAULT_THEME };
+  applyTheme(currentTheme);
+  deleteCookie('theme');
+  syncThemeInputs();
+});
 
 // ---- Key/mode selection ----
 

@@ -6,11 +6,19 @@
 <title>MIDI Piano</title>
 <style>
   * { box-sizing: border-box; }
+  :root {
+    --bg-color: #ffffff;
+    --font-color: #222222;
+    --white-key-color: #ffffff;
+    --black-key-color: #222222;
+    --active-key-color: #4a76c4;
+    --highlight-color: #ffd54f;
+  }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background: #ffffff;
-    color: #222;
+    background: var(--bg-color);
+    color: var(--font-color);
   }
   #topBar {
     position: relative;
@@ -41,6 +49,15 @@
     font-size: 13px;
     padding: 4px 8px;
     width: 64px;
+  }
+  #settingsPanel input[type="color"] {
+    width: 40px;
+    height: 24px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
   }
   #menuButton {
     margin-left: auto;
@@ -220,24 +237,24 @@
     display: block;
   }
   .white-key {
-    fill: #ffffff;
+    fill: var(--white-key-color);
     stroke: #333;
     stroke-width: 1;
   }
   .white-key.active {
-    fill: #a9c9f0;
+    fill: var(--active-key-color);
   }
   .black-key {
-    fill: #222222;
+    fill: var(--black-key-color);
     stroke: #000;
     stroke-width: 1;
   }
   .black-key.active {
-    fill: #4a76c4;
+    fill: var(--active-key-color);
   }
   .note-label {
     font-size: 15px;
-    fill: #333;
+    fill: var(--font-color);
     text-anchor: middle;
     font-weight: 600;
   }
@@ -247,20 +264,20 @@
     text-anchor: middle;
   }
   .white-key.highlighted {
-    fill: #ffd54f;
-    stroke: #b8860b;
+    fill: var(--highlight-color);
+    stroke: color-mix(in srgb, var(--highlight-color) 55%, black);
     stroke-width: 3;
   }
   .black-key.highlighted {
-    fill: #8a6d00;
-    stroke: #5c4900;
+    fill: color-mix(in srgb, var(--highlight-color) 55%, black);
+    stroke: color-mix(in srgb, var(--highlight-color) 30%, black);
     stroke-width: 3;
   }
   .white-key.active.highlighted {
-    fill: #a9c9f0;
+    fill: var(--active-key-color);
   }
   .black-key.active.highlighted {
-    fill: #4a76c4;
+    fill: var(--active-key-color);
   }
   #highlighterSection {
     margin: 0 16px 24px 16px;
@@ -357,6 +374,19 @@
       <label for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
       <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
 
+      <div id="themeSection">
+        <h4>Theme</h4>
+        <label for="themeBackgroundInput">Background <input type="color" id="themeBackgroundInput"></label>
+        <label for="themeFontInput">Font <input type="color" id="themeFontInput"></label>
+        <label for="themeWhiteKeyInput">White keys <input type="color" id="themeWhiteKeyInput"></label>
+        <label for="themeBlackKeyInput">Black keys <input type="color" id="themeBlackKeyInput"></label>
+        <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
+        <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
+        <div class="chord-table-actions">
+          <button id="themeResetBtn" type="button">Reset to defaults</button>
+        </div>
+      </div>
+
       <div id="chordsSection">
         <h4>Chords</h4>
         <div id="chordTableWrap">
@@ -409,6 +439,6 @@
     </div>
   </div>
 
-<script src="app.js?v=f194a0f"></script>
+<script src="app.js?v=03de42c"></script>
 </body>
 </html>

@@ -367,3 +367,35 @@ export function setErrorMessage(el: HTMLElement, message: string | null): void {
   el.textContent = message || '';
   el.hidden = !message;
 }
+
+// ---- Theme (customizable colors) ----
+
+export interface Theme {
+  background: string;
+  font: string;
+  whiteKey: string;
+  blackKey: string;
+  activeKey: string;
+  highlight: string;
+}
+
+export const DEFAULT_THEME: Theme = {
+  background: '#ffffff',
+  font: '#222222',
+  whiteKey: '#ffffff',
+  blackKey: '#222222',
+  activeKey: '#4a76c4',
+  highlight: '#ffd54f',
+};
+
+// Applies the theme by setting CSS custom properties on the root element;
+// index.html's stylesheet reads these to color the page and keyboard.
+export function applyTheme(theme: Theme): void {
+  const root = document.documentElement.style;
+  root.setProperty('--bg-color', theme.background);
+  root.setProperty('--font-color', theme.font);
+  root.setProperty('--white-key-color', theme.whiteKey);
+  root.setProperty('--black-key-color', theme.blackKey);
+  root.setProperty('--active-key-color', theme.activeKey);
+  root.setProperty('--highlight-color', theme.highlight);
+}
