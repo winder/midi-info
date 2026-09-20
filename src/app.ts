@@ -13,6 +13,7 @@ import {
   KEYS,
   Level,
   MODES,
+  Mode,
   buildChordVoicing,
   buildKeyNoteNames,
   keyPitchClass,
@@ -162,6 +163,8 @@ function parseIntervals(text: string): number[] {
 // ---- App state ----
 
 let currentNoteNames: string[] = buildKeyNoteNames(KEYS[0]);
+let currentTonicPc: number = keyPitchClass(KEYS[0]);
+let currentMode: Mode = MODES[0];
 let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
@@ -233,7 +236,9 @@ function render(): void {
 
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
-  renderChordDisplay(chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames);
+  renderChordDisplay(
+    chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode
+  );
 }
 
 function noteOn(midi: number): void {
@@ -379,7 +384,10 @@ function populateModeSelect(): void {
 populateModeSelect();
 
 function refreshNoteNames(): void {
-  currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
+  const key = KEYS[Number(keySelect.value)];
+  currentMode = MODES[Number(modeSelect.value)];
+  currentNoteNames = buildKeyNoteNames(key, currentMode);
+  currentTonicPc = keyPitchClass(key);
   render();
 }
 keySelect.addEventListener('change', refreshNoteNames);

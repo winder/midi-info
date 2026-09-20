@@ -1,7 +1,7 @@
 // SVG generation and DOM rendering. Functions here take data in and update
 // the DOM; they don't own application state (see app.ts for that).
 
-import { ChordFormula, INTERVAL_NAMES, chordLabel, detectChords, isBlackPitch, octaveOf } from './theory';
+import { ChordFormula, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel } from './theory';
 
 // Base key dimensions; also the reference for scaling every other
 // dimension proportionally as key width changes.
@@ -244,7 +244,9 @@ export function renderChordDisplay(
   activeMidiSorted: number[],
   pitchClasses: number[],
   chordFormulas: ChordFormula[],
-  noteNames: string[]
+  noteNames: string[],
+  tonicPc: number,
+  mode: Mode
 ): void {
   el.innerHTML = '';
 
@@ -289,6 +291,13 @@ export function renderChordDisplay(
     main.textContent = noteNames[bassPc] + ' n.c.';
   }
   el.appendChild(main);
+
+  if (primary) {
+    const roman = document.createElement('div');
+    roman.className = 'chord-roman';
+    roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
+    el.appendChild(roman);
+  }
 
   const others = matches.filter(m => m !== primary);
   if (others.length > 0) {

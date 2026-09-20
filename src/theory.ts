@@ -293,6 +293,66 @@ export function chordLabel(match: ChordMatch, noteNames: string[]): string {
   return noteNames[match.root] + match.formula.symbol;
 }
 
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+// Which case/suffix convention a chord symbol maps to for Roman numeral
+// analysis. Determined from the symbol text (grouped the same way as the
+// "Major/Minor/Diminished/..." comments on BASE_CHORD_FORMULAS above),
+// not by re-deriving quality from intervals - simpler, and every formula's
+// symbol already unambiguously belongs to one of these families.
+type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented' | 'suspended' | 'dominant';
+
+function chordQuality(symbol: string): ChordQuality {
+  if (symbol.startsWith('-')) return 'minor';
+  if (symbol === '°' || symbol === '°7' || symbol === 'ø7') return 'diminished';
+  if (symbol.startsWith('sus') || symbol.startsWith('7sus') || symbol.startsWith('13sus')) return 'suspended';
+  if (symbol === 'aug' || (symbol.startsWith('Δ') && symbol.includes('#5'))) return 'augmented';
+  if (symbol === '' || symbol === 'add2' || symbol.startsWith('Δ') || symbol.startsWith('6')) return 'major';
+  return 'dominant';
+}
+
+// The figure appended after the numeral: the base symbol, minus whatever
+// the numeral's own case/glyph already conveys (minor's "-", the plain
+// augmented triad's "aug" -> "+"). Extended qualities (e.g. "Δ7#5") keep
+// their full symbol since the numeral case alone can't express them.
+function chordSuffix(symbol: string, quality: ChordQuality): string {
+  if (quality === 'minor') return symbol.slice(1);
+  if (symbol === 'aug') return '+';
+  return symbol;
+}
+
+// Locates a chromatic root within the selected mode's own 7-note diatonic
+// collection: an exact match gives a plain numeral, otherwise the root
+// falls in a 2-semitone gap between two diatonic degrees and is spelled
+// as an accidental relative to whichever neighbor is idiomatic - the
+// raised 4th (#IV, as in Lydian) rather than a flatted 5th, and a flatted
+// upper neighbor (bII, bIII, bVI, bVII, ...) everywhere else.
+function romanDegree(rootPc: number, tonicPc: number, mode: Mode): string {
+  const offset = ((rootPc - tonicPc) % 12 + 12) % 12;
+  const exactIndex = mode.steps.indexOf(offset);
+  if (exactIndex !== -1) return ROMAN_NUMERALS[exactIndex];
+
+  let idxLow = 0;
+  mode.steps.forEach((step, i) => {
+    if (step < offset) idxLow = i;
+  });
+  const idxHigh = (idxLow + 1) % mode.steps.length;
+  if (idxLow === 3) return '#' + ROMAN_NUMERALS[idxLow];
+  return 'b' + ROMAN_NUMERALS[idxHigh];
+}
+
+// Labels a detected chord with a Roman numeral relative to a key/mode,
+// e.g. "ii7", "V7", "vii°", "bVIΔ7#5" - scale degree (accidental where the
+// root isn't diatonic to the mode) plus a case and suffix that follow the
+// chord's quality, the way real harmonic analysis (not just letter names)
+// is written.
+export function romanNumeralLabel(match: ChordMatch, tonicPc: number, mode: Mode): string {
+  const quality = chordQuality(match.formula.symbol);
+  const numeral = romanDegree(match.root, tonicPc, mode);
+  const cased = quality === 'minor' || quality === 'diminished' ? numeral.toLowerCase() : numeral;
+  return cased + chordSuffix(match.formula.symbol, quality);
+}
+
 // Validates and normalizes arbitrary parsed JSON (from a cookie or an
 // imported file) into a chord formula list. Intervals are deduped and
 // wrapped into 0-11. Returns null if the shape isn't a chord table at all,

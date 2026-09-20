@@ -9,8 +9,10 @@ import {
   chordLabel,
   detectChords,
   isBlackPitch,
+  keyPitchClass,
   octaveOf,
   parseChordFormulas,
+  romanNumeralLabel,
 } from './theory';
 
 describe('isBlackPitch', () => {
@@ -151,6 +153,66 @@ describe('detectChords + chordLabel', () => {
     const matches = detectChords([0, 3, 6, 9], DEFAULT_CHORD_FORMULAS);
     const dim7Roots = matches.filter(m => m.formula.symbol === '°7').map(m => m.root).sort();
     assert.deepEqual(dim7Roots, [0, 3, 6, 9]);
+  });
+});
+
+describe('romanNumeralLabel', () => {
+  const cPc = keyPitchClass(KEYS.find(k => k.name === 'C')!);
+  const ionian = MODES.find(m => m.name === 'Ionian')!;
+  const aeolian = MODES.find(m => m.name === 'Aeolian')!;
+
+  function formula(symbol: string) {
+    const f = DEFAULT_CHORD_FORMULAS.find(f => f.symbol === symbol);
+    assert.ok(f, `formula "${symbol}" should exist`);
+    return f!;
+  }
+
+  test('labels the diatonic triads of C major with the classic I-vii° pattern', () => {
+    const cases: [number, string, string][] = [
+      [0, '', 'I'],
+      [2, '-', 'ii'],
+      [4, '-', 'iii'],
+      [5, '', 'IV'],
+      [7, '', 'V'],
+      [9, '-', 'vi'],
+      [11, '°', 'vii°'],
+    ];
+    cases.forEach(([root, symbol, expected]) => {
+      assert.equal(romanNumeralLabel({ root, formula: formula(symbol) }, cPc, ionian), expected);
+    });
+  });
+
+  test('a dominant 7th on the 5th degree is V7', () => {
+    assert.equal(romanNumeralLabel({ root: 7, formula: formula('7') }, cPc, ionian), 'V7');
+  });
+
+  test('half-diminished and fully-diminished 7ths keep their full jazz suffix', () => {
+    assert.equal(romanNumeralLabel({ root: 11, formula: formula('ø7') }, cPc, ionian), 'viiø7');
+    assert.equal(romanNumeralLabel({ root: 11, formula: formula('°7') }, cPc, ionian), 'vii°7');
+  });
+
+  test('a plain minor 7th strips the "-" and lowercases the numeral', () => {
+    assert.equal(romanNumeralLabel({ root: 2, formula: formula('-7') }, cPc, ionian), 'ii7');
+  });
+
+  test('a chromatic root a semitone above a diatonic degree is spelled flat', () => {
+    assert.equal(romanNumeralLabel({ root: 1, formula: formula('') }, cPc, ionian), 'bII');
+    assert.equal(romanNumeralLabel({ root: 8, formula: formula('-') }, cPc, ionian), 'bvi');
+  });
+
+  test('a chromatic root a semitone above the 4th degree is spelled sharp, not flat-5', () => {
+    assert.equal(romanNumeralLabel({ root: 6, formula: formula('') }, cPc, ionian), '#IV');
+  });
+
+  test('the plain augmented triad is written with a "+"', () => {
+    assert.equal(romanNumeralLabel({ root: 8, formula: formula('aug') }, cPc, ionian), 'bVI+');
+  });
+
+  test("follows the selected mode's own diatonic collection, not major's", () => {
+    // In A Aeolian, the b3/b6/b7 degrees (C, F, G) are diatonic - no accidental.
+    const aPc = keyPitchClass(KEYS.find(k => k.name === 'A')!);
+    assert.equal(romanNumeralLabel({ root: 0, formula: formula('') }, aPc, aeolian), 'III'); // C major
+    assert.equal(romanNumeralLabel({ root: 5, formula: formula('') }, aPc, aeolian), 'VI'); // F major
   });
 });
 

@@ -247,6 +247,38 @@
   function chordLabel(match, noteNames) {
     return noteNames[match.root] + match.formula.symbol;
   }
+  var ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII"];
+  function chordQuality(symbol) {
+    if (symbol.startsWith("-")) return "minor";
+    if (symbol === "\xB0" || symbol === "\xB07" || symbol === "\xF87") return "diminished";
+    if (symbol.startsWith("sus") || symbol.startsWith("7sus") || symbol.startsWith("13sus")) return "suspended";
+    if (symbol === "aug" || symbol.startsWith("\u0394") && symbol.includes("#5")) return "augmented";
+    if (symbol === "" || symbol === "add2" || symbol.startsWith("\u0394") || symbol.startsWith("6")) return "major";
+    return "dominant";
+  }
+  function chordSuffix(symbol, quality) {
+    if (quality === "minor") return symbol.slice(1);
+    if (symbol === "aug") return "+";
+    return symbol;
+  }
+  function romanDegree(rootPc, tonicPc, mode) {
+    const offset = ((rootPc - tonicPc) % 12 + 12) % 12;
+    const exactIndex = mode.steps.indexOf(offset);
+    if (exactIndex !== -1) return ROMAN_NUMERALS[exactIndex];
+    let idxLow = 0;
+    mode.steps.forEach((step, i) => {
+      if (step < offset) idxLow = i;
+    });
+    const idxHigh = (idxLow + 1) % mode.steps.length;
+    if (idxLow === 3) return "#" + ROMAN_NUMERALS[idxLow];
+    return "b" + ROMAN_NUMERALS[idxHigh];
+  }
+  function romanNumeralLabel(match, tonicPc, mode) {
+    const quality = chordQuality(match.formula.symbol);
+    const numeral = romanDegree(match.root, tonicPc, mode);
+    const cased = quality === "minor" || quality === "diminished" ? numeral.toLowerCase() : numeral;
+    return cased + chordSuffix(match.formula.symbol, quality);
+  }
   function parseChordFormulas(raw) {
     if (!Array.isArray(raw)) return null;
     const result = [];
@@ -451,7 +483,7 @@
       piano2.labelGroup.appendChild(text);
     });
   }
-  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames) {
+  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode) {
     el.innerHTML = "";
     if (activeMidiSorted.length === 0) {
       el.innerHTML = '<span class="placeholder">Play some notes&hellip;</span>';
@@ -491,6 +523,12 @@
       main.textContent = noteNames[bassPc] + " n.c.";
     }
     el.appendChild(main);
+    if (primary) {
+      const roman = document.createElement("div");
+      roman.className = "chord-roman";
+      roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
+      el.appendChild(roman);
+    }
     const others = matches.filter((m) => m !== primary);
     if (others.length > 0) {
       const alt = document.createElement("div");
@@ -662,6 +700,8 @@
     ));
   }
   var currentNoteNames = buildKeyNoteNames(KEYS[0]);
+  var currentTonicPc = keyPitchClass(KEYS[0]);
+  var currentMode = MODES[0];
   var chordFormulas = loadChordFormulas();
   var currentLevel = loadLevel();
   var debugMode = loadDebug();
@@ -714,14 +754,22 @@
   var themeHighlightInput = document.getElementById("themeHighlightInput");
   var themeResetBtn = document.getElementById("themeResetBtn");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"2d08ac8"}`;
+  versionInfoEl.textContent = `Build ${"535a9c6"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes());
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
     const pitchClasses = Array.from(new Set(activeMidiSorted.map((m) => m % 12)));
-    renderChordDisplay(chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames);
+    renderChordDisplay(
+      chordDisplayEl,
+      activeMidiSorted,
+      pitchClasses,
+      chordFormulas,
+      currentNoteNames,
+      currentTonicPc,
+      currentMode
+    );
   }
   function noteOn(midi) {
     sustainedNotes.delete(midi);
@@ -831,7 +879,10 @@
   }
   populateModeSelect();
   function refreshNoteNames() {
-    currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
+    const key = KEYS[Number(keySelect.value)];
+    currentMode = MODES[Number(modeSelect.value)];
+    currentNoteNames = buildKeyNoteNames(key, currentMode);
+    currentTonicPc = keyPitchClass(key);
     render();
   }
   keySelect.addEventListener("change", refreshNoteNames);
