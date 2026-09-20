@@ -517,6 +517,7 @@
   var pianoContainer = document.getElementById("pianoContainer");
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
+  var modeLabelText = document.getElementById("modeLabelText");
   var debugCheckbox = document.getElementById("debugCheckbox");
   var chordsSection = document.getElementById("chordsSection");
   var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
@@ -533,7 +534,7 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"2913ff1"}`;
+  versionInfoEl.textContent = `Build ${"3d69c36"}`;
   var piano = createPiano(svg);
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames);
@@ -574,6 +575,7 @@
   var IONIAN_INDEX = MODES.findIndex((m) => m.name === "Ionian");
   var AEOLIAN_INDEX = MODES.findIndex((m) => m.name === "Aeolian");
   function populateModeSelect() {
+    modeLabelText.textContent = currentLevel === "basic" ? "Tonality" : "Mode";
     const prevIndex = modeSelect.value ? Number(modeSelect.value) : IONIAN_INDEX;
     modeSelect.innerHTML = "";
     const options = currentLevel === "basic" ? [{ label: "Major", index: IONIAN_INDEX }, { label: "Minor", index: AEOLIAN_INDEX }] : MODES.map((mode, i) => ({ label: mode.name, index: i }));

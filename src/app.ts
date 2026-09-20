@@ -112,6 +112,7 @@ const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
+const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
 const debugCheckbox = document.getElementById('debugCheckbox') as HTMLInputElement;
 const chordsSection = document.getElementById('chordsSection') as HTMLElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
@@ -188,6 +189,7 @@ const IONIAN_INDEX = MODES.findIndex(m => m.name === 'Ionian');
 const AEOLIAN_INDEX = MODES.findIndex(m => m.name === 'Aeolian');
 
 function populateModeSelect(): void {
+  modeLabelText.textContent = currentLevel === 'basic' ? 'Tonality' : 'Mode';
   const prevIndex = modeSelect.value ? Number(modeSelect.value) : IONIAN_INDEX;
   modeSelect.innerHTML = '';
   const options = currentLevel === 'basic'
