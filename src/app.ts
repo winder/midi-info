@@ -7,6 +7,7 @@ import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
   KEYS,
+  MODES,
   buildKeyNoteNames,
   parseChordFormulas,
 } from './theory';
@@ -80,6 +81,7 @@ const svg = document.getElementById('piano') as unknown as SVGSVGElement;
 const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
+const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
 const resetChordsBtn = document.getElementById('resetChordsBtn') as HTMLButtonElement;
@@ -137,7 +139,7 @@ attachPianoMouseInput(piano, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi
 render();
 centerOnMiddleC(pianoContainer, piano);
 
-// ---- Key selection ----
+// ---- Key/mode selection ----
 
 KEYS.forEach((key, i) => {
   const opt = document.createElement('option');
@@ -145,10 +147,19 @@ KEYS.forEach((key, i) => {
   opt.textContent = key.name;
   keySelect.appendChild(opt);
 });
-keySelect.addEventListener('change', () => {
-  currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)]);
-  render();
+MODES.forEach((mode, i) => {
+  const opt = document.createElement('option');
+  opt.value = String(i);
+  opt.textContent = mode.name;
+  modeSelect.appendChild(opt);
 });
+
+function refreshNoteNames(): void {
+  currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
+  render();
+}
+keySelect.addEventListener('change', refreshNoteNames);
+modeSelect.addEventListener('change', refreshNoteNames);
 
 // ---- Chord table editor ----
 

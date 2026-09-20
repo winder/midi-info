@@ -4,6 +4,7 @@ import {
   DEFAULT_CHORD_FORMULAS,
   INTERVAL_NAMES,
   KEYS,
+  MODES,
   buildKeyNoteNames,
   chordLabel,
   detectChords,
@@ -58,6 +59,22 @@ describe('buildKeyNoteNames', () => {
       const names = buildKeyNoteNames(key);
       assert.equal(names.length, 12);
       names.forEach(n => assert.ok(n && n.length > 0));
+    });
+  });
+
+  test('D Dorian shares C major\'s pitch classes but spells from D', () => {
+    const key = KEYS.find(k => k.name === 'D')!;
+    const mode = MODES.find(m => m.name === 'Dorian')!;
+    assert.deepEqual(buildKeyNoteNames(key, mode), buildKeyNoteNames(KEYS.find(k => k.name === 'C')!));
+  });
+
+  test('every key x mode combination produces exactly 12 names with no gaps', () => {
+    KEYS.forEach(key => {
+      MODES.forEach(mode => {
+        const names = buildKeyNoteNames(key, mode);
+        assert.equal(names.length, 12);
+        names.forEach(n => assert.ok(n && n.length > 0));
+      });
     });
   });
 });

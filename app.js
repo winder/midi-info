@@ -51,7 +51,15 @@
   var FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
   var LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
   var NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  var MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11];
+  var MODES = [
+    { name: "Ionian", steps: [0, 2, 4, 5, 7, 9, 11] },
+    { name: "Dorian", steps: [0, 2, 3, 5, 7, 9, 10] },
+    { name: "Phrygian", steps: [0, 1, 3, 5, 7, 8, 10] },
+    { name: "Lydian", steps: [0, 2, 4, 6, 7, 9, 11] },
+    { name: "Mixolydian", steps: [0, 2, 4, 5, 7, 9, 10] },
+    { name: "Aeolian", steps: [0, 2, 3, 5, 7, 8, 10] },
+    { name: "Locrian", steps: [0, 1, 3, 5, 6, 8, 10] }
+  ];
   var KEYS = [
     { name: "C", tonicLetter: "C", tonicAccidental: 0, fallback: SHARP_NAMES },
     { name: "Db", tonicLetter: "D", tonicAccidental: -1, fallback: FLAT_NAMES },
@@ -66,11 +74,11 @@
     { name: "Bb", tonicLetter: "B", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "B", tonicLetter: "B", tonicAccidental: 0, fallback: SHARP_NAMES }
   ];
-  function buildKeyNoteNames(key) {
+  function buildKeyNoteNames(key, mode = MODES[0]) {
     const names = key.fallback.slice();
     const tonicPc = (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
     const letterIndex = LETTERS.indexOf(key.tonicLetter);
-    MAJOR_SCALE_STEPS.forEach((step, degree) => {
+    mode.steps.forEach((step, degree) => {
       const letter = LETTERS[(letterIndex + degree) % 7];
       const expectedPc = (tonicPc + step) % 12;
       const accidental = ((expectedPc - NATURAL_PC[letter]) % 12 + 12) % 12;
@@ -485,6 +493,7 @@
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
   var keySelect = document.getElementById("keySelect");
+  var modeSelect = document.getElementById("modeSelect");
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
   var resetChordsBtn = document.getElementById("resetChordsBtn");
@@ -498,7 +507,7 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"1b65898"}`;
+  versionInfoEl.textContent = `Build ${"36e5763"}`;
   var piano = createPiano(svg);
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames);
@@ -536,10 +545,18 @@
     opt.textContent = key.name;
     keySelect.appendChild(opt);
   });
-  keySelect.addEventListener("change", () => {
-    currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)]);
-    render();
+  MODES.forEach((mode, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = mode.name;
+    modeSelect.appendChild(opt);
   });
+  function refreshNoteNames() {
+    currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
+    render();
+  }
+  keySelect.addEventListener("change", refreshNoteNames);
+  modeSelect.addEventListener("change", refreshNoteNames);
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {
       onSymbolChange(index, symbol) {

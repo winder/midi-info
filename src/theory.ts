@@ -6,7 +6,25 @@ export const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A',
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const NATURAL_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11];
+
+export interface Mode {
+  name: string;
+  steps: number[];
+}
+
+// The 7 diatonic modes: rotations of the major (Ionian) scale steps,
+// each starting from a different degree. Same 7 pitch classes relative
+// to a shared parent scale, but a different tonic and therefore a
+// different set of "diatonic" (unaltered) scale tones.
+export const MODES: Mode[] = [
+  { name: 'Ionian', steps: [0, 2, 4, 5, 7, 9, 11] },
+  { name: 'Dorian', steps: [0, 2, 3, 5, 7, 9, 10] },
+  { name: 'Phrygian', steps: [0, 1, 3, 5, 7, 8, 10] },
+  { name: 'Lydian', steps: [0, 2, 4, 6, 7, 9, 11] },
+  { name: 'Mixolydian', steps: [0, 2, 4, 5, 7, 9, 10] },
+  { name: 'Aeolian', steps: [0, 2, 3, 5, 7, 8, 10] },
+  { name: 'Locrian', steps: [0, 1, 3, 5, 6, 8, 10] },
+];
 
 export interface Key {
   name: string;
@@ -33,23 +51,23 @@ export const KEYS: Key[] = [
   { name: 'B', tonicLetter: 'B', tonicAccidental: 0, fallback: SHARP_NAMES },
 ];
 
-// Builds the 12-entry note-name table for a key: the 7 diatonic scale
-// tones get their theoretically correct letter (e.g. E# in F# major,
-// not F), while the 5 chromatic pitch classes fall back to the key's
-// sharp/flat convention.
-export function buildKeyNoteNames(key: Key): string[] {
+// Builds the 12-entry note-name table for a key + mode: the 7 diatonic
+// scale tones get their theoretically correct letter (e.g. E# in F#
+// major, not F), while the remaining chromatic pitch classes fall back
+// to the key's sharp/flat convention.
+export function buildKeyNoteNames(key: Key, mode: Mode = MODES[0]): string[] {
   const names = key.fallback.slice();
   const tonicPc = (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
   const letterIndex = LETTERS.indexOf(key.tonicLetter);
-  MAJOR_SCALE_STEPS.forEach((step, degree) => {
+  mode.steps.forEach((step, degree) => {
     const letter = LETTERS[(letterIndex + degree) % 7];
     const expectedPc = (tonicPc + step) % 12;
     const accidental = ((expectedPc - NATURAL_PC[letter]) % 12 + 12) % 12;
     if (accidental === 0) names[expectedPc] = letter;
     else if (accidental === 1) names[expectedPc] = letter + '#';
     else if (accidental === 11) names[expectedPc] = letter + 'b';
-    // Any other value would require a double sharp/flat, which none of
-    // these 12 keys need.
+    // Any other value would require a double sharp/flat; fall back to
+    // the key's sharp/flat convention instead of spelling one.
   });
   return names;
 }
