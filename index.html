@@ -37,6 +37,11 @@
     font-size: 13px;
     padding: 4px 8px;
   }
+  #settingsPanel input[type="number"] {
+    font-size: 13px;
+    padding: 4px 8px;
+    width: 64px;
+  }
   #menuButton {
     margin-left: auto;
     width: 32px;
@@ -256,7 +261,7 @@
         <button type="button" class="level-btn" data-level="nerd">Nerd</button>
       </div>
 
-      <label for="rangeSelect">Range <select id="rangeSelect"></select></label>
+      <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
       <label for="keySelect">Key <select id="keySelect"></select></label>
       <label for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
       <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
@@ -295,6 +300,6 @@
     <svg id="piano"></svg>
   </div>
 
-<script src="app.js?v=2e8b99c"></script>
+<script src="app.js?v=075d100"></script>
 </body>
 </html>

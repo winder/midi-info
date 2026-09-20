@@ -3,31 +3,18 @@
 
 import { ChordFormula, INTERVAL_NAMES, chordLabel, detectChords, isBlackPitch, octaveOf } from './theory';
 
-// Base key dimensions for the default (never-shrink-below-this) size; also
-// used as the reference for scaling every other dimension proportionally.
+// Base key dimensions; also the reference for scaling every other
+// dimension proportionally as key width changes.
 const BASE_WHITE_W = 40;
 const BASE_WHITE_H = 180;
 const BASE_BLACK_W = 24;
 const BASE_BLACK_H = 110;
 const BASE_LABEL_AREA_H = 40;
-const MIN_WHITE_W = BASE_WHITE_W;
-const MAX_WHITE_W = 90;
+const MIN_SAFE_WHITE_W = 2; // technical floor only, to avoid zero/negative sizes
 
-export interface KeyRange {
-  label: string;
-  min: number;
-  max: number;
-}
-
-// Standard MIDI-controller key counts and their conventional note ranges.
-export const RANGES: KeyRange[] = [
-  { label: '25 keys', min: 48, max: 72 }, // C3-C5
-  { label: '49 keys', min: 36, max: 84 }, // C2-C6
-  { label: '61 keys', min: 36, max: 96 }, // C2-C7
-  { label: '76 keys', min: 28, max: 103 }, // E1-G7
-  { label: '88 keys', min: 21, max: 108 }, // A0-C8
-];
-export const DEFAULT_RANGE_INDEX = RANGES.length - 1; // 88 keys, matches a full piano
+export const MIN_MIDI = 21; // A0
+export const MAX_MIDI = 108; // C8
+export const TOTAL_KEYS = MAX_MIDI - MIN_MIDI + 1; // 88
 
 export interface KeyDimensions {
   whiteW: number;
@@ -37,17 +24,30 @@ export interface KeyDimensions {
   labelAreaH: number;
 }
 
-// Scales key size to the chosen range: fewer keys get bigger keys (up to
-// MAX_WHITE_W) so small ranges fill the available width instead of leaving
-// it mostly empty; larger ranges never shrink below the base size, so an
-// 88-key layout looks the same as before and simply scrolls if needed.
-export function computeKeyDimensions(minMidi: number, maxMidi: number, availableWidth: number): KeyDimensions {
+// All 88 keys always exist; this is a zoom level, not a note-range filter.
+// It picks the visibleKeyCount-key window centered on centerMidi (clipped to
+// stay within [MIN_MIDI, MAX_MIDI]), counts how many of those specific keys
+// are white, and sizes white keys so that window exactly fills
+// availableWidth - i.e. resizing the window or changing the count keeps
+// exactly that many keys on screen, with the rest reachable by scrolling.
+export function computeKeyDimensions(visibleKeyCount: number, availableWidth: number, centerMidi = 60): KeyDimensions {
+  const count = Math.min(Math.max(Math.round(visibleKeyCount), 1), TOTAL_KEYS);
+  let start = centerMidi - Math.floor(count / 2);
+  let end = start + count - 1;
+  if (start < MIN_MIDI) {
+    start = MIN_MIDI;
+    end = start + count - 1;
+  }
+  if (end > MAX_MIDI) {
+    end = MAX_MIDI;
+    start = end - count + 1;
+  }
+
   let whiteCount = 0;
-  for (let m = minMidi; m <= maxMidi; m++) {
+  for (let m = start; m <= end; m++) {
     if (!isBlackPitch(m)) whiteCount++;
   }
-  const rawWhiteW = availableWidth / Math.max(whiteCount, 1);
-  const whiteW = Math.min(Math.max(rawWhiteW, MIN_WHITE_W), MAX_WHITE_W);
+  const whiteW = Math.max(availableWidth / (whiteCount > 0 ? whiteCount : count), MIN_SAFE_WHITE_W);
   const scale = whiteW / BASE_WHITE_W;
   return {
     whiteW,

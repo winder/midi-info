@@ -236,28 +236,27 @@
   var BASE_BLACK_W = 24;
   var BASE_BLACK_H = 110;
   var BASE_LABEL_AREA_H = 40;
-  var MIN_WHITE_W = BASE_WHITE_W;
-  var MAX_WHITE_W = 90;
-  var RANGES = [
-    { label: "25 keys", min: 48, max: 72 },
-    // C3-C5
-    { label: "49 keys", min: 36, max: 84 },
-    // C2-C6
-    { label: "61 keys", min: 36, max: 96 },
-    // C2-C7
-    { label: "76 keys", min: 28, max: 103 },
-    // E1-G7
-    { label: "88 keys", min: 21, max: 108 }
-    // A0-C8
-  ];
-  var DEFAULT_RANGE_INDEX = RANGES.length - 1;
-  function computeKeyDimensions(minMidi, maxMidi, availableWidth) {
+  var MIN_SAFE_WHITE_W = 2;
+  var MIN_MIDI = 21;
+  var MAX_MIDI = 108;
+  var TOTAL_KEYS = MAX_MIDI - MIN_MIDI + 1;
+  function computeKeyDimensions(visibleKeyCount, availableWidth, centerMidi = 60) {
+    const count = Math.min(Math.max(Math.round(visibleKeyCount), 1), TOTAL_KEYS);
+    let start = centerMidi - Math.floor(count / 2);
+    let end = start + count - 1;
+    if (start < MIN_MIDI) {
+      start = MIN_MIDI;
+      end = start + count - 1;
+    }
+    if (end > MAX_MIDI) {
+      end = MAX_MIDI;
+      start = end - count + 1;
+    }
     let whiteCount = 0;
-    for (let m = minMidi; m <= maxMidi; m++) {
+    for (let m = start; m <= end; m++) {
       if (!isBlackPitch(m)) whiteCount++;
     }
-    const rawWhiteW = availableWidth / Math.max(whiteCount, 1);
-    const whiteW = Math.min(Math.max(rawWhiteW, MIN_WHITE_W), MAX_WHITE_W);
+    const whiteW = Math.max(availableWidth / (whiteCount > 0 ? whiteCount : count), MIN_SAFE_WHITE_W);
     const scale = whiteW / BASE_WHITE_W;
     return {
       whiteW,
@@ -518,13 +517,14 @@
   function saveDebug(value) {
     setCookie("debugMode", value ? "1" : "0", 365);
   }
-  function loadRangeIndex() {
-    const raw = getCookie("range");
-    const index = raw !== null ? Number(raw) : NaN;
-    return Number.isInteger(index) && index >= 0 && index < RANGES.length ? index : DEFAULT_RANGE_INDEX;
+  var DEFAULT_VISIBLE_KEYS = 52;
+  function loadVisibleKeys() {
+    const raw = getCookie("visibleKeys");
+    const n = raw !== null ? Number(raw) : NaN;
+    return Number.isInteger(n) && n >= 1 && n <= TOTAL_KEYS ? n : DEFAULT_VISIBLE_KEYS;
   }
-  function saveRangeIndex(index) {
-    setCookie("range", String(index), 365);
+  function saveVisibleKeys(n) {
+    setCookie("visibleKeys", String(n), 365);
   }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
@@ -550,14 +550,14 @@
   var chordFormulas = loadChordFormulas();
   var currentLevel = loadLevel();
   var debugMode = loadDebug();
-  var currentRangeIndex = loadRangeIndex();
+  var currentVisibleKeys = loadVisibleKeys();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
   var svg = document.getElementById("piano");
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
-  var rangeSelect = document.getElementById("rangeSelect");
+  var rangeInput = document.getElementById("rangeInput");
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
   var modeLabelText = document.getElementById("modeLabelText");
@@ -577,7 +577,7 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"2e8b99c"}`;
+  versionInfoEl.textContent = `Build ${"075d100"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -608,25 +608,25 @@
     }
   }
   function rebuildPiano() {
-    const range = RANGES[currentRangeIndex];
-    const availableWidth = Math.max(pianoContainer.clientWidth - 32, 200);
-    const dims = computeKeyDimensions(range.min, range.max, availableWidth);
-    piano = createPiano(svg, range.min, range.max, dims);
+    const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
+    const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
+    piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims);
     attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => isOn ? noteOn(midi) : noteOff(midi));
     centerOnMiddleC(pianoContainer, piano);
     render();
   }
-  RANGES.forEach((range, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = range.label;
-    rangeSelect.appendChild(opt);
-  });
-  rangeSelect.value = String(currentRangeIndex);
-  rangeSelect.addEventListener("change", () => {
-    currentRangeIndex = Number(rangeSelect.value);
-    saveRangeIndex(currentRangeIndex);
+  rangeInput.value = String(currentVisibleKeys);
+  rangeInput.addEventListener("change", () => {
+    const parsed = Math.min(Math.max(Math.round(Number(rangeInput.value)) || DEFAULT_VISIBLE_KEYS, 1), TOTAL_KEYS);
+    currentVisibleKeys = parsed;
+    rangeInput.value = String(parsed);
+    saveVisibleKeys(parsed);
     rebuildPiano();
+  });
+  var resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(rebuildPiano, 150);
   });
   rebuildPiano();
   KEYS.forEach((key, i) => {

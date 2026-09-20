@@ -12,9 +12,10 @@ import {
   parseChordFormulas,
 } from './theory';
 import {
-  DEFAULT_RANGE_INDEX,
+  MAX_MIDI,
+  MIN_MIDI,
   Piano,
-  RANGES,
+  TOTAL_KEYS,
   attachPianoMouseInput,
   centerOnMiddleC,
   computeKeyDimensions,
@@ -72,16 +73,18 @@ function saveDebug(value: boolean): void {
   setCookie('debugMode', value ? '1' : '0', 365);
 }
 
-// ---- Range (how many keys the on-screen keyboard shows) ----
+// ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
 
-function loadRangeIndex(): number {
-  const raw = getCookie('range');
-  const index = raw !== null ? Number(raw) : NaN;
-  return Number.isInteger(index) && index >= 0 && index < RANGES.length ? index : DEFAULT_RANGE_INDEX;
+const DEFAULT_VISIBLE_KEYS = 52;
+
+function loadVisibleKeys(): number {
+  const raw = getCookie('visibleKeys');
+  const n = raw !== null ? Number(raw) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= TOTAL_KEYS ? n : DEFAULT_VISIBLE_KEYS;
 }
 
-function saveRangeIndex(index: number): void {
-  setCookie('range', String(index), 365);
+function saveVisibleKeys(n: number): void {
+  setCookie('visibleKeys', String(n), 365);
 }
 
 function cloneDefaultChordFormulas(): ChordFormula[] {
@@ -117,7 +120,7 @@ let currentNoteNames: string[] = buildKeyNoteNames(KEYS[0]);
 let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
-let currentRangeIndex: number = loadRangeIndex();
+let currentVisibleKeys: number = loadVisibleKeys();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -128,7 +131,7 @@ const sustainedNotes = new Set<number>();
 const svg = document.getElementById('piano') as unknown as SVGSVGElement;
 const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
-const rangeSelect = document.getElementById('rangeSelect') as HTMLSelectElement;
+const rangeInput = document.getElementById('rangeInput') as HTMLInputElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
@@ -188,31 +191,35 @@ function setSustain(isDown: boolean): void {
   }
 }
 
-// Rebuilds the piano for the currently selected range, sizing keys to fit
-// the container so smaller ranges get bigger keys instead of wasted space.
+// All 88 keys always exist; visibleKeys is a zoom level. Key size is
+// recomputed from the container's current width so that exactly that many
+// keys fit on screen - the rest stay reachable via horizontal scroll.
 function rebuildPiano(): void {
-  const range = RANGES[currentRangeIndex];
-  const availableWidth = Math.max(pianoContainer.clientWidth - 32, 200);
-  const dims = computeKeyDimensions(range.min, range.max, availableWidth);
-  piano = createPiano(svg, range.min, range.max, dims);
+  const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
+  const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
+  piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims);
   attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
   centerOnMiddleC(pianoContainer, piano);
   render();
 }
 
-// ---- Range selection ----
+// ---- Visible-keys (zoom) control ----
 
-RANGES.forEach((range, i) => {
-  const opt = document.createElement('option');
-  opt.value = String(i);
-  opt.textContent = range.label;
-  rangeSelect.appendChild(opt);
-});
-rangeSelect.value = String(currentRangeIndex);
-rangeSelect.addEventListener('change', () => {
-  currentRangeIndex = Number(rangeSelect.value);
-  saveRangeIndex(currentRangeIndex);
+rangeInput.value = String(currentVisibleKeys);
+rangeInput.addEventListener('change', () => {
+  const parsed = Math.min(Math.max(Math.round(Number(rangeInput.value)) || DEFAULT_VISIBLE_KEYS, 1), TOTAL_KEYS);
+  currentVisibleKeys = parsed;
+  rangeInput.value = String(parsed);
+  saveVisibleKeys(parsed);
   rebuildPiano();
+});
+
+// The requested key count is only exact for the current window width, so
+// re-fit on resize instead of leaving stale key sizes after a layout change.
+let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(rebuildPiano, 150);
 });
 
 rebuildPiano();
