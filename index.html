@@ -246,6 +246,85 @@
     fill: #999;
     text-anchor: middle;
   }
+  .white-key.highlighted, .black-key.highlighted {
+    stroke: #e6a400;
+    stroke-width: 3;
+  }
+  #highlighterSection {
+    margin: 0 16px 24px 16px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+  }
+  #highlighterToggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fafafa;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #333;
+  }
+  #highlighterToggle:hover {
+    background: #f2f2f2;
+  }
+  #highlighterToggle .chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    color: #999;
+  }
+  #highlighterToggle.open .chevron {
+    transform: rotate(90deg);
+  }
+  #highlighterBody {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-top: 1px solid #eee;
+  }
+  #highlighterBody[hidden] {
+    display: none;
+  }
+  .highlighter-group h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .root-buttons, .type-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .type-buttons {
+    margin-top: 8px;
+  }
+  .root-btn, .type-btn {
+    padding: 5px 10px;
+    font-size: 13px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    color: #333;
+  }
+  .root-btn:hover, .type-btn:hover {
+    background: #f5f5f5;
+  }
+  .root-btn.active, .type-btn.active {
+    background: #4a76c4;
+    border-color: #4a76c4;
+    color: #fff;
+  }
+  #chordTypeSelect {
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
@@ -300,6 +379,24 @@
     <svg id="piano"></svg>
   </div>
 
-<script src="app.js?v=075d100"></script>
+  <div id="highlighterSection">
+    <button id="highlighterToggle" type="button" aria-expanded="false" aria-controls="highlighterBody">
+      Highlighter <span class="chevron">&#9656;</span>
+    </button>
+    <div id="highlighterBody" hidden>
+      <div class="highlighter-group" data-kind="scale">
+        <h4>Scale</h4>
+        <div class="root-buttons" id="scaleRootButtons"></div>
+        <div class="type-buttons" id="scaleTypeButtons"></div>
+      </div>
+      <div class="highlighter-group" data-kind="chord">
+        <h4>Chord</h4>
+        <div class="root-buttons" id="chordRootButtons"></div>
+        <select id="chordTypeSelect"></select>
+      </div>
+    </div>
+  </div>
+
+<script src="app.js?v=c7b05b5"></script>
 </body>
 </html>

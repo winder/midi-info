@@ -6,10 +6,19 @@ import { initMIDI } from './midi';
 import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
+  HIGHLIGHT_CHORDS,
+  HIGHLIGHT_SCALES,
+  HighlightChord,
+  HighlightScale,
   KEYS,
+  Level,
   MODES,
+  buildChordVoicing,
   buildKeyNoteNames,
+  keyPitchClass,
+  levelAtLeast,
   parseChordFormulas,
+  scalePitchClasses,
 } from './theory';
 import {
   MAX_MIDI,
@@ -46,8 +55,6 @@ function deleteCookie(name: string): void {
 }
 
 // ---- Level (progressive disclosure) ----
-
-type Level = 'basic' | 'intermediate' | 'nerd';
 
 function loadLevel(): Level {
   const raw = getCookie('level');
@@ -126,6 +133,14 @@ let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
 const sustainedNotes = new Set<number>();
 
+type HighlightMode = 'scale' | 'chord' | null;
+let highlighterOpen = false;
+let highlightMode: HighlightMode = null;
+let scaleRootIndex: number | null = null;
+let scaleTypeName: string = HIGHLIGHT_SCALES[0].name;
+let chordRootIndex: number | null = null;
+let chordTypeSymbol: string = HIGHLIGHT_CHORDS[0].symbol;
+
 // ---- DOM references ----
 
 const svg = document.getElementById('piano') as unknown as SVGSVGElement;
@@ -151,6 +166,12 @@ const statusEl = document.getElementById('status') as HTMLElement;
 const inputSelect = document.getElementById('inputSelect') as HTMLSelectElement;
 const inputRow = document.getElementById('inputRow') as HTMLElement;
 const versionInfoEl = document.getElementById('versionInfo') as HTMLElement;
+const highlighterToggle = document.getElementById('highlighterToggle') as HTMLButtonElement;
+const highlighterBody = document.getElementById('highlighterBody') as HTMLElement;
+const scaleRootButtonsEl = document.getElementById('scaleRootButtons') as HTMLElement;
+const scaleTypeButtonsEl = document.getElementById('scaleTypeButtons') as HTMLElement;
+const chordRootButtonsEl = document.getElementById('chordRootButtons') as HTMLElement;
+const chordTypeSelect = document.getElementById('chordTypeSelect') as HTMLSelectElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -160,7 +181,7 @@ let piano: Piano;
 const isMouseDown = trackMouseIsDown();
 
 function render(): void {
-  renderKeyboard(piano, activeNotes, currentNoteNames);
+  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes());
 
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
@@ -275,6 +296,7 @@ function setLevel(level: Level): void {
   saveLevel(level);
   updateLevelButtons();
   populateModeSelect();
+  refreshHighlighterUI();
   refreshNoteNames();
 }
 
@@ -372,6 +394,125 @@ importFileInput.addEventListener('change', () => {
 });
 
 refreshChordTable();
+
+// ---- Highlighter (scale/chord study aid) ----
+
+function availableScales(): HighlightScale[] {
+  return HIGHLIGHT_SCALES.filter(s => levelAtLeast(currentLevel, s.minLevel));
+}
+
+function availableChords(): HighlightChord[] {
+  return HIGHLIGHT_CHORDS.filter(c => levelAtLeast(currentLevel, c.minLevel));
+}
+
+function computeHighlightedNotes(): Set<number> {
+  const notes = new Set<number>();
+  if (highlightMode === 'scale' && scaleRootIndex !== null) {
+    const scale = HIGHLIGHT_SCALES.find(s => s.name === scaleTypeName);
+    if (scale) {
+      const pcs = new Set(scalePitchClasses(keyPitchClass(KEYS[scaleRootIndex]), scale));
+      for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
+        if (pcs.has(midi % 12)) notes.add(midi);
+      }
+    }
+  } else if (highlightMode === 'chord' && chordRootIndex !== null) {
+    const chord = HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol);
+    if (chord) {
+      buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.intervals).forEach(m => notes.add(m));
+    }
+  }
+  return notes;
+}
+
+function chordOptionLabel(symbol: string): string {
+  if (symbol === '') return 'Major';
+  if (symbol === '-') return 'Minor';
+  return symbol;
+}
+
+function renderRootButtonRow(container: HTMLElement, isActive: (index: number) => boolean, onSelect: (index: number) => void): void {
+  container.innerHTML = '';
+  KEYS.forEach((key, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'root-btn' + (isActive(i) ? ' active' : '');
+    btn.textContent = key.name;
+    btn.addEventListener('click', () => onSelect(i));
+    container.appendChild(btn);
+  });
+}
+
+function selectScaleRoot(index: number): void {
+  highlightMode = highlightMode === 'scale' && scaleRootIndex === index ? null : 'scale';
+  scaleRootIndex = index;
+  refreshHighlighterUI();
+  render();
+}
+
+function selectScaleType(name: string): void {
+  scaleTypeName = name;
+  if (scaleRootIndex !== null) highlightMode = 'scale';
+  refreshHighlighterUI();
+  render();
+}
+
+function selectChordRoot(index: number): void {
+  highlightMode = highlightMode === 'chord' && chordRootIndex === index ? null : 'chord';
+  chordRootIndex = index;
+  refreshHighlighterUI();
+  render();
+}
+
+function selectChordType(symbol: string): void {
+  chordTypeSymbol = symbol;
+  if (chordRootIndex !== null) highlightMode = 'chord';
+  refreshHighlighterUI();
+  render();
+}
+
+function refreshHighlighterUI(): void {
+  const scales = availableScales();
+  const chords = availableChords();
+
+  // A Level change can make the active highlight's type unavailable.
+  if (highlightMode === 'scale' && !scales.some(s => s.name === scaleTypeName)) highlightMode = null;
+  if (highlightMode === 'chord' && !chords.some(c => c.symbol === chordTypeSymbol)) highlightMode = null;
+
+  renderRootButtonRow(scaleRootButtonsEl, i => highlightMode === 'scale' && scaleRootIndex === i, selectScaleRoot);
+  renderRootButtonRow(chordRootButtonsEl, i => highlightMode === 'chord' && chordRootIndex === i, selectChordRoot);
+
+  scaleTypeButtonsEl.innerHTML = '';
+  scales.forEach(scale => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'type-btn' + (scale.name === scaleTypeName ? ' active' : '');
+    btn.textContent = scale.name;
+    btn.addEventListener('click', () => selectScaleType(scale.name));
+    scaleTypeButtonsEl.appendChild(btn);
+  });
+
+  chordTypeSelect.innerHTML = '';
+  chords.forEach(chord => {
+    const opt = document.createElement('option');
+    opt.value = chord.symbol;
+    opt.textContent = chordOptionLabel(chord.symbol);
+    chordTypeSelect.appendChild(opt);
+  });
+  chordTypeSelect.value = chordTypeSymbol;
+}
+
+chordTypeSelect.addEventListener('change', () => selectChordType(chordTypeSelect.value));
+
+function setHighlighterOpen(open: boolean): void {
+  highlighterOpen = open;
+  highlighterBody.hidden = !open;
+  highlighterToggle.setAttribute('aria-expanded', String(open));
+  highlighterToggle.classList.toggle('open', open);
+}
+
+highlighterToggle.addEventListener('click', () => setHighlighterOpen(!highlighterOpen));
+setHighlighterOpen(false);
+refreshHighlighterUI();
 
 // ---- Settings popup ----
 

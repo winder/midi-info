@@ -51,6 +51,10 @@
   var FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
   var LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
   var NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  var LEVEL_ORDER = ["basic", "intermediate", "nerd"];
+  function levelAtLeast(current, min) {
+    return LEVEL_ORDER.indexOf(current) >= LEVEL_ORDER.indexOf(min);
+  }
   var MODES = [
     { name: "Ionian", steps: [0, 2, 4, 5, 7, 9, 11] },
     { name: "Dorian", steps: [0, 2, 3, 5, 7, 9, 10] },
@@ -79,6 +83,9 @@
     { name: "Bb", tonicLetter: "B", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "B", tonicLetter: "B", tonicAccidental: 0, fallback: SHARP_NAMES }
   ];
+  function keyPitchClass(key) {
+    return (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
+  }
   function buildKeyNoteNames(key, mode = MODES[0]) {
     const names = key.fallback.slice();
     const tonicPc = (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
@@ -92,6 +99,22 @@
       else if (accidental === 11) names[expectedPc] = letter + "b";
     });
     return names;
+  }
+  var HIGHLIGHT_SCALES = [
+    { name: "Major", steps: MODES[0].steps, minLevel: "basic" },
+    // Ionian
+    { name: "Natural Minor", steps: MODES[5].steps, minLevel: "basic" },
+    // Aeolian
+    { name: "Dorian", steps: MODES[1].steps, minLevel: "intermediate" },
+    { name: "Mixolydian", steps: MODES[4].steps, minLevel: "intermediate" },
+    { name: "Lydian", steps: MODES[3].steps, minLevel: "intermediate" },
+    { name: "Harmonic Minor", steps: [0, 2, 3, 5, 7, 8, 11], minLevel: "intermediate" },
+    { name: "Melodic Minor", steps: [0, 2, 3, 5, 7, 9, 11], minLevel: "intermediate" },
+    { name: "Phrygian", steps: MODES[2].steps, minLevel: "nerd" },
+    { name: "Locrian", steps: MODES[6].steps, minLevel: "nerd" }
+  ];
+  function scalePitchClasses(rootPc, scale) {
+    return scale.steps.map((step) => (rootPc + step) % 12);
   }
   var BLACK_PITCH_CLASSES = /* @__PURE__ */ new Set([1, 3, 6, 8, 10]);
   function isBlackPitch(midi) {
@@ -169,6 +192,43 @@
     ...BASE_CHORD_FORMULAS,
     ...withoutPerfectFifth(BASE_CHORD_FORMULAS)
   ];
+  var CHORD_MIN_LEVEL = {
+    "": "basic",
+    "-": "basic",
+    "\xB0": "basic",
+    "aug": "basic",
+    "sus2": "basic",
+    "sus4": "basic",
+    "6": "intermediate",
+    "-6": "intermediate",
+    "\u03947": "intermediate",
+    "-7": "intermediate",
+    "-\u03947": "intermediate",
+    "7": "intermediate",
+    "\xB07": "intermediate",
+    "\xF87": "intermediate",
+    "7sus4": "intermediate"
+  };
+  var HIGHLIGHT_CHORDS = BASE_CHORD_FORMULAS.map((f) => ({
+    symbol: f.symbol,
+    intervals: f.intervals,
+    minLevel: CHORD_MIN_LEVEL[f.symbol] ?? "nerd"
+  }));
+  function buildChordVoicing(rootPc, intervals, centerMidi = 60) {
+    const remainder = ((centerMidi - rootPc) % 12 + 12) % 12;
+    const lower = centerMidi - remainder;
+    const upper = lower + 12;
+    const rootMidi = centerMidi - lower <= upper - centerMidi ? lower : upper;
+    const voicing = [];
+    let prev = rootMidi - 12;
+    Array.from(new Set(intervals.map((i) => (i % 12 + 12) % 12))).forEach((interval) => {
+      let midi = rootMidi + interval;
+      while (midi <= prev) midi += 12;
+      voicing.push(midi);
+      prev = midi;
+    });
+    return voicing;
+  }
   function detectChords(pitchClasses, chordFormulas2) {
     if (pitchClasses.length < 3) return [];
     const pcSet = new Set(pitchClasses);
@@ -371,10 +431,13 @@
     const middleCX = middleCRect ? Number(middleCRect.getAttribute("x")) : 0;
     container.scrollLeft = Math.max(0, middleCX - container.clientWidth / 2);
   }
-  function renderKeyboard(piano2, activeNotes2, noteNames) {
+  function renderKeyboard(piano2, activeNotes2, noteNames, highlightedNotes = /* @__PURE__ */ new Set()) {
     piano2.rectByMidi.forEach((rect, midi) => {
       const base = rect.classList.contains("black-key") ? "black-key" : "white-key";
-      rect.setAttribute("class", base + (activeNotes2.has(midi) ? " active" : ""));
+      let cls = base;
+      if (activeNotes2.has(midi)) cls += " active";
+      if (highlightedNotes.has(midi)) cls += " highlighted";
+      rect.setAttribute("class", cls);
     });
     while (piano2.labelGroup.firstChild) piano2.labelGroup.removeChild(piano2.labelGroup.firstChild);
     activeNotes2.forEach((midi) => {
@@ -554,6 +617,12 @@
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
+  var highlighterOpen = false;
+  var highlightMode = null;
+  var scaleRootIndex = null;
+  var scaleTypeName = HIGHLIGHT_SCALES[0].name;
+  var chordRootIndex = null;
+  var chordTypeSymbol = HIGHLIGHT_CHORDS[0].symbol;
   var svg = document.getElementById("piano");
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
@@ -577,11 +646,17 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"075d100"}`;
+  var highlighterToggle = document.getElementById("highlighterToggle");
+  var highlighterBody = document.getElementById("highlighterBody");
+  var scaleRootButtonsEl = document.getElementById("scaleRootButtons");
+  var scaleTypeButtonsEl = document.getElementById("scaleTypeButtons");
+  var chordRootButtonsEl = document.getElementById("chordRootButtons");
+  var chordTypeSelect = document.getElementById("chordTypeSelect");
+  versionInfoEl.textContent = `Build ${"c7b05b5"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
-    renderKeyboard(piano, activeNotes, currentNoteNames);
+    renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes());
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
     const pitchClasses = Array.from(new Set(activeMidiSorted.map((m) => m % 12)));
     renderChordDisplay(chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames);
@@ -666,6 +741,7 @@
     saveLevel(level);
     updateLevelButtons();
     populateModeSelect();
+    refreshHighlighterUI();
     refreshNoteNames();
   }
   levelButtons.forEach((btn) => {
@@ -748,6 +824,105 @@
     reader.readAsText(file);
   });
   refreshChordTable();
+  function availableScales() {
+    return HIGHLIGHT_SCALES.filter((s) => levelAtLeast(currentLevel, s.minLevel));
+  }
+  function availableChords() {
+    return HIGHLIGHT_CHORDS.filter((c) => levelAtLeast(currentLevel, c.minLevel));
+  }
+  function computeHighlightedNotes() {
+    const notes = /* @__PURE__ */ new Set();
+    if (highlightMode === "scale" && scaleRootIndex !== null) {
+      const scale = HIGHLIGHT_SCALES.find((s) => s.name === scaleTypeName);
+      if (scale) {
+        const pcs = new Set(scalePitchClasses(keyPitchClass(KEYS[scaleRootIndex]), scale));
+        for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
+          if (pcs.has(midi % 12)) notes.add(midi);
+        }
+      }
+    } else if (highlightMode === "chord" && chordRootIndex !== null) {
+      const chord = HIGHLIGHT_CHORDS.find((c) => c.symbol === chordTypeSymbol);
+      if (chord) {
+        buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.intervals).forEach((m) => notes.add(m));
+      }
+    }
+    return notes;
+  }
+  function chordOptionLabel(symbol) {
+    if (symbol === "") return "Major";
+    if (symbol === "-") return "Minor";
+    return symbol;
+  }
+  function renderRootButtonRow(container, isActive, onSelect) {
+    container.innerHTML = "";
+    KEYS.forEach((key, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "root-btn" + (isActive(i) ? " active" : "");
+      btn.textContent = key.name;
+      btn.addEventListener("click", () => onSelect(i));
+      container.appendChild(btn);
+    });
+  }
+  function selectScaleRoot(index) {
+    highlightMode = highlightMode === "scale" && scaleRootIndex === index ? null : "scale";
+    scaleRootIndex = index;
+    refreshHighlighterUI();
+    render();
+  }
+  function selectScaleType(name) {
+    scaleTypeName = name;
+    if (scaleRootIndex !== null) highlightMode = "scale";
+    refreshHighlighterUI();
+    render();
+  }
+  function selectChordRoot(index) {
+    highlightMode = highlightMode === "chord" && chordRootIndex === index ? null : "chord";
+    chordRootIndex = index;
+    refreshHighlighterUI();
+    render();
+  }
+  function selectChordType(symbol) {
+    chordTypeSymbol = symbol;
+    if (chordRootIndex !== null) highlightMode = "chord";
+    refreshHighlighterUI();
+    render();
+  }
+  function refreshHighlighterUI() {
+    const scales = availableScales();
+    const chords = availableChords();
+    if (highlightMode === "scale" && !scales.some((s) => s.name === scaleTypeName)) highlightMode = null;
+    if (highlightMode === "chord" && !chords.some((c) => c.symbol === chordTypeSymbol)) highlightMode = null;
+    renderRootButtonRow(scaleRootButtonsEl, (i) => highlightMode === "scale" && scaleRootIndex === i, selectScaleRoot);
+    renderRootButtonRow(chordRootButtonsEl, (i) => highlightMode === "chord" && chordRootIndex === i, selectChordRoot);
+    scaleTypeButtonsEl.innerHTML = "";
+    scales.forEach((scale) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "type-btn" + (scale.name === scaleTypeName ? " active" : "");
+      btn.textContent = scale.name;
+      btn.addEventListener("click", () => selectScaleType(scale.name));
+      scaleTypeButtonsEl.appendChild(btn);
+    });
+    chordTypeSelect.innerHTML = "";
+    chords.forEach((chord) => {
+      const opt = document.createElement("option");
+      opt.value = chord.symbol;
+      opt.textContent = chordOptionLabel(chord.symbol);
+      chordTypeSelect.appendChild(opt);
+    });
+    chordTypeSelect.value = chordTypeSymbol;
+  }
+  chordTypeSelect.addEventListener("change", () => selectChordType(chordTypeSelect.value));
+  function setHighlighterOpen(open) {
+    highlighterOpen = open;
+    highlighterBody.hidden = !open;
+    highlighterToggle.setAttribute("aria-expanded", String(open));
+    highlighterToggle.classList.toggle("open", open);
+  }
+  highlighterToggle.addEventListener("click", () => setHighlighterOpen(!highlighterOpen));
+  setHighlighterOpen(false);
+  refreshHighlighterUI();
   menuButton.addEventListener("click", (e) => {
     e.stopPropagation();
     setSettingsOpen(settingsPanel, menuButton, settingsPanel.hidden);

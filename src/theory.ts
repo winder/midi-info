@@ -7,6 +7,15 @@ export const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A',
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const NATURAL_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
+// Progressive-disclosure tiers shared across the app (Key/Mode selection,
+// the Highlighter's scale/chord pickers, etc).
+export type Level = 'basic' | 'intermediate' | 'nerd';
+const LEVEL_ORDER: Level[] = ['basic', 'intermediate', 'nerd'];
+
+export function levelAtLeast(current: Level, min: Level): boolean {
+  return LEVEL_ORDER.indexOf(current) >= LEVEL_ORDER.indexOf(min);
+}
+
 export interface Mode {
   name: string;
   steps: number[];
@@ -58,6 +67,10 @@ export const KEYS: Key[] = [
   { name: 'B', tonicLetter: 'B', tonicAccidental: 0, fallback: SHARP_NAMES },
 ];
 
+export function keyPitchClass(key: Key): number {
+  return (NATURAL_PC[key.tonicLetter] + key.tonicAccidental + 12) % 12;
+}
+
 // Builds the 12-entry note-name table for a key + mode: the 7 diatonic
 // scale tones get their theoretically correct letter (e.g. E# in F#
 // major, not F), while the remaining chromatic pitch classes fall back
@@ -77,6 +90,32 @@ export function buildKeyNoteNames(key: Key, mode: Mode = MODES[0]): string[] {
     // the key's sharp/flat convention instead of spelling one.
   });
   return names;
+}
+
+// Scale types offered by the Highlighter's Scale picker, gated by Level.
+// Reuses the 7 diatonic modes above; harmonic and melodic (ascending) minor
+// aren't otherwise represented in the app, so their steps are spelled out
+// directly here.
+export interface HighlightScale {
+  name: string;
+  steps: number[];
+  minLevel: Level;
+}
+
+export const HIGHLIGHT_SCALES: HighlightScale[] = [
+  { name: 'Major', steps: MODES[0].steps, minLevel: 'basic' }, // Ionian
+  { name: 'Natural Minor', steps: MODES[5].steps, minLevel: 'basic' }, // Aeolian
+  { name: 'Dorian', steps: MODES[1].steps, minLevel: 'intermediate' },
+  { name: 'Mixolydian', steps: MODES[4].steps, minLevel: 'intermediate' },
+  { name: 'Lydian', steps: MODES[3].steps, minLevel: 'intermediate' },
+  { name: 'Harmonic Minor', steps: [0, 2, 3, 5, 7, 8, 11], minLevel: 'intermediate' },
+  { name: 'Melodic Minor', steps: [0, 2, 3, 5, 7, 9, 11], minLevel: 'intermediate' },
+  { name: 'Phrygian', steps: MODES[2].steps, minLevel: 'nerd' },
+  { name: 'Locrian', steps: MODES[6].steps, minLevel: 'nerd' },
+];
+
+export function scalePitchClasses(rootPc: number, scale: HighlightScale): number[] {
+  return scale.steps.map(step => (rootPc + step) % 12);
 }
 
 export const BLACK_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
@@ -181,6 +220,51 @@ export const DEFAULT_CHORD_FORMULAS: ChordFormula[] = [
   ...BASE_CHORD_FORMULAS,
   ...withoutPerfectFifth(BASE_CHORD_FORMULAS),
 ];
+
+// Chord types offered by the Highlighter's Chord picker, gated by Level.
+// Built from the base formulas only (no "drop the 5th" duplicates, which
+// exist for lenient detection, not as a distinct type someone would
+// deliberately pick). Anything not listed here defaults to 'nerd'.
+const CHORD_MIN_LEVEL: Record<string, Level> = {
+  '': 'basic', '-': 'basic', '°': 'basic', 'aug': 'basic', 'sus2': 'basic', 'sus4': 'basic',
+  '6': 'intermediate', '-6': 'intermediate', 'Δ7': 'intermediate', '-7': 'intermediate',
+  '-Δ7': 'intermediate', '7': 'intermediate', '°7': 'intermediate', 'ø7': 'intermediate',
+  '7sus4': 'intermediate',
+};
+
+export interface HighlightChord {
+  symbol: string;
+  intervals: number[];
+  minLevel: Level;
+}
+
+export const HIGHLIGHT_CHORDS: HighlightChord[] = BASE_CHORD_FORMULAS.map(f => ({
+  symbol: f.symbol,
+  intervals: f.intervals,
+  minLevel: CHORD_MIN_LEVEL[f.symbol] ?? 'nerd',
+}));
+
+// Builds one close-position MIDI voicing for a chord: the root placed as
+// close to centerMidi as possible, then each further tone - in the order
+// given, already the conventional stacking order (e.g. a 9th chord lists
+// root/3rd/5th/7th/9th) - placed at the next instance of its pitch class
+// above the previous tone.
+export function buildChordVoicing(rootPc: number, intervals: number[], centerMidi = 60): number[] {
+  const remainder = ((centerMidi - rootPc) % 12 + 12) % 12;
+  const lower = centerMidi - remainder;
+  const upper = lower + 12;
+  const rootMidi = centerMidi - lower <= upper - centerMidi ? lower : upper;
+
+  const voicing: number[] = [];
+  let prev = rootMidi - 12;
+  Array.from(new Set(intervals.map(i => ((i % 12) + 12) % 12))).forEach(interval => {
+    let midi = rootMidi + interval;
+    while (midi <= prev) midi += 12;
+    voicing.push(midi);
+    prev = midi;
+  });
+  return voicing;
+}
 
 export interface ChordMatch {
   root: number;

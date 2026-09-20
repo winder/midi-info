@@ -208,10 +208,21 @@ export function centerOnMiddleC(container: HTMLElement, piano: Piano): void {
 }
 
 // Highlights the active keys and floats a note-name label above each one.
-export function renderKeyboard(piano: Piano, activeNotes: Set<number>, noteNames: string[]): void {
+// highlightedNotes marks keys lit up by the Highlighter (scale/chord study
+// aid), independent of - and combinable with - the "currently pressed"
+// active state.
+export function renderKeyboard(
+  piano: Piano,
+  activeNotes: Set<number>,
+  noteNames: string[],
+  highlightedNotes: Set<number> = new Set()
+): void {
   piano.rectByMidi.forEach((rect, midi) => {
     const base = rect.classList.contains('black-key') ? 'black-key' : 'white-key';
-    rect.setAttribute('class', base + (activeNotes.has(midi) ? ' active' : ''));
+    let cls = base;
+    if (activeNotes.has(midi)) cls += ' active';
+    if (highlightedNotes.has(midi)) cls += ' highlighted';
+    rect.setAttribute('class', cls);
   });
 
   while (piano.labelGroup.firstChild) piano.labelGroup.removeChild(piano.labelGroup.firstChild);
