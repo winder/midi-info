@@ -497,6 +497,8 @@
   var statusEl = document.getElementById("status");
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
+  var versionInfoEl = document.getElementById("versionInfo");
+  versionInfoEl.textContent = `Build ${"f5d2a5e"}`;
   var piano = createPiano(svg);
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames);

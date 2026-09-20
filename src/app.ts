@@ -1,5 +1,7 @@
 // App orchestrator: owns state, wires up DOM events, and initializes MIDI.
 
+declare const __COMMIT_HASH__: string;
+
 import { initMIDI } from './midi';
 import {
   ChordFormula,
@@ -90,6 +92,9 @@ const settingsPanel = document.getElementById('settingsPanel') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const inputSelect = document.getElementById('inputSelect') as HTMLSelectElement;
 const inputRow = document.getElementById('inputRow') as HTMLElement;
+const versionInfoEl = document.getElementById('versionInfo') as HTMLElement;
+
+versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
 // ---- Piano setup ----
 
