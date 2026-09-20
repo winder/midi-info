@@ -246,9 +246,21 @@
     fill: #999;
     text-anchor: middle;
   }
-  .white-key.highlighted, .black-key.highlighted {
-    stroke: #e6a400;
+  .white-key.highlighted {
+    fill: #ffd54f;
+    stroke: #b8860b;
     stroke-width: 3;
+  }
+  .black-key.highlighted {
+    fill: #8a6d00;
+    stroke: #5c4900;
+    stroke-width: 3;
+  }
+  .white-key.active.highlighted {
+    fill: #a9c9f0;
+  }
+  .black-key.active.highlighted {
+    fill: #4a76c4;
   }
   #highlighterSection {
     margin: 0 16px 24px 16px;
@@ -397,6 +409,6 @@
     </div>
   </div>
 
-<script src="app.js?v=c7b05b5"></script>
+<script src="app.js?v=f194a0f"></script>
 </body>
 </html>

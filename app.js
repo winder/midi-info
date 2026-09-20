@@ -652,7 +652,7 @@
   var scaleTypeButtonsEl = document.getElementById("scaleTypeButtons");
   var chordRootButtonsEl = document.getElementById("chordRootButtons");
   var chordTypeSelect = document.getElementById("chordTypeSelect");
-  versionInfoEl.textContent = `Build ${"c7b05b5"}`;
+  versionInfoEl.textContent = `Build ${"f194a0f"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -899,7 +899,7 @@
     scales.forEach((scale) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "type-btn" + (scale.name === scaleTypeName ? " active" : "");
+      btn.className = "type-btn" + (highlightMode === "scale" && scale.name === scaleTypeName ? " active" : "");
       btn.textContent = scale.name;
       btn.addEventListener("click", () => selectScaleType(scale.name));
       scaleTypeButtonsEl.appendChild(btn);

@@ -485,7 +485,7 @@ function refreshHighlighterUI(): void {
   scales.forEach(scale => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'type-btn' + (scale.name === scaleTypeName ? ' active' : '');
+    btn.className = 'type-btn' + (highlightMode === 'scale' && scale.name === scaleTypeName ? ' active' : '');
     btn.textContent = scale.name;
     btn.addEventListener('click', () => selectScaleType(scale.name));
     scaleTypeButtonsEl.appendChild(btn);
