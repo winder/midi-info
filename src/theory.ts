@@ -33,20 +33,27 @@ export interface Key {
   fallback: string[];
 }
 
-// The 12 major keys. tonicLetter/tonicAccidental define the key signature;
-// fallback supplies names for the 5 non-diatonic (chromatic) pitch classes,
-// which don't have a single settled spelling the way scale tones do.
+// The 17 selectable keys: each of the 7 natural letters, plus a sharp and
+// a flat spelling for each of the 5 black-key pitch classes. tonicLetter/
+// tonicAccidental define the key signature; fallback supplies names for
+// the non-diatonic (chromatic) pitch classes, which don't have a single
+// settled spelling the way scale tones do.
 export const KEYS: Key[] = [
   { name: 'C', tonicLetter: 'C', tonicAccidental: 0, fallback: SHARP_NAMES },
+  { name: 'C#', tonicLetter: 'C', tonicAccidental: 1, fallback: SHARP_NAMES },
   { name: 'Db', tonicLetter: 'D', tonicAccidental: -1, fallback: FLAT_NAMES },
   { name: 'D', tonicLetter: 'D', tonicAccidental: 0, fallback: SHARP_NAMES },
+  { name: 'D#', tonicLetter: 'D', tonicAccidental: 1, fallback: SHARP_NAMES },
   { name: 'Eb', tonicLetter: 'E', tonicAccidental: -1, fallback: FLAT_NAMES },
   { name: 'E', tonicLetter: 'E', tonicAccidental: 0, fallback: SHARP_NAMES },
   { name: 'F', tonicLetter: 'F', tonicAccidental: 0, fallback: FLAT_NAMES },
   { name: 'F#', tonicLetter: 'F', tonicAccidental: 1, fallback: SHARP_NAMES },
+  { name: 'Gb', tonicLetter: 'G', tonicAccidental: -1, fallback: FLAT_NAMES },
   { name: 'G', tonicLetter: 'G', tonicAccidental: 0, fallback: SHARP_NAMES },
+  { name: 'G#', tonicLetter: 'G', tonicAccidental: 1, fallback: SHARP_NAMES },
   { name: 'Ab', tonicLetter: 'A', tonicAccidental: -1, fallback: FLAT_NAMES },
   { name: 'A', tonicLetter: 'A', tonicAccidental: 0, fallback: SHARP_NAMES },
+  { name: 'A#', tonicLetter: 'A', tonicAccidental: 1, fallback: SHARP_NAMES },
   { name: 'Bb', tonicLetter: 'B', tonicAccidental: -1, fallback: FLAT_NAMES },
   { name: 'B', tonicLetter: 'B', tonicAccidental: 0, fallback: SHARP_NAMES },
 ];

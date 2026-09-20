@@ -39,6 +39,34 @@ function deleteCookie(name: string): void {
   document.cookie = name + '=; path=/; max-age=0';
 }
 
+// ---- Level (progressive disclosure) ----
+
+type Level = 'basic' | 'intermediate' | 'nerd';
+
+function loadLevel(): Level {
+  const raw = getCookie('level');
+  return raw === 'basic' || raw === 'intermediate' || raw === 'nerd' ? raw : 'basic';
+}
+
+function saveLevel(level: Level): void {
+  setCookie('level', level, 365);
+}
+
+// ---- Debug (gates debug-only features, e.g. the chord table editor) ----
+
+function loadDebug(): boolean {
+  const raw = getCookie('debugMode');
+  if (raw === '1') return true;
+  if (raw === '0') return false;
+  // No explicit preference yet: default on if the user has already
+  // customized their chord table, so they don't lose the editor.
+  return getCookie('chordFormulas') !== null;
+}
+
+function saveDebug(value: boolean): void {
+  setCookie('debugMode', value ? '1' : '0', 365);
+}
+
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -70,6 +98,8 @@ function parseIntervals(text: string): number[] {
 
 let currentNoteNames: string[] = buildKeyNoteNames(KEYS[0]);
 let chordFormulas: ChordFormula[] = loadChordFormulas();
+let currentLevel: Level = loadLevel();
+let debugMode: boolean = loadDebug();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -82,6 +112,9 @@ const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
+const debugCheckbox = document.getElementById('debugCheckbox') as HTMLInputElement;
+const chordsSection = document.getElementById('chordsSection') as HTMLElement;
+const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
 const resetChordsBtn = document.getElementById('resetChordsBtn') as HTMLButtonElement;
@@ -147,12 +180,29 @@ KEYS.forEach((key, i) => {
   opt.textContent = key.name;
   keySelect.appendChild(opt);
 });
-MODES.forEach((mode, i) => {
-  const opt = document.createElement('option');
-  opt.value = String(i);
-  opt.textContent = mode.name;
-  modeSelect.appendChild(opt);
-});
+
+// Basic only offers Major/Minor (Ionian/Aeolian under friendlier names);
+// intermediate and nerd currently show the same full set of modes - nerd
+// will grow its own modes (of the melodic minor scale) later.
+const IONIAN_INDEX = MODES.findIndex(m => m.name === 'Ionian');
+const AEOLIAN_INDEX = MODES.findIndex(m => m.name === 'Aeolian');
+
+function populateModeSelect(): void {
+  const prevIndex = modeSelect.value ? Number(modeSelect.value) : IONIAN_INDEX;
+  modeSelect.innerHTML = '';
+  const options = currentLevel === 'basic'
+    ? [{ label: 'Major', index: IONIAN_INDEX }, { label: 'Minor', index: AEOLIAN_INDEX }]
+    : MODES.map((mode, i) => ({ label: mode.name, index: i }));
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = String(o.index);
+    opt.textContent = o.label;
+    modeSelect.appendChild(opt);
+  });
+  const validIndices = options.map(o => o.index);
+  modeSelect.value = String(validIndices.includes(prevIndex) ? prevIndex : IONIAN_INDEX);
+}
+populateModeSelect();
 
 function refreshNoteNames(): void {
   currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
@@ -160,6 +210,39 @@ function refreshNoteNames(): void {
 }
 keySelect.addEventListener('change', refreshNoteNames);
 modeSelect.addEventListener('change', refreshNoteNames);
+
+// ---- Level control ----
+
+function updateLevelButtons(): void {
+  levelButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.level === currentLevel));
+}
+
+function setLevel(level: Level): void {
+  currentLevel = level;
+  saveLevel(level);
+  updateLevelButtons();
+  populateModeSelect();
+  refreshNoteNames();
+}
+
+levelButtons.forEach(btn => {
+  btn.addEventListener('click', () => setLevel(btn.dataset.level as Level));
+});
+updateLevelButtons();
+
+// ---- Debug toggle (gates debug-only sections, e.g. the chord editor) ----
+
+function updateChordsVisibility(): void {
+  chordsSection.hidden = !debugMode;
+}
+
+debugCheckbox.checked = debugMode;
+updateChordsVisibility();
+debugCheckbox.addEventListener('change', () => {
+  debugMode = debugCheckbox.checked;
+  saveDebug(debugMode);
+  updateChordsVisibility();
+});
 
 // ---- Chord table editor ----
 

@@ -86,6 +86,39 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+  .level-control {
+    display: flex;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .level-btn {
+    flex: 1;
+    padding: 5px 0;
+    font-size: 12px;
+    border: none;
+    background: #fff;
+    cursor: pointer;
+    color: #555;
+  }
+  .level-btn + .level-btn {
+    border-left: 1px solid #ddd;
+  }
+  .level-btn:hover {
+    background: #f5f5f5;
+  }
+  .level-btn.active {
+    background: #4a76c4;
+    color: #fff;
+  }
+  #chordsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #chordsSection[hidden] {
+    display: none;
+  }
   #chordTableWrap {
     max-height: 320px;
     overflow-y: auto;
@@ -215,28 +248,37 @@
     <label for="inputSelect" id="inputRow" style="display:none;"><select id="inputSelect"></select></label>
     <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">&#9776;</button>
     <div id="settingsPanel" hidden>
+      <div class="level-control" role="group" aria-label="Level">
+        <button type="button" class="level-btn" data-level="basic">Basic</button>
+        <button type="button" class="level-btn" data-level="intermediate">Intermediate</button>
+        <button type="button" class="level-btn" data-level="nerd">Nerd</button>
+      </div>
+
       <label for="keySelect">Key <select id="keySelect"></select></label>
       <label for="modeSelect">Mode <select id="modeSelect"></select></label>
+      <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
 
-      <h4>Chords</h4>
-      <div id="chordTableWrap">
-        <table id="chordTable">
-          <thead>
-            <tr><th>Symbol</th><th>Intervals</th><th></th></tr>
-          </thead>
-          <tbody id="chordTableBody"></tbody>
-        </table>
+      <div id="chordsSection">
+        <h4>Chords</h4>
+        <div id="chordTableWrap">
+          <table id="chordTable">
+            <thead>
+              <tr><th>Symbol</th><th>Intervals</th><th></th></tr>
+            </thead>
+            <tbody id="chordTableBody"></tbody>
+          </table>
+        </div>
+        <div class="chord-table-actions">
+          <button id="addChordBtn" type="button">+ Add chord</button>
+          <button id="resetChordsBtn" type="button">Reset to defaults</button>
+        </div>
+        <div class="chord-table-actions">
+          <button id="exportChordsBtn" type="button">Export&hellip;</button>
+          <button id="importChordsBtn" type="button">Import&hellip;</button>
+          <input id="importFileInput" type="file" accept="application/json" style="display:none;">
+        </div>
+        <div id="chordImportError" class="chord-import-error" hidden></div>
       </div>
-      <div class="chord-table-actions">
-        <button id="addChordBtn" type="button">+ Add chord</button>
-        <button id="resetChordsBtn" type="button">Reset to defaults</button>
-      </div>
-      <div class="chord-table-actions">
-        <button id="exportChordsBtn" type="button">Export&hellip;</button>
-        <button id="importChordsBtn" type="button">Import&hellip;</button>
-        <input id="importFileInput" type="file" accept="application/json" style="display:none;">
-      </div>
-      <div id="chordImportError" class="chord-import-error" hidden></div>
 
       <div id="versionInfo" class="version-info"></div>
     </div>
@@ -250,6 +292,6 @@
     <svg id="piano"></svg>
   </div>
 
-<script src="app.js?v=36e5763"></script>
+<script src="app.js?v=2913ff1"></script>
 </body>
 </html>

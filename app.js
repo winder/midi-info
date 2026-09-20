@@ -62,15 +62,20 @@
   ];
   var KEYS = [
     { name: "C", tonicLetter: "C", tonicAccidental: 0, fallback: SHARP_NAMES },
+    { name: "C#", tonicLetter: "C", tonicAccidental: 1, fallback: SHARP_NAMES },
     { name: "Db", tonicLetter: "D", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "D", tonicLetter: "D", tonicAccidental: 0, fallback: SHARP_NAMES },
+    { name: "D#", tonicLetter: "D", tonicAccidental: 1, fallback: SHARP_NAMES },
     { name: "Eb", tonicLetter: "E", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "E", tonicLetter: "E", tonicAccidental: 0, fallback: SHARP_NAMES },
     { name: "F", tonicLetter: "F", tonicAccidental: 0, fallback: FLAT_NAMES },
     { name: "F#", tonicLetter: "F", tonicAccidental: 1, fallback: SHARP_NAMES },
+    { name: "Gb", tonicLetter: "G", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "G", tonicLetter: "G", tonicAccidental: 0, fallback: SHARP_NAMES },
+    { name: "G#", tonicLetter: "G", tonicAccidental: 1, fallback: SHARP_NAMES },
     { name: "Ab", tonicLetter: "A", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "A", tonicLetter: "A", tonicAccidental: 0, fallback: SHARP_NAMES },
+    { name: "A#", tonicLetter: "A", tonicAccidental: 1, fallback: SHARP_NAMES },
     { name: "Bb", tonicLetter: "B", tonicAccidental: -1, fallback: FLAT_NAMES },
     { name: "B", tonicLetter: "B", tonicAccidental: 0, fallback: SHARP_NAMES }
   ];
@@ -464,6 +469,22 @@
   function deleteCookie(name) {
     document.cookie = name + "=; path=/; max-age=0";
   }
+  function loadLevel() {
+    const raw = getCookie("level");
+    return raw === "basic" || raw === "intermediate" || raw === "nerd" ? raw : "basic";
+  }
+  function saveLevel(level) {
+    setCookie("level", level, 365);
+  }
+  function loadDebug() {
+    const raw = getCookie("debugMode");
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+    return getCookie("chordFormulas") !== null;
+  }
+  function saveDebug(value) {
+    setCookie("debugMode", value ? "1" : "0", 365);
+  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -486,6 +507,8 @@
   }
   var currentNoteNames = buildKeyNoteNames(KEYS[0]);
   var chordFormulas = loadChordFormulas();
+  var currentLevel = loadLevel();
+  var debugMode = loadDebug();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
@@ -494,6 +517,9 @@
   var pianoContainer = document.getElementById("pianoContainer");
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
+  var debugCheckbox = document.getElementById("debugCheckbox");
+  var chordsSection = document.getElementById("chordsSection");
+  var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
   var resetChordsBtn = document.getElementById("resetChordsBtn");
@@ -507,7 +533,7 @@
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
   var versionInfoEl = document.getElementById("versionInfo");
-  versionInfoEl.textContent = `Build ${"36e5763"}`;
+  versionInfoEl.textContent = `Build ${"2913ff1"}`;
   var piano = createPiano(svg);
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames);
@@ -545,18 +571,52 @@
     opt.textContent = key.name;
     keySelect.appendChild(opt);
   });
-  MODES.forEach((mode, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = mode.name;
-    modeSelect.appendChild(opt);
-  });
+  var IONIAN_INDEX = MODES.findIndex((m) => m.name === "Ionian");
+  var AEOLIAN_INDEX = MODES.findIndex((m) => m.name === "Aeolian");
+  function populateModeSelect() {
+    const prevIndex = modeSelect.value ? Number(modeSelect.value) : IONIAN_INDEX;
+    modeSelect.innerHTML = "";
+    const options = currentLevel === "basic" ? [{ label: "Major", index: IONIAN_INDEX }, { label: "Minor", index: AEOLIAN_INDEX }] : MODES.map((mode, i) => ({ label: mode.name, index: i }));
+    options.forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = String(o.index);
+      opt.textContent = o.label;
+      modeSelect.appendChild(opt);
+    });
+    const validIndices = options.map((o) => o.index);
+    modeSelect.value = String(validIndices.includes(prevIndex) ? prevIndex : IONIAN_INDEX);
+  }
+  populateModeSelect();
   function refreshNoteNames() {
     currentNoteNames = buildKeyNoteNames(KEYS[Number(keySelect.value)], MODES[Number(modeSelect.value)]);
     render();
   }
   keySelect.addEventListener("change", refreshNoteNames);
   modeSelect.addEventListener("change", refreshNoteNames);
+  function updateLevelButtons() {
+    levelButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.level === currentLevel));
+  }
+  function setLevel(level) {
+    currentLevel = level;
+    saveLevel(level);
+    updateLevelButtons();
+    populateModeSelect();
+    refreshNoteNames();
+  }
+  levelButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setLevel(btn.dataset.level));
+  });
+  updateLevelButtons();
+  function updateChordsVisibility() {
+    chordsSection.hidden = !debugMode;
+  }
+  debugCheckbox.checked = debugMode;
+  updateChordsVisibility();
+  debugCheckbox.addEventListener("change", () => {
+    debugMode = debugCheckbox.checked;
+    saveDebug(debugMode);
+    updateChordsVisibility();
+  });
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {
       onSymbolChange(index, symbol) {
