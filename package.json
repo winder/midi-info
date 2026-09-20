@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "build": "tsc --noEmit && esbuild src/app.ts --bundle --outfile=app.js --define:__COMMIT_HASH__=\\\"$(git rev-parse --short HEAD)\\\"",
+    "build": "tsc --noEmit && esbuild src/app.ts --bundle --outfile=app.js --define:__COMMIT_HASH__=\\\"$(git rev-parse --short HEAD)\\\" && sed -i -E \"s/app\\.js(\\?v=[^\\\"]*)?/app.js?v=$(git rev-parse --short HEAD)/\" index.html",
     "watch": "esbuild src/app.ts --bundle --outfile=app.js --watch --define:__COMMIT_HASH__=\\\"$(git rev-parse --short HEAD)\\\"",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/**/*.test.ts"
