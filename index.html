@@ -17,6 +17,11 @@
     --active-key-color: #4a76c4;
     --highlight-color: #ffd54f;
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-size-chord: 40px;
+    --font-size-secondary: 16px;
+    --font-size-tertiary: 15px;
+    --font-size-note: 15px;
+    --font-size-octave: 10px;
   }
   body {
     margin: 0;
@@ -240,17 +245,17 @@
   }
   #chordDisplay .chord-main {
     color: var(--font-color);
-    font-size: 40px;
+    font-size: var(--font-size-chord);
     font-weight: 600;
     line-height: 1.1;
   }
   #chordDisplay .chord-roman {
-    font-size: 16px;
+    font-size: var(--font-size-secondary);
     color: #666;
     margin-top: 2px;
   }
   #chordDisplay .chord-alt {
-    font-size: 15px;
+    font-size: var(--font-size-tertiary);
     /* A lighter tint of the configured font color, for secondary/alternate
        detection text (interval breakdown, alternate chord matches). */
     color: color-mix(in srgb, var(--font-color) 55%, white);
@@ -280,14 +285,14 @@
     fill: var(--active-key-color);
   }
   .note-label {
-    font-size: 15px;
+    font-size: var(--font-size-note);
     fill: var(--font-color);
     font-family: var(--font-family);
     text-anchor: middle;
     font-weight: 600;
   }
   .octave-label {
-    font-size: 10px;
+    font-size: var(--font-size-octave);
     fill: var(--font-color);
     font-family: var(--font-family);
     text-anchor: middle;
@@ -402,6 +407,11 @@
       <div id="themeSection">
         <h4>Theme</h4>
         <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
+        <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
+        <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
+        <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
+        <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
+        <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
         <label for="themeSelect">Theme <select id="themeSelect"></select></label>
         <div class="settings-actions">
           <button id="exportThemeBtn" type="button">Export&hellip;</button>
@@ -478,6 +488,6 @@
     </div>
   </div>
 
-<script src="app.js?v=8b5052a"></script>
+<script src="app.js?v=0b73dad"></script>
 </body>
 </html>

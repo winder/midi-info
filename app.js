@@ -675,6 +675,21 @@
     const option = FONT_OPTIONS.find((f) => f.id === fontId) ?? FONT_OPTIONS[0];
     document.documentElement.style.setProperty("--font-family", option.family);
   }
+  var DEFAULT_FONT_SIZES = {
+    chord: 40,
+    secondary: 16,
+    tertiary: 15,
+    note: 15,
+    octave: 10
+  };
+  function applyFontSizes(sizes) {
+    const root = document.documentElement.style;
+    root.setProperty("--font-size-chord", `${sizes.chord}px`);
+    root.setProperty("--font-size-secondary", `${sizes.secondary}px`);
+    root.setProperty("--font-size-tertiary", `${sizes.tertiary}px`);
+    root.setProperty("--font-size-note", `${sizes.note}px`);
+    root.setProperty("--font-size-octave", `${sizes.octave}px`);
+  }
 
   // src/app.ts
   function getCookie(name) {
@@ -744,6 +759,27 @@
   function saveFontId(id) {
     setCookie("fontFamily", id, 365);
   }
+  function loadFontSize(cookieName, fallback) {
+    const raw = getCookie(cookieName);
+    const n = raw !== null ? Number(raw) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  }
+  function loadFontSizes() {
+    return {
+      chord: loadFontSize("fontSizeChord", DEFAULT_FONT_SIZES.chord),
+      secondary: loadFontSize("fontSizeSecondary", DEFAULT_FONT_SIZES.secondary),
+      tertiary: loadFontSize("fontSizeTertiary", DEFAULT_FONT_SIZES.tertiary),
+      note: loadFontSize("fontSizeNote", DEFAULT_FONT_SIZES.note),
+      octave: loadFontSize("fontSizeOctave", DEFAULT_FONT_SIZES.octave)
+    };
+  }
+  function saveFontSizes(sizes) {
+    setCookie("fontSizeChord", String(sizes.chord), 365);
+    setCookie("fontSizeSecondary", String(sizes.secondary), 365);
+    setCookie("fontSizeTertiary", String(sizes.tertiary), 365);
+    setCookie("fontSizeNote", String(sizes.note), 365);
+    setCookie("fontSizeOctave", String(sizes.octave), 365);
+  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -774,6 +810,7 @@
   var themes = loadThemes();
   var currentThemeName = loadThemeName(themes);
   var currentFontId = loadFontId();
+  var currentFontSizes = loadFontSizes();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
@@ -829,7 +866,12 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"8b5052a"}`;
+  var chordFontSizeInput = document.getElementById("chordFontSizeInput");
+  var secondaryFontSizeInput = document.getElementById("secondaryFontSizeInput");
+  var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
+  var noteFontSizeInput = document.getElementById("noteFontSizeInput");
+  var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
+  versionInfoEl.textContent = `Build ${"0b73dad"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1039,6 +1081,24 @@
     applyFont(currentFontId);
     saveFontId(currentFontId);
   });
+  chordFontSizeInput.value = String(currentFontSizes.chord);
+  secondaryFontSizeInput.value = String(currentFontSizes.secondary);
+  tertiaryFontSizeInput.value = String(currentFontSizes.tertiary);
+  noteFontSizeInput.value = String(currentFontSizes.note);
+  octaveFontSizeInput.value = String(currentFontSizes.octave);
+  applyFontSizes(currentFontSizes);
+  function updateFontSize(key, value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return;
+    currentFontSizes = { ...currentFontSizes, [key]: n };
+    applyFontSizes(currentFontSizes);
+    saveFontSizes(currentFontSizes);
+  }
+  chordFontSizeInput.addEventListener("change", () => updateFontSize("chord", chordFontSizeInput.value));
+  secondaryFontSizeInput.addEventListener("change", () => updateFontSize("secondary", secondaryFontSizeInput.value));
+  tertiaryFontSizeInput.addEventListener("change", () => updateFontSize("tertiary", tertiaryFontSizeInput.value));
+  noteFontSizeInput.addEventListener("change", () => updateFontSize("note", noteFontSizeInput.value));
+  octaveFontSizeInput.addEventListener("change", () => updateFontSize("octave", octaveFontSizeInput.value));
   KEYS.forEach((key, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);

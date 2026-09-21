@@ -500,3 +500,34 @@ export function applyFont(fontId: string): void {
   const option = FONT_OPTIONS.find(f => f.id === fontId) ?? FONT_OPTIONS[0];
   document.documentElement.style.setProperty('--font-family', option.family);
 }
+
+// ---- Font sizes ----
+// Five independently sized areas, each its own CSS custom property so a
+// change to one doesn't move the others: the detected chord/interval name,
+// the roman numeral, the alternate-match line, the keyboard's floating
+// note-name popup, and the keyboard's octave numbers.
+
+export interface FontSizes {
+  chord: number;
+  secondary: number;
+  tertiary: number;
+  note: number;
+  octave: number;
+}
+
+export const DEFAULT_FONT_SIZES: FontSizes = {
+  chord: 40,
+  secondary: 16,
+  tertiary: 15,
+  note: 15,
+  octave: 10,
+};
+
+export function applyFontSizes(sizes: FontSizes): void {
+  const root = document.documentElement.style;
+  root.setProperty('--font-size-chord', `${sizes.chord}px`);
+  root.setProperty('--font-size-secondary', `${sizes.secondary}px`);
+  root.setProperty('--font-size-tertiary', `${sizes.tertiary}px`);
+  root.setProperty('--font-size-note', `${sizes.note}px`);
+  root.setProperty('--font-size-octave', `${sizes.octave}px`);
+}

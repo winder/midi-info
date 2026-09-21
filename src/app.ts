@@ -24,7 +24,9 @@ import {
 import {
   BUILT_IN_THEMES,
   DEFAULT_FONT_ID,
+  DEFAULT_FONT_SIZES,
   FONT_OPTIONS,
+  FontSizes,
   MAX_MIDI,
   MIN_MIDI,
   NamedTheme,
@@ -32,6 +34,7 @@ import {
   Theme,
   TOTAL_KEYS,
   applyFont,
+  applyFontSizes,
   applyTheme,
   attachPianoMouseInput,
   centerOnMiddleC,
@@ -152,6 +155,32 @@ function saveFontId(id: string): void {
   setCookie('fontFamily', id, 365);
 }
 
+// ---- Font sizes (one cookie per area) ----
+
+function loadFontSize(cookieName: string, fallback: number): number {
+  const raw = getCookie(cookieName);
+  const n = raw !== null ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function loadFontSizes(): FontSizes {
+  return {
+    chord: loadFontSize('fontSizeChord', DEFAULT_FONT_SIZES.chord),
+    secondary: loadFontSize('fontSizeSecondary', DEFAULT_FONT_SIZES.secondary),
+    tertiary: loadFontSize('fontSizeTertiary', DEFAULT_FONT_SIZES.tertiary),
+    note: loadFontSize('fontSizeNote', DEFAULT_FONT_SIZES.note),
+    octave: loadFontSize('fontSizeOctave', DEFAULT_FONT_SIZES.octave),
+  };
+}
+
+function saveFontSizes(sizes: FontSizes): void {
+  setCookie('fontSizeChord', String(sizes.chord), 365);
+  setCookie('fontSizeSecondary', String(sizes.secondary), 365);
+  setCookie('fontSizeTertiary', String(sizes.tertiary), 365);
+  setCookie('fontSizeNote', String(sizes.note), 365);
+  setCookie('fontSizeOctave', String(sizes.octave), 365);
+}
+
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -191,6 +220,7 @@ let currentVisibleKeys: number = loadVisibleKeys();
 let themes: NamedTheme[] = loadThemes();
 let currentThemeName: string = loadThemeName(themes);
 let currentFontId: string = loadFontId();
+let currentFontSizes: FontSizes = loadFontSizes();
 const activeNotes = new Set<number>();
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
@@ -252,6 +282,11 @@ const importThemeBtn = document.getElementById('importThemeBtn') as HTMLButtonEl
 const importThemeFileInput = document.getElementById('importThemeFileInput') as HTMLInputElement;
 const themeImportError = document.getElementById('themeImportError') as HTMLElement;
 const fontFamilySelect = document.getElementById('fontFamilySelect') as HTMLSelectElement;
+const chordFontSizeInput = document.getElementById('chordFontSizeInput') as HTMLInputElement;
+const secondaryFontSizeInput = document.getElementById('secondaryFontSizeInput') as HTMLInputElement;
+const tertiaryFontSizeInput = document.getElementById('tertiaryFontSizeInput') as HTMLInputElement;
+const noteFontSizeInput = document.getElementById('noteFontSizeInput') as HTMLInputElement;
+const octaveFontSizeInput = document.getElementById('octaveFontSizeInput') as HTMLInputElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -500,6 +535,29 @@ fontFamilySelect.addEventListener('change', () => {
   applyFont(currentFontId);
   saveFontId(currentFontId);
 });
+
+// ---- Font sizes ----
+
+chordFontSizeInput.value = String(currentFontSizes.chord);
+secondaryFontSizeInput.value = String(currentFontSizes.secondary);
+tertiaryFontSizeInput.value = String(currentFontSizes.tertiary);
+noteFontSizeInput.value = String(currentFontSizes.note);
+octaveFontSizeInput.value = String(currentFontSizes.octave);
+applyFontSizes(currentFontSizes);
+
+function updateFontSize(key: keyof FontSizes, value: string): void {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return;
+  currentFontSizes = { ...currentFontSizes, [key]: n };
+  applyFontSizes(currentFontSizes);
+  saveFontSizes(currentFontSizes);
+}
+
+chordFontSizeInput.addEventListener('change', () => updateFontSize('chord', chordFontSizeInput.value));
+secondaryFontSizeInput.addEventListener('change', () => updateFontSize('secondary', secondaryFontSizeInput.value));
+tertiaryFontSizeInput.addEventListener('change', () => updateFontSize('tertiary', tertiaryFontSizeInput.value));
+noteFontSizeInput.addEventListener('change', () => updateFontSize('note', noteFontSizeInput.value));
+octaveFontSizeInput.addEventListener('change', () => updateFontSize('octave', octaveFontSizeInput.value));
 
 // ---- Key/mode selection ----
 
