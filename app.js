@@ -499,22 +499,22 @@
       el.innerHTML = '<span class="placeholder">Play some notes&hellip;</span>';
       return;
     }
-    if (activeMidiSorted.length === 1) {
+    if (pitchClasses.length === 1) {
       const main2 = document.createElement("div");
       main2.className = "chord-main";
-      main2.textContent = noteNames[activeMidiSorted[0] % 12];
+      main2.textContent = noteNames[pitchClasses[0]];
       el.appendChild(main2);
       return;
     }
-    if (activeMidiSorted.length === 2) {
-      const distance = activeMidiSorted[1] - activeMidiSorted[0];
+    if (pitchClasses.length === 2) {
+      const distance = pitchClasses[1] - pitchClasses[0];
       const main2 = document.createElement("div");
       main2.className = "chord-main";
-      main2.textContent = INTERVAL_NAMES[distance % 12];
+      main2.textContent = INTERVAL_NAMES[(distance % 12 + 12) % 12];
       el.appendChild(main2);
       const alt = document.createElement("div");
       alt.className = "chord-alt";
-      alt.textContent = noteNames[activeMidiSorted[0] % 12] + "  \u2192  " + noteNames[activeMidiSorted[1] % 12];
+      alt.textContent = noteNames[pitchClasses[0]] + "  \u2192  " + noteNames[pitchClasses[1]];
       el.appendChild(alt);
       return;
     }
@@ -829,7 +829,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"b745a6d"}`;
+  versionInfoEl.textContent = `Build ${"fb034ca"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {

@@ -254,23 +254,26 @@ export function renderChordDisplay(
     el.innerHTML = '<span class="placeholder">Play some notes&hellip;</span>';
     return;
   }
-  if (activeMidiSorted.length === 1) {
+  if (pitchClasses.length === 1) {
     const main = document.createElement('div');
     main.className = 'chord-main';
-    main.textContent = noteNames[activeMidiSorted[0] % 12];
+    main.textContent = noteNames[pitchClasses[0]];
     el.appendChild(main);
     return;
   }
-  if (activeMidiSorted.length === 2) {
-    const distance = activeMidiSorted[1] - activeMidiSorted[0];
+  if (pitchClasses.length === 2) {
+    // pitchClasses[0] is the pitch class of the lowest sounding note (activeMidiSorted
+    // is ascending and Set preserves insertion order), so doubled/octaved notes above
+    // it don't change which pitch class is the interval's bottom.
+    const distance = pitchClasses[1] - pitchClasses[0];
     const main = document.createElement('div');
     main.className = 'chord-main';
-    main.textContent = INTERVAL_NAMES[distance % 12];
+    main.textContent = INTERVAL_NAMES[((distance % 12) + 12) % 12];
     el.appendChild(main);
 
     const alt = document.createElement('div');
     alt.className = 'chord-alt';
-    alt.textContent = noteNames[activeMidiSorted[0] % 12] + '  →  ' + noteNames[activeMidiSorted[1] % 12];
+    alt.textContent = noteNames[pitchClasses[0]] + '  →  ' + noteNames[pitchClasses[1]];
     el.appendChild(alt);
     return;
   }
