@@ -222,6 +222,7 @@ let currentThemeName: string = loadThemeName(themes);
 let currentFontId: string = loadFontId();
 let currentFontSizes: FontSizes = loadFontSizes();
 const activeNotes = new Set<number>();
+let hasPlayedNote = false;
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
 const sustainedNotes = new Set<number>();
@@ -301,11 +302,13 @@ function render(): void {
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
   renderChordDisplay(
-    chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode
+    chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode,
+    hasPlayedNote
   );
 }
 
 function noteOn(midi: number): void {
+  hasPlayedNote = true;
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
   render();

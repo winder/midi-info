@@ -16,6 +16,19 @@ import {
 // G3 55, C4 60, D4 62, E4 64, F4 65, G4 67, A4 69, Bb4 70, B4 71, D5 74.
 
 describe('chord display', () => {
+  test('the placeholder only shows before the first note, not after releasing back to silence', async () => {
+    const app = await launchApp();
+    try {
+      assert.equal(await chordDisplayMain(app.page), 'Play some notes…');
+      await pressKeys(app.page, [60]);
+      assert.equal(await chordDisplayMain(app.page), 'C');
+      await releaseKeys(app.page, [60]);
+      assert.equal(await chordDisplayMain(app.page), '');
+    } finally {
+      await app.close();
+    }
+  });
+
   test('a sus chord is named from the bass note, not any root that fits', async () => {
     const app = await launchApp();
     try {

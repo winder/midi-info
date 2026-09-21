@@ -251,7 +251,8 @@ export function renderChordDisplay(
   chordFormulas: ChordFormula[],
   noteNames: string[],
   tonicPc: number,
-  mode: Mode
+  mode: Mode,
+  hasPlayedNote: boolean
 ): void {
   el.innerHTML = '';
   const main = document.createElement('div');
@@ -263,10 +264,15 @@ export function renderChordDisplay(
   el.append(main, roman, alt);
 
   if (activeMidiSorted.length === 0) {
-    const placeholder = document.createElement('span');
-    placeholder.className = 'placeholder';
-    placeholder.textContent = 'Play some notes…';
-    main.appendChild(placeholder);
+    // Once the player has pressed at least one key, releasing back to
+    // silence leaves the display blank rather than bringing the
+    // "Play some notes…" placeholder back.
+    if (!hasPlayedNote) {
+      const placeholder = document.createElement('span');
+      placeholder.className = 'placeholder';
+      placeholder.textContent = 'Play some notes…';
+      main.appendChild(placeholder);
+    }
     return;
   }
   if (pitchClasses.length === 1) {

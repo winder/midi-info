@@ -493,7 +493,7 @@
       piano2.labelGroup.appendChild(text);
     });
   }
-  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode) {
+  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode, hasPlayedNote2) {
     el.innerHTML = "";
     const main = document.createElement("div");
     main.className = "chord-main";
@@ -503,10 +503,12 @@
     alt.className = "chord-alt";
     el.append(main, roman, alt);
     if (activeMidiSorted.length === 0) {
-      const placeholder = document.createElement("span");
-      placeholder.className = "placeholder";
-      placeholder.textContent = "Play some notes\u2026";
-      main.appendChild(placeholder);
+      if (!hasPlayedNote2) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "placeholder";
+        placeholder.textContent = "Play some notes\u2026";
+        main.appendChild(placeholder);
+      }
       return;
     }
     if (pitchClasses.length === 1) {
@@ -802,6 +804,7 @@
   var currentFontId = loadFontId();
   var currentFontSizes = loadFontSizes();
   var activeNotes = /* @__PURE__ */ new Set();
+  var hasPlayedNote = false;
   var sustainOn = false;
   var sustainedNotes = /* @__PURE__ */ new Set();
   var highlighterOpen = false;
@@ -861,7 +864,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"9787c79"}`;
+  versionInfoEl.textContent = `Build ${"abbadd2"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -875,10 +878,12 @@
       chordFormulas,
       currentNoteNames,
       currentTonicPc,
-      currentMode
+      currentMode,
+      hasPlayedNote
     );
   }
   function noteOn(midi) {
+    hasPlayedNote = true;
     sustainedNotes.delete(midi);
     activeNotes.add(midi);
     render();
