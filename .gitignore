@@ -6,3 +6,6 @@
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Agent instructions live in AGENTS.md; bd setup may regenerate this
+CLAUDE.md
