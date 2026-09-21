@@ -622,12 +622,12 @@
     },
     {
       name: "Cotton Candy",
-      background: "#b0cfd5",
+      background: "#a6c8c6",
       font: "#0a0000",
       whiteKey: "#ffffff",
       blackKey: "#222222",
-      activeKey: "#929f7a",
-      highlight: "#ffb3df"
+      activeKey: "#eebfa0",
+      highlight: "#49b0ca"
     }
   ];
   var DEFAULT_THEME = BUILT_IN_THEMES[0];
@@ -829,7 +829,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"08e7c4a"}`;
+  versionInfoEl.textContent = `Build ${"e0fa6de"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {

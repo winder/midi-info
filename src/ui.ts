@@ -420,12 +420,12 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
   },
   {
     name: 'Cotton Candy',
-    background: '#b0cfd5',
+    background: '#a6c8c6',
     font: '#0a0000',
     whiteKey: '#ffffff',
     blackKey: '#222222',
-    activeKey: '#929f7a',
-    highlight: '#ffb3df',
+    activeKey: '#eebfa0',
+    highlight: '#49b0ca',
   },
 ];
 
