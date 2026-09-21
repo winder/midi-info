@@ -415,6 +415,15 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     activeKey: '#6c9bf0',
     highlight: '#ffb300',
   },
+  {
+    name: 'Cotton Candy',
+    background: '#b0cfd5',
+    font: '#0a0000',
+    whiteKey: '#ffffff',
+    blackKey: '#222222',
+    activeKey: '#929f7a',
+    highlight: '#ffb3df',
+  },
 ];
 
 export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
