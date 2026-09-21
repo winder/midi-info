@@ -678,7 +678,7 @@ function computeHighlightedNotes(): Set<number> {
   } else if (highlightMode === 'chord' && chordRootIndex !== null) {
     const chord = HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol);
     if (chord) {
-      buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.intervals).forEach(m => notes.add(m));
+      buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.voicing).forEach(m => notes.add(m));
     }
   }
   return notes;

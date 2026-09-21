@@ -2,9 +2,11 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_CHORD_FORMULAS,
+  HIGHLIGHT_CHORDS,
   INTERVAL_NAMES,
   KEYS,
   MODES,
+  buildChordVoicing,
   buildKeyNoteNames,
   chordLabel,
   detectChords,
@@ -153,6 +155,60 @@ describe('detectChords + chordLabel', () => {
     const matches = detectChords([0, 3, 6, 9], DEFAULT_CHORD_FORMULAS);
     const dim7Roots = matches.filter(m => m.formula.symbol === '°7').map(m => m.root).sort();
     assert.deepEqual(dim7Roots, [0, 3, 6, 9]);
+  });
+
+  test('detects the sus family, with the 5th optional on 9sus4 and 13sus', () => {
+    assert.equal(labelOf([0, 5, 7]), 'Csus4');
+    assert.equal(labelOf([0, 2, 7, 11]), 'CΔ7sus2'); // C-D-G-B
+    assert.equal(labelOf([0, 5, 7, 10, 2]), 'C9sus4'); // C-F-G-Bb-D
+    assert.equal(labelOf([0, 5, 10, 2]), 'C9sus4'); // no G
+    assert.equal(labelOf([0, 5, 7, 9, 10, 2]), 'C13sus'); // C-F-G-A-Bb-D
+    assert.equal(labelOf([0, 5, 9, 10, 2]), 'C13sus'); // no G
+  });
+
+  test('a sus chord only matches with its root in the bass', () => {
+    // C-F-G is Csus4, Fsus2 and a 5th-less G7sus4 as bare pitch classes;
+    // the bass note decides which one the player meant.
+    const symbolsWithBass = (bassPc: number) =>
+      detectChords([0, 5, 7], DEFAULT_CHORD_FORMULAS, bassPc).map(m => chordLabel(m, sharpNames)).sort();
+    assert.deepEqual(symbolsWithBass(0), ['Csus4']);
+    assert.deepEqual(symbolsWithBass(5), ['Fsus2']);
+    assert.deepEqual(symbolsWithBass(7), ['G7sus4']);
+  });
+
+  test('without a bass note, sus chords still match from any root', () => {
+    const symbols = detectChords([0, 5, 7], DEFAULT_CHORD_FORMULAS).map(m => chordLabel(m, sharpNames)).sort();
+    assert.deepEqual(symbols, ['Csus4', 'Fsus2', 'G7sus4']);
+  });
+
+  test('the bass rule leaves non-sus chords alone (inversions still detected)', () => {
+    const matches = detectChords([4, 7, 0], DEFAULT_CHORD_FORMULAS, 4); // C/E
+    assert.ok(matches.some(m => m.root === 0 && m.formula.symbol === ''));
+  });
+});
+
+describe('HIGHLIGHT_CHORDS voicings', () => {
+  function voicingOf(symbol: string): number[] {
+    const chord = HIGHLIGHT_CHORDS.find(c => c.symbol === symbol)!;
+    return buildChordVoicing(0, chord.voicing);
+  }
+
+  test('default voicing stacks the interval list from the root', () => {
+    assert.deepEqual(voicingOf(''), [60, 64, 67]); // C E G
+    assert.deepEqual(voicingOf('sus4'), [60, 65, 67]); // C F G
+  });
+
+  test('sus chords use their idiomatic spread, dropping the 5th on 9sus4/13sus', () => {
+    assert.deepEqual(voicingOf('Δ7sus2'), [60, 71, 74, 79]); // C B D G
+    assert.deepEqual(voicingOf('9sus4'), [60, 65, 70, 74]); // C F Bb D
+    assert.deepEqual(voicingOf('13sus'), [60, 70, 74, 77, 81]); // C Bb D F A
+  });
+
+  test('every voicing covers a subset of its formula and always includes the root', () => {
+    HIGHLIGHT_CHORDS.forEach(c => {
+      assert.ok(c.voicing.includes(0), c.symbol);
+      c.voicing.forEach(i => assert.ok(c.intervals.includes(i), `${c.symbol}: ${i}`));
+    });
   });
 });
 

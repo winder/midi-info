@@ -154,10 +154,12 @@
     { symbol: "\xB0", intervals: [0, 3, 6] },
     { symbol: "\xF87", intervals: [0, 3, 6, 10] },
     { symbol: "\xB07", intervals: [0, 3, 6, 9] },
-    // Suspended
+    // Suspended (only recognized with the root in the bass - see detectChords)
     { symbol: "sus2", intervals: [0, 2, 7] },
     { symbol: "sus4", intervals: [0, 5, 7] },
+    { symbol: "\u03947sus2", intervals: [0, 2, 7, 11] },
     { symbol: "7sus4", intervals: [0, 5, 7, 10] },
+    { symbol: "9sus4", intervals: [0, 5, 7, 10, 2] },
     { symbol: "13sus", intervals: [0, 5, 7, 10, 2, 9] },
     // Augmented
     { symbol: "aug", intervals: [0, 4, 8] },
@@ -207,11 +209,18 @@
     "7": "intermediate",
     "\xB07": "intermediate",
     "\xF87": "intermediate",
-    "7sus4": "intermediate"
+    "7sus4": "intermediate",
+    "9sus4": "intermediate"
+  };
+  var CHORD_VOICINGS = {
+    "\u03947sus2": [0, 11, 2, 7],
+    "9sus4": [0, 5, 10, 2],
+    "13sus": [0, 10, 2, 5, 9]
   };
   var HIGHLIGHT_CHORDS = BASE_CHORD_FORMULAS.map((f) => ({
     symbol: f.symbol,
     intervals: f.intervals,
+    voicing: CHORD_VOICINGS[f.symbol] ?? f.intervals,
     minLevel: CHORD_MIN_LEVEL[f.symbol] ?? "nerd"
   }));
   function buildChordVoicing(rootPc, intervals, centerMidi = 60) {
@@ -229,13 +238,14 @@
     });
     return voicing;
   }
-  function detectChords(pitchClasses, chordFormulas2) {
+  function detectChords(pitchClasses, chordFormulas2, bassPc) {
     if (pitchClasses.length < 3) return [];
     const pcSet = new Set(pitchClasses);
     const matches = [];
     pitchClasses.forEach((root) => {
       chordFormulas2.forEach((formula) => {
         if (formula.intervals.length !== pitchClasses.length) return;
+        if (bassPc !== void 0 && root !== bassPc && chordQuality(formula.symbol) === "suspended") return;
         const expected = formula.intervals.map((i) => (root + i) % 12);
         if (expected.every((pc) => pcSet.has(pc))) {
           matches.push({ root, formula });
@@ -251,7 +261,7 @@
   function chordQuality(symbol) {
     if (symbol.startsWith("-")) return "minor";
     if (symbol === "\xB0" || symbol === "\xB07" || symbol === "\xF87") return "diminished";
-    if (symbol.startsWith("sus") || symbol.startsWith("7sus") || symbol.startsWith("13sus")) return "suspended";
+    if (symbol.includes("sus")) return "suspended";
     if (symbol === "aug" || symbol.startsWith("\u0394") && symbol.includes("#5")) return "augmented";
     if (symbol === "" || symbol === "add2" || symbol.startsWith("\u0394") || symbol.startsWith("6")) return "major";
     return "dominant";
@@ -509,7 +519,7 @@
       return;
     }
     const bassPc = activeMidiSorted[0] % 12;
-    const matches = detectChords(pitchClasses, chordFormulas2);
+    const matches = detectChords(pitchClasses, chordFormulas2, bassPc);
     const primary = matches.find((m) => m.root === bassPc) || matches[0];
     const main = document.createElement("div");
     main.className = "chord-main";
@@ -819,7 +829,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"d4c1c05"}`;
+  versionInfoEl.textContent = `Build ${"b745a6d"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1172,7 +1182,7 @@
     } else if (highlightMode === "chord" && chordRootIndex !== null) {
       const chord = HIGHLIGHT_CHORDS.find((c) => c.symbol === chordTypeSymbol);
       if (chord) {
-        buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.intervals).forEach((m) => notes.add(m));
+        buildChordVoicing(keyPitchClass(KEYS[chordRootIndex]), chord.voicing).forEach((m) => notes.add(m));
       }
     }
     return notes;

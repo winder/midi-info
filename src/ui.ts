@@ -276,7 +276,7 @@ export function renderChordDisplay(
   }
 
   const bassPc = activeMidiSorted[0] % 12;
-  const matches = detectChords(pitchClasses, chordFormulas);
+  const matches = detectChords(pitchClasses, chordFormulas, bassPc);
   const primary = matches.find(m => m.root === bassPc) || matches[0];
 
   const main = document.createElement('div');

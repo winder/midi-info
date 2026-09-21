@@ -172,10 +172,12 @@ const BASE_CHORD_FORMULAS: ChordFormula[] = [
   { symbol: 'ø7', intervals: [0, 3, 6, 10] },
   { symbol: '°7', intervals: [0, 3, 6, 9] },
 
-  // Suspended
+  // Suspended (only recognized with the root in the bass - see detectChords)
   { symbol: 'sus2', intervals: [0, 2, 7] },
   { symbol: 'sus4', intervals: [0, 5, 7] },
+  { symbol: 'Δ7sus2', intervals: [0, 2, 7, 11] },
   { symbol: '7sus4', intervals: [0, 5, 7, 10] },
+  { symbol: '9sus4', intervals: [0, 5, 7, 10, 2] },
   { symbol: '13sus', intervals: [0, 5, 7, 10, 2, 9] },
 
   // Augmented
@@ -229,18 +231,32 @@ const CHORD_MIN_LEVEL: Record<string, Level> = {
   '': 'basic', '-': 'basic', '°': 'basic', 'aug': 'basic', 'sus2': 'basic', 'sus4': 'basic',
   '6': 'intermediate', '-6': 'intermediate', 'Δ7': 'intermediate', '-7': 'intermediate',
   '-Δ7': 'intermediate', '7': 'intermediate', '°7': 'intermediate', 'ø7': 'intermediate',
-  '7sus4': 'intermediate',
+  '7sus4': 'intermediate', '9sus4': 'intermediate',
+};
+
+// Highlighter voicings that differ from a formula's interval list: the
+// tones to show, in stacking order from the root. Sus chords in
+// particular are voiced the way players actually spread them (Δ7sus2 with
+// the 7th right above the root, the 9/13 sus chords with the 5th left out
+// entirely). Anything not listed here is voiced in interval-list order.
+const CHORD_VOICINGS: Record<string, number[]> = {
+  'Δ7sus2': [0, 11, 2, 7],
+  '9sus4': [0, 5, 10, 2],
+  '13sus': [0, 10, 2, 5, 9],
 };
 
 export interface HighlightChord {
   symbol: string;
   intervals: number[];
+  // Tones to highlight, in stacking order (feed to buildChordVoicing).
+  voicing: number[];
   minLevel: Level;
 }
 
 export const HIGHLIGHT_CHORDS: HighlightChord[] = BASE_CHORD_FORMULAS.map(f => ({
   symbol: f.symbol,
   intervals: f.intervals,
+  voicing: CHORD_VOICINGS[f.symbol] ?? f.intervals,
   minLevel: CHORD_MIN_LEVEL[f.symbol] ?? 'nerd',
 }));
 
@@ -273,13 +289,19 @@ export interface ChordMatch {
 
 // Finds every (root, formula) pair whose notes exactly match the given
 // set of pitch classes (order-independent, octave-independent).
-export function detectChords(pitchClasses: number[], chordFormulas: ChordFormula[]): ChordMatch[] {
+//
+// Suspended chords are the exception to root-anywhere matching: their
+// pitch-class sets are ambiguous (C-F-G is Csus4, Fsus2 and a 5th-less
+// G7sus4 at once), and what a player means by "Csus4" is C in the bass.
+// When bassPc is given, a sus formula only matches with its root there.
+export function detectChords(pitchClasses: number[], chordFormulas: ChordFormula[], bassPc?: number): ChordMatch[] {
   if (pitchClasses.length < 3) return [];
   const pcSet = new Set(pitchClasses);
   const matches: ChordMatch[] = [];
   pitchClasses.forEach(root => {
     chordFormulas.forEach(formula => {
       if (formula.intervals.length !== pitchClasses.length) return;
+      if (bassPc !== undefined && root !== bassPc && chordQuality(formula.symbol) === 'suspended') return;
       const expected = formula.intervals.map(i => (root + i) % 12);
       if (expected.every(pc => pcSet.has(pc))) {
         matches.push({ root, formula });
@@ -305,7 +327,7 @@ type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented' | 'suspended'
 function chordQuality(symbol: string): ChordQuality {
   if (symbol.startsWith('-')) return 'minor';
   if (symbol === '°' || symbol === '°7' || symbol === 'ø7') return 'diminished';
-  if (symbol.startsWith('sus') || symbol.startsWith('7sus') || symbol.startsWith('13sus')) return 'suspended';
+  if (symbol.includes('sus')) return 'suspended';
   if (symbol === 'aug' || (symbol.startsWith('Δ') && symbol.includes('#5'))) return 'augmented';
   if (symbol === '' || symbol === 'add2' || symbol.startsWith('Δ') || symbol.startsWith('6')) return 'major';
   return 'dominant';

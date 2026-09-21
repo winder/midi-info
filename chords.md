@@ -32,11 +32,12 @@ What needs to appear on screen
         * C diminished (C0)
         * C half-diminished 7 (Cø7)
         * C diminished 7 (C07)
-    * Suspended Chords
-        * Csus4
+    * Suspended Chords (root must be the lowest note; other tones any order/doubling)
+        * Csus4 (C-F-G; highlight C F G)
+        * C Major 7 sus2 (C^7sus2: C-D-G-B; highlight C B D G)
         * C7sus4
-        * C7sus4
-        * C13sus
+        * C9sus4 (C-F-G-Bb-D, G optional; highlight C F Bb D)
+        * C13sus (C-F-G-A-Bb-D, G optional; highlight C Bb D F A)
     * Augmented chords
         * C Augmented (C aug)
     * Dominant chords
