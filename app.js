@@ -804,7 +804,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"bca80cf"}`;
+  versionInfoEl.textContent = `Build ${"d798919"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
