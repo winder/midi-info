@@ -829,7 +829,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"fb034ca"}`;
+  versionInfoEl.textContent = `Build ${"08e7c4a"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {

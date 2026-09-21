@@ -72,6 +72,13 @@ export async function chordDisplayMain(page: Page): Promise<string> {
   return page.$eval('#chordDisplay .chord-main', el => (el.textContent || '').trim());
 }
 
+// Top offset (in CSS px, viewport-relative) of an element's bounding box.
+// Used to assert that unrelated layout below #chordDisplay doesn't shift
+// when its content changes (e.g. a roman numeral line appearing).
+export async function elementTop(page: Page, selector: string): Promise<number> {
+  return page.$eval(selector, el => el.getBoundingClientRect().top);
+}
+
 // Opens the Highlighter drawer below the keyboard and waits for its body.
 export async function openHighlighter(page: Page): Promise<void> {
   await page.click('#highlighterToggle');

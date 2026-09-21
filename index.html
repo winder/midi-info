@@ -220,7 +220,9 @@
     text-align: right;
   }
   #chordDisplay {
-    min-height: 90px;
+    /* Tall enough for the 3-line case (chord name + roman numeral + alternate
+       matches) so that case never grows the box and shifts the keyboard below. */
+    min-height: 110px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -467,6 +469,6 @@
     </div>
   </div>
 
-<script src="app.js?v=fb034ca"></script>
+<script src="app.js?v=08e7c4a"></script>
 </body>
 </html>
