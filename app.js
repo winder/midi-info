@@ -819,7 +819,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"f6119f8"}`;
+  versionInfoEl.textContent = `Build ${"d4c1c05"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -906,6 +906,7 @@
     themeActiveKeyInput.value = theme.activeKey;
     themeHighlightInput.value = theme.highlight;
     const isBuiltIn = BUILT_IN_THEMES.some((b) => b.name === theme.name);
+    themeNameInput.disabled = isBuiltIn;
     deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
     themeResetBtn.disabled = !isBuiltIn;
   }
@@ -935,7 +936,7 @@
   themeNameInput.addEventListener("change", () => {
     const theme = getCurrentTheme();
     const nextName = themeNameInput.value.trim();
-    if (!nextName || themes.some((t) => t !== theme && t.name === nextName)) {
+    if (BUILT_IN_THEMES.some((b) => b.name === theme.name) || !nextName || themes.some((t) => t !== theme && t.name === nextName)) {
       themeNameInput.value = theme.name;
       return;
     }

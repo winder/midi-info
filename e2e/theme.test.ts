@@ -57,7 +57,7 @@ describe('theme settings', () => {
     }
   });
 
-  test('built-in themes cannot be deleted', async () => {
+  test('built-in themes cannot be deleted or renamed', async () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
@@ -65,6 +65,7 @@ describe('theme settings', () => {
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       await app.page.selectOption('#themeSelect', 'Light');
       assert.equal(await app.page.isDisabled('#deleteThemeBtn'), true);
+      assert.equal(await app.page.isDisabled('#themeNameInput'), true);
     } finally {
       await app.close();
     }
