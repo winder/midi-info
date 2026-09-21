@@ -8,7 +8,10 @@ description: Boot the midi-info app and drive it with Playwright, for a one-off 
 This app has no dev server or framework: `index.html` loads the checked-in
 `app.js` bundle directly. `e2e/` already has the bootstrap solved -
 `e2e/server.ts` (serves the repo root on an ephemeral port) and
-`e2e/fixtures.ts` (`launchApp()` / `openSettings()`). Playwright is a
+`e2e/fixtures.ts` (`launchApp()`, `openSettings()`/`closeSettings()`,
+`setLevel()`, `pressKeys()`/`releaseKeys()` to play notes with no MIDI
+device, `chordDisplayMain()`, `openHighlighter()`, `highlightedMidis()`).
+Playwright is a
 devDependency and its Chromium build is already downloaded in this
 environment - don't re-solve any of that, import from `e2e/fixtures.ts`.
 
@@ -59,7 +62,9 @@ script into a real test rather than deleting it:
   Screenshots are for *you* to look at while developing the test, not for
   the test to assert against.
 - See `e2e/theme.test.ts` for a full worked example (named-theme select,
-  debug-only editor, export/import, error handling).
+  debug-only editor, export/import, error handling) and
+  `e2e/chords.test.ts` for playing notes and reading the chord display
+  and highlighted keys.
 
 ## Gotchas
 
@@ -75,6 +80,10 @@ script into a real test rather than deleting it:
   panel. This is real app behavior, not a test bug - reopen the panel
   (`openSettings`) after clicking Export/Import-triggering buttons if you
   need it open for a later step.
+- **The open settings panel overlays the top of the page.** Anything
+  under it, including the Highlighter toggle, is unclickable until
+  `closeSettings()` runs. Playwright reports this as a label from
+  `#topBar` intercepting pointer events.
 - **If Chromium is ever missing** (`browserType.launch: Executable doesn't
   exist`): run `npx playwright install chromium`. Should not be needed
   here - it's already cached.
