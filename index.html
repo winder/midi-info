@@ -54,6 +54,11 @@
     padding: 4px 8px;
     width: 64px;
   }
+  #settingsPanel input[type="text"] {
+    font-size: 13px;
+    padding: 4px 8px;
+    width: 140px;
+  }
   #settingsPanel input[type="color"] {
     width: 40px;
     height: 24px;
@@ -137,12 +142,12 @@
     background: #4a76c4;
     color: #fff;
   }
-  #chordsSection {
+  #chordsSection, #themeEditorSection {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
-  #chordsSection[hidden] {
+  #chordsSection[hidden], #themeEditorSection[hidden] {
     display: none;
   }
   #chordTableWrap {
@@ -185,12 +190,12 @@
     font-size: 13px;
     padding: 0 4px;
   }
-  .chord-table-actions {
+  .settings-actions {
     display: flex;
     justify-content: space-between;
     gap: 8px;
   }
-  .chord-table-actions button {
+  .settings-actions button {
     font-size: 12px;
     padding: 5px 10px;
     border: 1px solid #ddd;
@@ -198,10 +203,14 @@
     background: #fff;
     cursor: pointer;
   }
-  .chord-table-actions button:hover {
+  .settings-actions button:hover {
     background: #f5f5f5;
   }
-  .chord-import-error {
+  .settings-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .import-error {
     color: #b33;
     font-size: 12px;
   }
@@ -382,14 +391,27 @@
       <div id="themeSection">
         <h4>Theme</h4>
         <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
-        <label for="themeBackgroundInput">Background <input type="color" id="themeBackgroundInput"></label>
-        <label for="themeFontInput">Font <input type="color" id="themeFontInput"></label>
-        <label for="themeWhiteKeyInput">White keys <input type="color" id="themeWhiteKeyInput"></label>
-        <label for="themeBlackKeyInput">Black keys <input type="color" id="themeBlackKeyInput"></label>
-        <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
-        <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
-        <div class="chord-table-actions">
-          <button id="themeResetBtn" type="button">Reset to defaults</button>
+        <label for="themeSelect">Theme <select id="themeSelect"></select></label>
+        <div class="settings-actions">
+          <button id="exportThemeBtn" type="button">Export&hellip;</button>
+          <button id="importThemeBtn" type="button">Import&hellip;</button>
+          <input id="importThemeFileInput" type="file" accept="application/json" style="display:none;">
+        </div>
+        <div id="themeImportError" class="import-error" hidden></div>
+
+        <div id="themeEditorSection">
+          <label for="themeNameInput">Name <input type="text" id="themeNameInput"></label>
+          <label for="themeBackgroundInput">Background <input type="color" id="themeBackgroundInput"></label>
+          <label for="themeFontInput">Font <input type="color" id="themeFontInput"></label>
+          <label for="themeWhiteKeyInput">White keys <input type="color" id="themeWhiteKeyInput"></label>
+          <label for="themeBlackKeyInput">Black keys <input type="color" id="themeBlackKeyInput"></label>
+          <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
+          <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
+          <div class="settings-actions">
+            <button id="newThemeBtn" type="button">+ New theme</button>
+            <button id="themeResetBtn" type="button">Reset to defaults</button>
+            <button id="deleteThemeBtn" type="button">Delete theme</button>
+          </div>
         </div>
       </div>
 
@@ -403,16 +425,16 @@
             <tbody id="chordTableBody"></tbody>
           </table>
         </div>
-        <div class="chord-table-actions">
+        <div class="settings-actions">
           <button id="addChordBtn" type="button">+ Add chord</button>
           <button id="resetChordsBtn" type="button">Reset to defaults</button>
         </div>
-        <div class="chord-table-actions">
+        <div class="settings-actions">
           <button id="exportChordsBtn" type="button">Export&hellip;</button>
           <button id="importChordsBtn" type="button">Import&hellip;</button>
           <input id="importFileInput" type="file" accept="application/json" style="display:none;">
         </div>
-        <div id="chordImportError" class="chord-import-error" hidden></div>
+        <div id="chordImportError" class="import-error" hidden></div>
       </div>
 
       <div id="versionInfo" class="version-info"></div>
@@ -445,6 +467,6 @@
     </div>
   </div>
 
-<script src="app.js?v=535a9c6"></script>
+<script src="app.js?v=bca80cf"></script>
 </body>
 </html>

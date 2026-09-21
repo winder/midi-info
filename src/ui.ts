@@ -377,7 +377,7 @@ export function setErrorMessage(el: HTMLElement, message: string | null): void {
   el.hidden = !message;
 }
 
-// ---- Theme (customizable colors) ----
+// ---- Theme (named color sets) ----
 
 export interface Theme {
   background: string;
@@ -388,14 +388,36 @@ export interface Theme {
   highlight: string;
 }
 
-export const DEFAULT_THEME: Theme = {
-  background: '#ffffff',
-  font: '#222222',
-  whiteKey: '#ffffff',
-  blackKey: '#222222',
-  activeKey: '#4a76c4',
-  highlight: '#ffd54f',
-};
+export interface NamedTheme extends Theme {
+  name: string;
+}
+
+const THEME_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
+
+// The themes users can pick from without turning on Debug. Debug mode adds
+// the ability to edit these (and any custom themes) in place.
+export const BUILT_IN_THEMES: NamedTheme[] = [
+  {
+    name: 'Light',
+    background: '#ffffff',
+    font: '#222222',
+    whiteKey: '#ffffff',
+    blackKey: '#222222',
+    activeKey: '#4a76c4',
+    highlight: '#ffd54f',
+  },
+  {
+    name: 'Dark',
+    background: '#1e1e1e',
+    font: '#e8e8e8',
+    whiteKey: '#2b2b2b',
+    blackKey: '#0d0d0d',
+    activeKey: '#6c9bf0',
+    highlight: '#ffb300',
+  },
+];
+
+export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
 
 // Applies the theme by setting CSS custom properties on the root element;
 // index.html's stylesheet reads these to color the page and keyboard.
@@ -407,6 +429,35 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--black-key-color', theme.blackKey);
   root.setProperty('--active-key-color', theme.activeKey);
   root.setProperty('--highlight-color', theme.highlight);
+}
+
+// Validates and normalizes arbitrary parsed JSON (from a cookie or an
+// imported file) into a single named theme. Returns null if the shape
+// isn't a named theme at all.
+export function parseNamedTheme(raw: unknown): NamedTheme | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const t = raw as Record<string, unknown>;
+  if (typeof t.name !== 'string' || !t.name.trim()) return null;
+  const theme = { name: t.name.trim() } as NamedTheme;
+  for (const key of THEME_KEYS) {
+    if (typeof t[key] !== 'string') return null;
+    theme[key] = t[key] as string;
+  }
+  return theme;
+}
+
+// Validates and normalizes arbitrary parsed JSON into a list of named
+// themes (e.g. from the themes cookie). Returns null if any entry isn't a
+// named theme, or the list is empty.
+export function parseNamedThemes(raw: unknown): NamedTheme[] | null {
+  if (!Array.isArray(raw)) return null;
+  const result: NamedTheme[] = [];
+  for (const item of raw) {
+    const theme = parseNamedTheme(item);
+    if (!theme) return null;
+    result.push(theme);
+  }
+  return result.length ? result : null;
 }
 
 // ---- Font family selection ----

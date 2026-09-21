@@ -590,14 +590,28 @@
     el.textContent = message || "";
     el.hidden = !message;
   }
-  var DEFAULT_THEME = {
-    background: "#ffffff",
-    font: "#222222",
-    whiteKey: "#ffffff",
-    blackKey: "#222222",
-    activeKey: "#4a76c4",
-    highlight: "#ffd54f"
-  };
+  var THEME_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
+  var BUILT_IN_THEMES = [
+    {
+      name: "Light",
+      background: "#ffffff",
+      font: "#222222",
+      whiteKey: "#ffffff",
+      blackKey: "#222222",
+      activeKey: "#4a76c4",
+      highlight: "#ffd54f"
+    },
+    {
+      name: "Dark",
+      background: "#1e1e1e",
+      font: "#e8e8e8",
+      whiteKey: "#2b2b2b",
+      blackKey: "#0d0d0d",
+      activeKey: "#6c9bf0",
+      highlight: "#ffb300"
+    }
+  ];
+  var DEFAULT_THEME = BUILT_IN_THEMES[0];
   function applyTheme(theme) {
     const root = document.documentElement.style;
     root.setProperty("--bg-color", theme.background);
@@ -606,6 +620,27 @@
     root.setProperty("--black-key-color", theme.blackKey);
     root.setProperty("--active-key-color", theme.activeKey);
     root.setProperty("--highlight-color", theme.highlight);
+  }
+  function parseNamedTheme(raw) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const t = raw;
+    if (typeof t.name !== "string" || !t.name.trim()) return null;
+    const theme = { name: t.name.trim() };
+    for (const key of THEME_KEYS) {
+      if (typeof t[key] !== "string") return null;
+      theme[key] = t[key];
+    }
+    return theme;
+  }
+  function parseNamedThemes(raw) {
+    if (!Array.isArray(raw)) return null;
+    const result = [];
+    for (const item of raw) {
+      const theme = parseNamedTheme(item);
+      if (!theme) return null;
+      result.push(theme);
+    }
+    return result.length ? result : null;
   }
   var FONT_OPTIONS = [
     { id: "sans", label: "Sans-serif", family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' },
@@ -655,22 +690,27 @@
   function saveVisibleKeys(n) {
     setCookie("visibleKeys", String(n), 365);
   }
-  function loadTheme() {
-    const raw = getCookie("theme");
-    if (!raw) return { ...DEFAULT_THEME };
+  function cloneBuiltInThemes() {
+    return BUILT_IN_THEMES.map((t) => ({ ...t }));
+  }
+  function loadThemes() {
+    const raw = getCookie("themes");
+    if (!raw) return cloneBuiltInThemes();
     try {
-      const parsed = JSON.parse(raw);
-      const theme = { ...DEFAULT_THEME };
-      Object.keys(DEFAULT_THEME).forEach((key) => {
-        if (typeof parsed[key] === "string") theme[key] = parsed[key];
-      });
-      return theme;
+      return parseNamedThemes(JSON.parse(raw)) ?? cloneBuiltInThemes();
     } catch (e) {
-      return { ...DEFAULT_THEME };
+      return cloneBuiltInThemes();
     }
   }
-  function saveTheme(theme) {
-    setCookie("theme", JSON.stringify(theme), 365);
+  function saveThemes() {
+    setCookie("themes", JSON.stringify(themes), 365);
+  }
+  function loadThemeName(themes2) {
+    const raw = getCookie("themeName");
+    return raw !== null && themes2.some((t) => t.name === raw) ? raw : themes2[0].name;
+  }
+  function saveThemeName(name) {
+    setCookie("themeName", name, 365);
   }
   function loadFontId() {
     const raw = getCookie("fontFamily");
@@ -706,7 +746,8 @@
   var currentLevel = loadLevel();
   var debugMode = loadDebug();
   var currentVisibleKeys = loadVisibleKeys();
-  var currentTheme = loadTheme();
+  var themes = loadThemes();
+  var currentThemeName = loadThemeName(themes);
   var currentFontId = loadFontId();
   var activeNotes = /* @__PURE__ */ new Set();
   var sustainOn = false;
@@ -746,15 +787,24 @@
   var scaleTypeButtonsEl = document.getElementById("scaleTypeButtons");
   var chordRootButtonsEl = document.getElementById("chordRootButtons");
   var chordTypeSelect = document.getElementById("chordTypeSelect");
+  var themeSelect = document.getElementById("themeSelect");
+  var themeEditorSection = document.getElementById("themeEditorSection");
+  var themeNameInput = document.getElementById("themeNameInput");
   var themeBackgroundInput = document.getElementById("themeBackgroundInput");
   var themeFontInput = document.getElementById("themeFontInput");
   var themeWhiteKeyInput = document.getElementById("themeWhiteKeyInput");
   var themeBlackKeyInput = document.getElementById("themeBlackKeyInput");
   var themeActiveKeyInput = document.getElementById("themeActiveKeyInput");
   var themeHighlightInput = document.getElementById("themeHighlightInput");
+  var newThemeBtn = document.getElementById("newThemeBtn");
+  var deleteThemeBtn = document.getElementById("deleteThemeBtn");
   var themeResetBtn = document.getElementById("themeResetBtn");
+  var exportThemeBtn = document.getElementById("exportThemeBtn");
+  var importThemeBtn = document.getElementById("importThemeBtn");
+  var importThemeFileInput = document.getElementById("importThemeFileInput");
+  var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"535a9c6"}`;
+  versionInfoEl.textContent = `Build ${"bca80cf"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -814,32 +864,133 @@
     resizeTimer = setTimeout(rebuildPiano, 150);
   });
   rebuildPiano();
-  function syncThemeInputs() {
-    themeBackgroundInput.value = currentTheme.background;
-    themeFontInput.value = currentTheme.font;
-    themeWhiteKeyInput.value = currentTheme.whiteKey;
-    themeBlackKeyInput.value = currentTheme.blackKey;
-    themeActiveKeyInput.value = currentTheme.activeKey;
-    themeHighlightInput.value = currentTheme.highlight;
+  function getCurrentTheme() {
+    return themes.find((t) => t.name === currentThemeName) ?? themes[0];
   }
-  function updateTheme(partial) {
-    currentTheme = { ...currentTheme, ...partial };
-    applyTheme(currentTheme);
-    saveTheme(currentTheme);
+  function populateThemeSelect() {
+    themeSelect.innerHTML = "";
+    themes.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t.name;
+      opt.textContent = t.name;
+      themeSelect.appendChild(opt);
+    });
+    themeSelect.value = currentThemeName;
   }
-  applyTheme(currentTheme);
-  syncThemeInputs();
-  themeBackgroundInput.addEventListener("input", () => updateTheme({ background: themeBackgroundInput.value }));
-  themeFontInput.addEventListener("input", () => updateTheme({ font: themeFontInput.value }));
-  themeWhiteKeyInput.addEventListener("input", () => updateTheme({ whiteKey: themeWhiteKeyInput.value }));
-  themeBlackKeyInput.addEventListener("input", () => updateTheme({ blackKey: themeBlackKeyInput.value }));
-  themeActiveKeyInput.addEventListener("input", () => updateTheme({ activeKey: themeActiveKeyInput.value }));
-  themeHighlightInput.addEventListener("input", () => updateTheme({ highlight: themeHighlightInput.value }));
+  function syncThemeEditorInputs() {
+    const theme = getCurrentTheme();
+    themeNameInput.value = theme.name;
+    themeBackgroundInput.value = theme.background;
+    themeFontInput.value = theme.font;
+    themeWhiteKeyInput.value = theme.whiteKey;
+    themeBlackKeyInput.value = theme.blackKey;
+    themeActiveKeyInput.value = theme.activeKey;
+    themeHighlightInput.value = theme.highlight;
+    deleteThemeBtn.disabled = themes.length <= 1;
+    themeResetBtn.disabled = !BUILT_IN_THEMES.some((b) => b.name === theme.name);
+  }
+  function selectTheme(name) {
+    currentThemeName = name;
+    saveThemeName(name);
+    applyTheme(getCurrentTheme());
+    themeSelect.value = name;
+    syncThemeEditorInputs();
+  }
+  function updateCurrentTheme(partial) {
+    Object.assign(getCurrentTheme(), partial);
+    applyTheme(getCurrentTheme());
+    saveThemes();
+  }
+  populateThemeSelect();
+  applyTheme(getCurrentTheme());
+  syncThemeEditorInputs();
+  themeSelect.addEventListener("change", () => selectTheme(themeSelect.value));
+  themeBackgroundInput.addEventListener("input", () => updateCurrentTheme({ background: themeBackgroundInput.value }));
+  themeFontInput.addEventListener("input", () => updateCurrentTheme({ font: themeFontInput.value }));
+  themeWhiteKeyInput.addEventListener("input", () => updateCurrentTheme({ whiteKey: themeWhiteKeyInput.value }));
+  themeBlackKeyInput.addEventListener("input", () => updateCurrentTheme({ blackKey: themeBlackKeyInput.value }));
+  themeActiveKeyInput.addEventListener("input", () => updateCurrentTheme({ activeKey: themeActiveKeyInput.value }));
+  themeHighlightInput.addEventListener("input", () => updateCurrentTheme({ highlight: themeHighlightInput.value }));
+  themeNameInput.addEventListener("change", () => {
+    const theme = getCurrentTheme();
+    const nextName = themeNameInput.value.trim();
+    if (!nextName || themes.some((t) => t !== theme && t.name === nextName)) {
+      themeNameInput.value = theme.name;
+      return;
+    }
+    theme.name = nextName;
+    currentThemeName = nextName;
+    saveThemeName(nextName);
+    saveThemes();
+    populateThemeSelect();
+    syncThemeEditorInputs();
+  });
+  newThemeBtn.addEventListener("click", () => {
+    const base = getCurrentTheme();
+    let name = "New theme";
+    let n = 2;
+    while (themes.some((t) => t.name === name)) {
+      name = `New theme ${n++}`;
+    }
+    themes.push({ ...base, name });
+    saveThemes();
+    populateThemeSelect();
+    selectTheme(name);
+  });
+  deleteThemeBtn.addEventListener("click", () => {
+    if (themes.length <= 1) return;
+    const index = themes.findIndex((t) => t.name === currentThemeName);
+    if (index === -1) return;
+    themes.splice(index, 1);
+    saveThemes();
+    populateThemeSelect();
+    selectTheme(themes[Math.max(0, index - 1)].name);
+  });
   themeResetBtn.addEventListener("click", () => {
-    currentTheme = { ...DEFAULT_THEME };
-    applyTheme(currentTheme);
-    deleteCookie("theme");
-    syncThemeInputs();
+    const builtIn = BUILT_IN_THEMES.find((b) => b.name === currentThemeName);
+    if (!builtIn) return;
+    Object.assign(getCurrentTheme(), builtIn);
+    applyTheme(getCurrentTheme());
+    saveThemes();
+    syncThemeEditorInputs();
+  });
+  exportThemeBtn.addEventListener("click", () => {
+    downloadJSON("midi-info-theme.json", getCurrentTheme());
+  });
+  importThemeBtn.addEventListener("click", () => {
+    importThemeFileInput.click();
+  });
+  importThemeFileInput.addEventListener("change", () => {
+    const file = importThemeFileInput.files?.[0];
+    importThemeFileInput.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(String(reader.result));
+      } catch (e) {
+        setErrorMessage(themeImportError, "That file is not valid JSON.");
+        return;
+      }
+      const theme = parseNamedTheme(parsed);
+      if (!theme) {
+        setErrorMessage(themeImportError, "That file doesn't look like a theme export.");
+        return;
+      }
+      const existingIndex = themes.findIndex((t) => t.name === theme.name);
+      if (existingIndex !== -1) {
+        themes[existingIndex] = theme;
+      } else {
+        themes.push(theme);
+      }
+      saveThemes();
+      populateThemeSelect();
+      setErrorMessage(themeImportError, null);
+      selectTheme(theme.name);
+    };
+    reader.onerror = () => setErrorMessage(themeImportError, "Could not read that file.");
+    reader.readAsText(file);
   });
   FONT_OPTIONS.forEach((font) => {
     const opt = document.createElement("option");
@@ -902,15 +1053,16 @@
     btn.addEventListener("click", () => setLevel(btn.dataset.level));
   });
   updateLevelButtons();
-  function updateChordsVisibility() {
+  function updateDebugSectionsVisibility() {
     chordsSection.hidden = !debugMode;
+    themeEditorSection.hidden = !debugMode;
   }
   debugCheckbox.checked = debugMode;
-  updateChordsVisibility();
+  updateDebugSectionsVisibility();
   debugCheckbox.addEventListener("change", () => {
     debugMode = debugCheckbox.checked;
     saveDebug(debugMode);
-    updateChordsVisibility();
+    updateDebugSectionsVisibility();
   });
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {

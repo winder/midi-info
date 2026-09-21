@@ -22,11 +22,12 @@ import {
   scalePitchClasses,
 } from './theory';
 import {
+  BUILT_IN_THEMES,
   DEFAULT_FONT_ID,
-  DEFAULT_THEME,
   FONT_OPTIONS,
   MAX_MIDI,
   MIN_MIDI,
+  NamedTheme,
   Piano,
   Theme,
   TOTAL_KEYS,
@@ -37,6 +38,8 @@ import {
   computeKeyDimensions,
   createPiano,
   downloadJSON,
+  parseNamedTheme,
+  parseNamedThemes,
   renderChordDisplay,
   renderChordTable,
   renderKeyboard,
@@ -101,25 +104,33 @@ function saveVisibleKeys(n: number): void {
   setCookie('visibleKeys', String(n), 365);
 }
 
-// ---- Theme (customizable colors) ----
+// ---- Theme (named color sets) ----
 
-function loadTheme(): Theme {
-  const raw = getCookie('theme');
-  if (!raw) return { ...DEFAULT_THEME };
+function cloneBuiltInThemes(): NamedTheme[] {
+  return BUILT_IN_THEMES.map(t => ({ ...t }));
+}
+
+function loadThemes(): NamedTheme[] {
+  const raw = getCookie('themes');
+  if (!raw) return cloneBuiltInThemes();
   try {
-    const parsed = JSON.parse(raw);
-    const theme = { ...DEFAULT_THEME };
-    (Object.keys(DEFAULT_THEME) as (keyof Theme)[]).forEach(key => {
-      if (typeof parsed[key] === 'string') theme[key] = parsed[key];
-    });
-    return theme;
+    return parseNamedThemes(JSON.parse(raw)) ?? cloneBuiltInThemes();
   } catch (e) {
-    return { ...DEFAULT_THEME };
+    return cloneBuiltInThemes();
   }
 }
 
-function saveTheme(theme: Theme): void {
-  setCookie('theme', JSON.stringify(theme), 365);
+function saveThemes(): void {
+  setCookie('themes', JSON.stringify(themes), 365);
+}
+
+function loadThemeName(themes: NamedTheme[]): string {
+  const raw = getCookie('themeName');
+  return raw !== null && themes.some(t => t.name === raw) ? raw : themes[0].name;
+}
+
+function saveThemeName(name: string): void {
+  setCookie('themeName', name, 365);
 }
 
 // ---- Font family ----
@@ -169,7 +180,8 @@ let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
 let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
-let currentTheme: Theme = loadTheme();
+let themes: NamedTheme[] = loadThemes();
+let currentThemeName: string = loadThemeName(themes);
 let currentFontId: string = loadFontId();
 const activeNotes = new Set<number>();
 let sustainOn = false;
@@ -215,13 +227,22 @@ const scaleRootButtonsEl = document.getElementById('scaleRootButtons') as HTMLEl
 const scaleTypeButtonsEl = document.getElementById('scaleTypeButtons') as HTMLElement;
 const chordRootButtonsEl = document.getElementById('chordRootButtons') as HTMLElement;
 const chordTypeSelect = document.getElementById('chordTypeSelect') as HTMLSelectElement;
+const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
+const themeEditorSection = document.getElementById('themeEditorSection') as HTMLElement;
+const themeNameInput = document.getElementById('themeNameInput') as HTMLInputElement;
 const themeBackgroundInput = document.getElementById('themeBackgroundInput') as HTMLInputElement;
 const themeFontInput = document.getElementById('themeFontInput') as HTMLInputElement;
 const themeWhiteKeyInput = document.getElementById('themeWhiteKeyInput') as HTMLInputElement;
 const themeBlackKeyInput = document.getElementById('themeBlackKeyInput') as HTMLInputElement;
 const themeActiveKeyInput = document.getElementById('themeActiveKeyInput') as HTMLInputElement;
 const themeHighlightInput = document.getElementById('themeHighlightInput') as HTMLInputElement;
+const newThemeBtn = document.getElementById('newThemeBtn') as HTMLButtonElement;
+const deleteThemeBtn = document.getElementById('deleteThemeBtn') as HTMLButtonElement;
 const themeResetBtn = document.getElementById('themeResetBtn') as HTMLButtonElement;
+const exportThemeBtn = document.getElementById('exportThemeBtn') as HTMLButtonElement;
+const importThemeBtn = document.getElementById('importThemeBtn') as HTMLButtonElement;
+const importThemeFileInput = document.getElementById('importThemeFileInput') as HTMLInputElement;
+const themeImportError = document.getElementById('themeImportError') as HTMLElement;
 const fontFamilySelect = document.getElementById('fontFamilySelect') as HTMLSelectElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
@@ -298,38 +319,150 @@ window.addEventListener('resize', () => {
 
 rebuildPiano();
 
-// ---- Theme (customizable colors) ----
+// ---- Theme (named color sets) ----
 
-function syncThemeInputs(): void {
-  themeBackgroundInput.value = currentTheme.background;
-  themeFontInput.value = currentTheme.font;
-  themeWhiteKeyInput.value = currentTheme.whiteKey;
-  themeBlackKeyInput.value = currentTheme.blackKey;
-  themeActiveKeyInput.value = currentTheme.activeKey;
-  themeHighlightInput.value = currentTheme.highlight;
+function getCurrentTheme(): NamedTheme {
+  return themes.find(t => t.name === currentThemeName) ?? themes[0];
 }
 
-function updateTheme(partial: Partial<Theme>): void {
-  currentTheme = { ...currentTheme, ...partial };
-  applyTheme(currentTheme);
-  saveTheme(currentTheme);
+function populateThemeSelect(): void {
+  themeSelect.innerHTML = '';
+  themes.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.name;
+    opt.textContent = t.name;
+    themeSelect.appendChild(opt);
+  });
+  themeSelect.value = currentThemeName;
 }
 
-applyTheme(currentTheme);
-syncThemeInputs();
+function syncThemeEditorInputs(): void {
+  const theme = getCurrentTheme();
+  themeNameInput.value = theme.name;
+  themeBackgroundInput.value = theme.background;
+  themeFontInput.value = theme.font;
+  themeWhiteKeyInput.value = theme.whiteKey;
+  themeBlackKeyInput.value = theme.blackKey;
+  themeActiveKeyInput.value = theme.activeKey;
+  themeHighlightInput.value = theme.highlight;
+  deleteThemeBtn.disabled = themes.length <= 1;
+  themeResetBtn.disabled = !BUILT_IN_THEMES.some(b => b.name === theme.name);
+}
 
-themeBackgroundInput.addEventListener('input', () => updateTheme({ background: themeBackgroundInput.value }));
-themeFontInput.addEventListener('input', () => updateTheme({ font: themeFontInput.value }));
-themeWhiteKeyInput.addEventListener('input', () => updateTheme({ whiteKey: themeWhiteKeyInput.value }));
-themeBlackKeyInput.addEventListener('input', () => updateTheme({ blackKey: themeBlackKeyInput.value }));
-themeActiveKeyInput.addEventListener('input', () => updateTheme({ activeKey: themeActiveKeyInput.value }));
-themeHighlightInput.addEventListener('input', () => updateTheme({ highlight: themeHighlightInput.value }));
+function selectTheme(name: string): void {
+  currentThemeName = name;
+  saveThemeName(name);
+  applyTheme(getCurrentTheme());
+  themeSelect.value = name;
+  syncThemeEditorInputs();
+}
+
+function updateCurrentTheme(partial: Partial<Theme>): void {
+  Object.assign(getCurrentTheme(), partial);
+  applyTheme(getCurrentTheme());
+  saveThemes();
+}
+
+populateThemeSelect();
+applyTheme(getCurrentTheme());
+syncThemeEditorInputs();
+
+themeSelect.addEventListener('change', () => selectTheme(themeSelect.value));
+
+themeBackgroundInput.addEventListener('input', () => updateCurrentTheme({ background: themeBackgroundInput.value }));
+themeFontInput.addEventListener('input', () => updateCurrentTheme({ font: themeFontInput.value }));
+themeWhiteKeyInput.addEventListener('input', () => updateCurrentTheme({ whiteKey: themeWhiteKeyInput.value }));
+themeBlackKeyInput.addEventListener('input', () => updateCurrentTheme({ blackKey: themeBlackKeyInput.value }));
+themeActiveKeyInput.addEventListener('input', () => updateCurrentTheme({ activeKey: themeActiveKeyInput.value }));
+themeHighlightInput.addEventListener('input', () => updateCurrentTheme({ highlight: themeHighlightInput.value }));
+
+themeNameInput.addEventListener('change', () => {
+  const theme = getCurrentTheme();
+  const nextName = themeNameInput.value.trim();
+  if (!nextName || themes.some(t => t !== theme && t.name === nextName)) {
+    themeNameInput.value = theme.name;
+    return;
+  }
+  theme.name = nextName;
+  currentThemeName = nextName;
+  saveThemeName(nextName);
+  saveThemes();
+  populateThemeSelect();
+  syncThemeEditorInputs();
+});
+
+newThemeBtn.addEventListener('click', () => {
+  const base = getCurrentTheme();
+  let name = 'New theme';
+  let n = 2;
+  while (themes.some(t => t.name === name)) {
+    name = `New theme ${n++}`;
+  }
+  themes.push({ ...base, name });
+  saveThemes();
+  populateThemeSelect();
+  selectTheme(name);
+});
+
+deleteThemeBtn.addEventListener('click', () => {
+  if (themes.length <= 1) return;
+  const index = themes.findIndex(t => t.name === currentThemeName);
+  if (index === -1) return;
+  themes.splice(index, 1);
+  saveThemes();
+  populateThemeSelect();
+  selectTheme(themes[Math.max(0, index - 1)].name);
+});
 
 themeResetBtn.addEventListener('click', () => {
-  currentTheme = { ...DEFAULT_THEME };
-  applyTheme(currentTheme);
-  deleteCookie('theme');
-  syncThemeInputs();
+  const builtIn = BUILT_IN_THEMES.find(b => b.name === currentThemeName);
+  if (!builtIn) return;
+  Object.assign(getCurrentTheme(), builtIn);
+  applyTheme(getCurrentTheme());
+  saveThemes();
+  syncThemeEditorInputs();
+});
+
+exportThemeBtn.addEventListener('click', () => {
+  downloadJSON('midi-info-theme.json', getCurrentTheme());
+});
+
+importThemeBtn.addEventListener('click', () => {
+  importThemeFileInput.click();
+});
+
+importThemeFileInput.addEventListener('change', () => {
+  const file = importThemeFileInput.files?.[0];
+  importThemeFileInput.value = ''; // allow re-importing the same file later
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(String(reader.result));
+    } catch (e) {
+      setErrorMessage(themeImportError, 'That file is not valid JSON.');
+      return;
+    }
+    const theme = parseNamedTheme(parsed);
+    if (!theme) {
+      setErrorMessage(themeImportError, "That file doesn't look like a theme export.");
+      return;
+    }
+    const existingIndex = themes.findIndex(t => t.name === theme.name);
+    if (existingIndex !== -1) {
+      themes[existingIndex] = theme;
+    } else {
+      themes.push(theme);
+    }
+    saveThemes();
+    populateThemeSelect();
+    setErrorMessage(themeImportError, null);
+    selectTheme(theme.name);
+  };
+  reader.onerror = () => setErrorMessage(themeImportError, 'Could not read that file.');
+  reader.readAsText(file);
 });
 
 // ---- Font family ----
@@ -413,18 +546,19 @@ levelButtons.forEach(btn => {
 });
 updateLevelButtons();
 
-// ---- Debug toggle (gates debug-only sections, e.g. the chord editor) ----
+// ---- Debug toggle (gates debug-only sections, e.g. the chord and theme editors) ----
 
-function updateChordsVisibility(): void {
+function updateDebugSectionsVisibility(): void {
   chordsSection.hidden = !debugMode;
+  themeEditorSection.hidden = !debugMode;
 }
 
 debugCheckbox.checked = debugMode;
-updateChordsVisibility();
+updateDebugSectionsVisibility();
 debugCheckbox.addEventListener('change', () => {
   debugMode = debugCheckbox.checked;
   saveDebug(debugMode);
-  updateChordsVisibility();
+  updateDebugSectionsVisibility();
 });
 
 // ---- Chord table editor ----
