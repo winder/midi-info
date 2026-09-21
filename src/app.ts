@@ -45,6 +45,7 @@ import {
   renderKeyboard,
   setErrorMessage,
   setSettingsOpen,
+  themeColorsEqual,
   trackMouseIsDown,
 } from './ui';
 
@@ -325,12 +326,17 @@ function getCurrentTheme(): NamedTheme {
   return themes.find(t => t.name === currentThemeName) ?? themes[0];
 }
 
+function isModifiedFromBuiltIn(theme: NamedTheme): boolean {
+  const builtIn = BUILT_IN_THEMES.find(b => b.name === theme.name);
+  return builtIn !== undefined && !themeColorsEqual(theme, builtIn);
+}
+
 function populateThemeSelect(): void {
   themeSelect.innerHTML = '';
   themes.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.name;
-    opt.textContent = t.name;
+    opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
     themeSelect.appendChild(opt);
   });
   themeSelect.value = currentThemeName;
@@ -361,6 +367,7 @@ function updateCurrentTheme(partial: Partial<Theme>): void {
   Object.assign(getCurrentTheme(), partial);
   applyTheme(getCurrentTheme());
   saveThemes();
+  populateThemeSelect();
 }
 
 populateThemeSelect();
@@ -420,6 +427,7 @@ themeResetBtn.addEventListener('click', () => {
   Object.assign(getCurrentTheme(), builtIn);
   applyTheme(getCurrentTheme());
   saveThemes();
+  populateThemeSelect();
   syncThemeEditorInputs();
 });
 

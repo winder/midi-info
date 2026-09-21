@@ -609,6 +609,15 @@
       blackKey: "#0d0d0d",
       activeKey: "#6c9bf0",
       highlight: "#ffb300"
+    },
+    {
+      name: "Cotton Candy",
+      background: "#b0cfd5",
+      font: "#0a0000",
+      whiteKey: "#ffffff",
+      blackKey: "#222222",
+      activeKey: "#929f7a",
+      highlight: "#ffb3df"
     }
   ];
   var DEFAULT_THEME = BUILT_IN_THEMES[0];
@@ -620,6 +629,9 @@
     root.setProperty("--black-key-color", theme.blackKey);
     root.setProperty("--active-key-color", theme.activeKey);
     root.setProperty("--highlight-color", theme.highlight);
+  }
+  function themeColorsEqual(a, b) {
+    return THEME_KEYS.every((key) => a[key] === b[key]);
   }
   function parseNamedTheme(raw) {
     if (typeof raw !== "object" || raw === null) return null;
@@ -804,7 +816,7 @@
   var importThemeFileInput = document.getElementById("importThemeFileInput");
   var themeImportError = document.getElementById("themeImportError");
   var fontFamilySelect = document.getElementById("fontFamilySelect");
-  versionInfoEl.textContent = `Build ${"d798919"}`;
+  versionInfoEl.textContent = `Build ${"2965f3b"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -867,12 +879,16 @@
   function getCurrentTheme() {
     return themes.find((t) => t.name === currentThemeName) ?? themes[0];
   }
+  function isModifiedFromBuiltIn(theme) {
+    const builtIn = BUILT_IN_THEMES.find((b) => b.name === theme.name);
+    return builtIn !== void 0 && !themeColorsEqual(theme, builtIn);
+  }
   function populateThemeSelect() {
     themeSelect.innerHTML = "";
     themes.forEach((t) => {
       const opt = document.createElement("option");
       opt.value = t.name;
-      opt.textContent = t.name;
+      opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
       themeSelect.appendChild(opt);
     });
     themeSelect.value = currentThemeName;
@@ -900,6 +916,7 @@
     Object.assign(getCurrentTheme(), partial);
     applyTheme(getCurrentTheme());
     saveThemes();
+    populateThemeSelect();
   }
   populateThemeSelect();
   applyTheme(getCurrentTheme());
@@ -952,6 +969,7 @@
     Object.assign(getCurrentTheme(), builtIn);
     applyTheme(getCurrentTheme());
     saveThemes();
+    populateThemeSelect();
     syncThemeEditorInputs();
   });
   exportThemeBtn.addEventListener("click", () => {

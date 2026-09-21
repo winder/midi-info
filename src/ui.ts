@@ -440,6 +440,11 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--highlight-color', theme.highlight);
 }
 
+// True if two themes have identical colors (name is ignored).
+export function themeColorsEqual(a: Theme, b: Theme): boolean {
+  return THEME_KEYS.every(key => a[key] === b[key]);
+}
+
 // Validates and normalizes arbitrary parsed JSON (from a cookie or an
 // imported file) into a single named theme. Returns null if the shape
 // isn't a named theme at all.

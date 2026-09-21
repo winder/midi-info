@@ -9,7 +9,7 @@ describe('theme settings', () => {
       await openSettings(app.page);
       assert.equal(await app.page.isHidden('#themeEditorSection'), true);
       const themeOptions = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(themeOptions, ['Light', 'Dark']);
+      assert.deepEqual(themeOptions, ['Light', 'Dark', 'Cotton Candy']);
     } finally {
       await app.close();
     }
@@ -43,7 +43,7 @@ describe('theme settings', () => {
       await app.page.dispatchEvent('#themeBackgroundInput', 'input');
 
       const options = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(options, ['Light', 'Dark', 'E2E Theme']);
+      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy', 'E2E Theme']);
       const bg = await app.page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim()
       );
@@ -51,7 +51,37 @@ describe('theme settings', () => {
 
       await app.page.click('#deleteThemeBtn');
       const optionsAfterDelete = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(optionsAfterDelete, ['Light', 'Dark']);
+      assert.deepEqual(optionsAfterDelete, ['Light', 'Dark', 'Cotton Candy']);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('editing a built-in theme marks it modified in the picker, and Reset clears it', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await app.page.check('#debugCheckbox');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+      await app.page.selectOption('#themeSelect', 'Light');
+
+      const labelBefore = await app.page.$eval(
+        '#themeSelect option[value="Light"]', o => o.textContent
+      );
+      assert.equal(labelBefore, 'Light');
+
+      await app.page.fill('#themeBackgroundInput', '#123456');
+      await app.page.dispatchEvent('#themeBackgroundInput', 'input');
+      const labelAfterEdit = await app.page.$eval(
+        '#themeSelect option[value="Light"]', o => o.textContent
+      );
+      assert.equal(labelAfterEdit, 'Light (modified)');
+
+      await app.page.click('#themeResetBtn');
+      const labelAfterReset = await app.page.$eval(
+        '#themeSelect option[value="Light"]', o => o.textContent
+      );
+      assert.equal(labelAfterReset, 'Light');
     } finally {
       await app.close();
     }
