@@ -239,6 +239,11 @@ export function renderKeyboard(
 }
 
 // Renders the note/interval/chord name above the keyboard.
+//
+// The three line slots (main, roman numeral, alternates) are always present,
+// each at a fixed height set in CSS, and are merely left empty when unused.
+// That keeps the display's geometry identical across every state so neither
+// the chord name nor the keyboard below moves as lines come and go.
 export function renderChordDisplay(
   el: HTMLElement,
   activeMidiSorted: number[],
@@ -249,16 +254,23 @@ export function renderChordDisplay(
   mode: Mode
 ): void {
   el.innerHTML = '';
+  const main = document.createElement('div');
+  main.className = 'chord-main';
+  const roman = document.createElement('div');
+  roman.className = 'chord-roman';
+  const alt = document.createElement('div');
+  alt.className = 'chord-alt';
+  el.append(main, roman, alt);
 
   if (activeMidiSorted.length === 0) {
-    el.innerHTML = '<span class="placeholder">Play some notes&hellip;</span>';
+    const placeholder = document.createElement('span');
+    placeholder.className = 'placeholder';
+    placeholder.textContent = 'Play some notes…';
+    main.appendChild(placeholder);
     return;
   }
   if (pitchClasses.length === 1) {
-    const main = document.createElement('div');
-    main.className = 'chord-main';
     main.textContent = noteNames[pitchClasses[0]];
-    el.appendChild(main);
     return;
   }
   if (pitchClasses.length === 2) {
@@ -266,15 +278,8 @@ export function renderChordDisplay(
     // is ascending and Set preserves insertion order), so doubled/octaved notes above
     // it don't change which pitch class is the interval's bottom.
     const distance = pitchClasses[1] - pitchClasses[0];
-    const main = document.createElement('div');
-    main.className = 'chord-main';
     main.textContent = INTERVAL_NAMES[((distance % 12) + 12) % 12];
-    el.appendChild(main);
-
-    const alt = document.createElement('div');
-    alt.className = 'chord-alt';
     alt.textContent = noteNames[pitchClasses[0]] + '  →  ' + noteNames[pitchClasses[1]];
-    el.appendChild(alt);
     return;
   }
 
@@ -282,32 +287,20 @@ export function renderChordDisplay(
   const matches = detectChords(pitchClasses, chordFormulas, bassPc);
   const primary = matches.find(m => m.root === bassPc) || matches[0];
 
-  const main = document.createElement('div');
-  main.className = 'chord-main';
   if (primary) {
     let text = chordLabel(primary, noteNames);
     if (primary.root !== bassPc) {
       text += '/' + noteNames[bassPc];
     }
     main.textContent = text;
+    roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
   } else {
     main.textContent = noteNames[bassPc] + ' n.c.';
-  }
-  el.appendChild(main);
-
-  if (primary) {
-    const roman = document.createElement('div');
-    roman.className = 'chord-roman';
-    roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
-    el.appendChild(roman);
   }
 
   const others = matches.filter(m => m !== primary);
   if (others.length > 0) {
-    const alt = document.createElement('div');
-    alt.className = 'chord-alt';
     alt.textContent = others.map(m => chordLabel(m, noteNames)).join('  /  ');
-    el.appendChild(alt);
   }
 }
 

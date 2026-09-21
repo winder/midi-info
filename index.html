@@ -228,37 +228,44 @@
     text-align: right;
   }
   #chordDisplay {
-    /* Tall enough for the 3-line case (chord name + roman numeral + alternate
-       matches) so that case never grows the box and shifts the keyboard
-       below, however large the font-size-* variables below are set: each
-       term here matches a line's own font-size * line-height + margin. */
-    min-height: calc(
-      (var(--font-size-chord) * 1.1) +
-      (var(--font-size-secondary) * 1.2 + 2px) +
-      (var(--font-size-tertiary) * 1.2 + 4px) +
-      16px
-    );
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     text-align: center;
     padding: 8px 24px;
     font-family: var(--font-family);
   }
-  #chordDisplay .placeholder {
-    color: var(--font-color);
-    font-size: 14px;
+  /* The three line slots are always rendered (empty when unused) and each has
+     a fixed height equal to its own line box, with wrapping disabled, so the
+     display's geometry never changes: the chord name stays put when the roman
+     numeral or alternates appear, and the keyboard below never shifts. Long
+     text is clipped with an ellipsis rather than wrapping onto a second line.
+     overflow-y stays visible so tall script-font glyphs aren't cut off. */
+  #chordDisplay .chord-main,
+  #chordDisplay .chord-roman,
+  #chordDisplay .chord-alt {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow-x: clip;
+    overflow-y: visible;
+    text-overflow: ellipsis;
   }
   #chordDisplay .chord-main {
     color: var(--font-color);
     font-size: var(--font-size-chord);
     font-weight: 600;
     line-height: 1.1;
+    height: 1.1em;
+  }
+  #chordDisplay .placeholder {
+    color: var(--font-color);
+    font-size: 14px;
+    font-weight: normal;
   }
   #chordDisplay .chord-roman {
     font-size: var(--font-size-secondary);
     line-height: 1.2;
+    height: 1.2em;
     /* A lighter tint of the configured font color: less washed out than
        .chord-alt below it, since the roman numeral outranks tertiary text. */
     color: color-mix(in srgb, var(--font-color) 70%, white);
@@ -267,6 +274,7 @@
   #chordDisplay .chord-alt {
     font-size: var(--font-size-tertiary);
     line-height: 1.2;
+    height: 1.2em;
     /* A lighter tint of the configured font color, for secondary/alternate
        detection text (interval breakdown, alternate chord matches). */
     color: color-mix(in srgb, var(--font-color) 55%, white);
@@ -474,7 +482,9 @@
   </div>
 
   <div id="chordDisplay">
-    <span class="placeholder">Chord detection coming soon</span>
+    <div class="chord-main"><span class="placeholder">Play some notes&hellip;</span></div>
+    <div class="chord-roman"></div>
+    <div class="chord-alt"></div>
   </div>
 
   <div id="pianoContainer">
@@ -499,6 +509,6 @@
     </div>
   </div>
 
-<script src="app.js?v=f075e17"></script>
+<script src="app.js?v=9787c79"></script>
 </body>
 </html>

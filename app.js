@@ -495,56 +495,46 @@
   }
   function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode) {
     el.innerHTML = "";
+    const main = document.createElement("div");
+    main.className = "chord-main";
+    const roman = document.createElement("div");
+    roman.className = "chord-roman";
+    const alt = document.createElement("div");
+    alt.className = "chord-alt";
+    el.append(main, roman, alt);
     if (activeMidiSorted.length === 0) {
-      el.innerHTML = '<span class="placeholder">Play some notes&hellip;</span>';
+      const placeholder = document.createElement("span");
+      placeholder.className = "placeholder";
+      placeholder.textContent = "Play some notes\u2026";
+      main.appendChild(placeholder);
       return;
     }
     if (pitchClasses.length === 1) {
-      const main2 = document.createElement("div");
-      main2.className = "chord-main";
-      main2.textContent = noteNames[pitchClasses[0]];
-      el.appendChild(main2);
+      main.textContent = noteNames[pitchClasses[0]];
       return;
     }
     if (pitchClasses.length === 2) {
       const distance = pitchClasses[1] - pitchClasses[0];
-      const main2 = document.createElement("div");
-      main2.className = "chord-main";
-      main2.textContent = INTERVAL_NAMES[(distance % 12 + 12) % 12];
-      el.appendChild(main2);
-      const alt = document.createElement("div");
-      alt.className = "chord-alt";
+      main.textContent = INTERVAL_NAMES[(distance % 12 + 12) % 12];
       alt.textContent = noteNames[pitchClasses[0]] + "  \u2192  " + noteNames[pitchClasses[1]];
-      el.appendChild(alt);
       return;
     }
     const bassPc = activeMidiSorted[0] % 12;
     const matches = detectChords(pitchClasses, chordFormulas2, bassPc);
     const primary = matches.find((m) => m.root === bassPc) || matches[0];
-    const main = document.createElement("div");
-    main.className = "chord-main";
     if (primary) {
       let text = chordLabel(primary, noteNames);
       if (primary.root !== bassPc) {
         text += "/" + noteNames[bassPc];
       }
       main.textContent = text;
+      roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
     } else {
       main.textContent = noteNames[bassPc] + " n.c.";
     }
-    el.appendChild(main);
-    if (primary) {
-      const roman = document.createElement("div");
-      roman.className = "chord-roman";
-      roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
-      el.appendChild(roman);
-    }
     const others = matches.filter((m) => m !== primary);
     if (others.length > 0) {
-      const alt = document.createElement("div");
-      alt.className = "chord-alt";
       alt.textContent = others.map((m) => chordLabel(m, noteNames)).join("  /  ");
-      el.appendChild(alt);
     }
   }
   function renderChordTable(tbody, chordFormulas2, callbacks) {
@@ -871,7 +861,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"f075e17"}`;
+  versionInfoEl.textContent = `Build ${"9787c79"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
