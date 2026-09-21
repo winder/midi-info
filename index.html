@@ -251,7 +251,9 @@
   }
   #chordDisplay .chord-roman {
     font-size: var(--font-size-secondary);
-    color: #666;
+    /* A lighter tint of the configured font color: less washed out than
+       .chord-alt below it, since the roman numeral outranks tertiary text. */
+    color: color-mix(in srgb, var(--font-color) 70%, white);
     margin-top: 2px;
   }
   #chordDisplay .chord-alt {
@@ -488,6 +490,6 @@
     </div>
   </div>
 
-<script src="app.js?v=0b73dad"></script>
+<script src="app.js?v=d11e040"></script>
 </body>
 </html>
