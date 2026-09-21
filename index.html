@@ -229,8 +229,15 @@
   }
   #chordDisplay {
     /* Tall enough for the 3-line case (chord name + roman numeral + alternate
-       matches) so that case never grows the box and shifts the keyboard below. */
-    min-height: 110px;
+       matches) so that case never grows the box and shifts the keyboard
+       below, however large the font-size-* variables below are set: each
+       term here matches a line's own font-size * line-height + margin. */
+    min-height: calc(
+      (var(--font-size-chord) * 1.1) +
+      (var(--font-size-secondary) * 1.2 + 2px) +
+      (var(--font-size-tertiary) * 1.2 + 4px) +
+      16px
+    );
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -251,6 +258,7 @@
   }
   #chordDisplay .chord-roman {
     font-size: var(--font-size-secondary);
+    line-height: 1.2;
     /* A lighter tint of the configured font color: less washed out than
        .chord-alt below it, since the roman numeral outranks tertiary text. */
     color: color-mix(in srgb, var(--font-color) 70%, white);
@@ -258,6 +266,7 @@
   }
   #chordDisplay .chord-alt {
     font-size: var(--font-size-tertiary);
+    line-height: 1.2;
     /* A lighter tint of the configured font color, for secondary/alternate
        detection text (interval breakdown, alternate chord matches). */
     color: color-mix(in srgb, var(--font-color) 55%, white);
@@ -490,6 +499,6 @@
     </div>
   </div>
 
-<script src="app.js?v=d11e040"></script>
+<script src="app.js?v=f075e17"></script>
 </body>
 </html>

@@ -871,7 +871,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"d11e040"}`;
+  versionInfoEl.textContent = `Build ${"f075e17"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
