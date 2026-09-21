@@ -115,7 +115,14 @@ function loadThemes(): NamedTheme[] {
   const raw = getCookie('themes');
   if (!raw) return cloneBuiltInThemes();
   try {
-    return parseNamedThemes(JSON.parse(raw)) ?? cloneBuiltInThemes();
+    const saved = parseNamedThemes(JSON.parse(raw));
+    if (!saved) return cloneBuiltInThemes();
+    // Built-in themes added since this cookie was saved (e.g. a new app
+    // release) won't be in it yet; append them so they still show up.
+    // Safe because built-ins can't be deleted, so a missing one always
+    // means "new," never "the user removed it."
+    const missing = BUILT_IN_THEMES.filter(b => !saved.some(t => t.name === b.name));
+    return missing.length ? [...saved, ...missing.map(t => ({ ...t }))] : saved;
   } catch (e) {
     return cloneBuiltInThemes();
   }
@@ -351,8 +358,9 @@ function syncThemeEditorInputs(): void {
   themeBlackKeyInput.value = theme.blackKey;
   themeActiveKeyInput.value = theme.activeKey;
   themeHighlightInput.value = theme.highlight;
-  deleteThemeBtn.disabled = themes.length <= 1;
-  themeResetBtn.disabled = !BUILT_IN_THEMES.some(b => b.name === theme.name);
+  const isBuiltIn = BUILT_IN_THEMES.some(b => b.name === theme.name);
+  deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
+  themeResetBtn.disabled = !isBuiltIn;
 }
 
 function selectTheme(name: string): void {
@@ -412,7 +420,7 @@ newThemeBtn.addEventListener('click', () => {
 });
 
 deleteThemeBtn.addEventListener('click', () => {
-  if (themes.length <= 1) return;
+  if (themes.length <= 1 || BUILT_IN_THEMES.some(b => b.name === currentThemeName)) return;
   const index = themes.findIndex(t => t.name === currentThemeName);
   if (index === -1) return;
   themes.splice(index, 1);

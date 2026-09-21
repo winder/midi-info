@@ -57,6 +57,38 @@ describe('theme settings', () => {
     }
   });
 
+  test('built-in themes cannot be deleted', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await app.page.check('#debugCheckbox');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+      await app.page.selectOption('#themeSelect', 'Light');
+      assert.equal(await app.page.isDisabled('#deleteThemeBtn'), true);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('a themes cookie saved before a new built-in was added picks it up automatically', async () => {
+    const app = await launchApp();
+    try {
+      await app.page.evaluate(() => {
+        const stale = [
+          { name: 'Light', background: '#ffffff', font: '#222222', whiteKey: '#ffffff', blackKey: '#222222', activeKey: '#4a76c4', highlight: '#ffd54f' },
+          { name: 'Dark', background: '#1e1e1e', font: '#e8e8e8', whiteKey: '#2b2b2b', blackKey: '#0d0d0d', activeKey: '#6c9bf0', highlight: '#ffb300' },
+        ];
+        document.cookie = 'themes=' + encodeURIComponent(JSON.stringify(stale)) + '; path=/';
+      });
+      await app.page.reload();
+      await openSettings(app.page);
+      const options = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
+      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy']);
+    } finally {
+      await app.close();
+    }
+  });
+
   test('editing a built-in theme marks it modified in the picker, and Reset clears it', async () => {
     const app = await launchApp();
     try {
