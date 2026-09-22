@@ -16,7 +16,11 @@
     --black-key-color: #222222;
     --active-key-color: #4a76c4;
     --highlight-color: #ffd54f;
-    --gradient-color: #ff7043;
+    --bg-color-2: #ffffff;
+    --white-key-color-2: #ffffff;
+    --black-key-color-2: #222222;
+    --active-key-color-2: #4a76c4;
+    --highlight-color-2: #ffd54f;
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --font-size-chord: 40px;
     --font-size-secondary: 16px;
@@ -33,12 +37,14 @@
     background: var(--bg-color);
     color: #222222;
   }
-  /* Gradient effect: every themed color gets a second color (--gradient-color)
-     and blends toward it. For the page background and text this is a plain
-     CSS gradient; for the keyboard keys it's an SVG gradient spanning the
-     whole keyboard width (see the linearGradient defs built in ui.ts). */
+  /* Gradient effect: background/keys/highlight each have their own second
+     color (the theme's *2 fields) and blend toward it when enabled. Text
+     is deliberately excluded - it sits on top of a gradient and stays a
+     crisp flat color. The page background uses a plain CSS gradient; the
+     keyboard keys use an SVG gradient spanning the whole keyboard width
+     (see the linearGradient defs built in ui.ts). */
   html.gradient-enabled body {
-    background: linear-gradient(135deg, var(--bg-color), var(--gradient-color));
+    background: linear-gradient(135deg, var(--bg-color), var(--bg-color-2));
   }
   #topBar {
     position: relative;
@@ -288,24 +294,6 @@
     color: color-mix(in srgb, var(--font-color) 55%, white);
     margin-top: 0;
   }
-  html.gradient-enabled #chordDisplay .chord-main {
-    background-image: linear-gradient(90deg, var(--font-color), var(--gradient-color));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  html.gradient-enabled #chordDisplay .chord-roman {
-    background-image: linear-gradient(90deg, color-mix(in srgb, var(--font-color) 70%, white), color-mix(in srgb, var(--gradient-color) 70%, white));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  html.gradient-enabled #chordDisplay .chord-alt {
-    background-image: linear-gradient(90deg, color-mix(in srgb, var(--font-color) 55%, white), color-mix(in srgb, var(--gradient-color) 55%, white));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
   #pianoContainer {
     overflow-x: auto;
     padding: 0 16px 24px 16px;
@@ -381,15 +369,17 @@
   html.gradient-enabled .black-key.active.highlighted {
     fill: color-mix(in srgb, var(--active-key-color) 50%, color-mix(in srgb, var(--highlight-color) 55%, black));
   }
-  html.gradient-enabled .note-label,
-  html.gradient-enabled .octave-label {
-    fill: url(#textGradient);
+  /* Glow effect: a small halo around each active key, drawn from a
+     dedicated rect in its own layer rather than a filter on the key rect
+     itself (see the Piano.whiteGlowGroup/blackGlowGroup doc comment in
+     ui.ts for why: filtering the key rect in place gets asymmetrically
+     clipped by whichever neighboring key happens to paint later). These
+     rects are never mouse targets. */
+  .key-glow {
+    pointer-events: none;
   }
-  /* Glow effect: the active key(s) get a soft halo in the active-key color,
-     via stacked drop-shadows so it fades out gradually. */
-  html.glow-enabled .white-key.active,
-  html.glow-enabled .black-key.active {
-    filter: drop-shadow(0 0 4px var(--active-key-color)) drop-shadow(0 0 10px var(--active-key-color)) drop-shadow(0 0 18px var(--active-key-color));
+  html.glow-enabled .key-glow {
+    filter: drop-shadow(0 0 1px var(--active-key-color)) drop-shadow(0 0 3px var(--active-key-color));
   }
   #highlighterSection {
     margin: 0 16px 24px 16px;
@@ -511,7 +501,11 @@
           <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
           <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
           <label for="themeGradientCheckbox">Gradient <input type="checkbox" id="themeGradientCheckbox"></label>
-          <label for="themeGradientColorInput">Gradient color <input type="color" id="themeGradientColorInput"></label>
+          <label for="themeBackgroundGradientInput">&nbsp;&nbsp;Background gradient <input type="color" id="themeBackgroundGradientInput"></label>
+          <label for="themeWhiteKeyGradientInput">&nbsp;&nbsp;White key gradient <input type="color" id="themeWhiteKeyGradientInput"></label>
+          <label for="themeBlackKeyGradientInput">&nbsp;&nbsp;Black key gradient <input type="color" id="themeBlackKeyGradientInput"></label>
+          <label for="themeActiveKeyGradientInput">&nbsp;&nbsp;Active key gradient <input type="color" id="themeActiveKeyGradientInput"></label>
+          <label for="themeHighlightGradientInput">&nbsp;&nbsp;Highlight gradient <input type="color" id="themeHighlightGradientInput"></label>
           <label for="themeGlowCheckbox">Glow <input type="checkbox" id="themeGlowCheckbox"></label>
           <div class="settings-actions">
             <button id="newThemeBtn" type="button">+ New theme</button>
@@ -575,6 +569,6 @@
     </div>
   </div>
 
-<script src="app.js?v=0a7646b"></script>
+<script src="app.js?v=5bbcf71"></script>
 </body>
 </html>

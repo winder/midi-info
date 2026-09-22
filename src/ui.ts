@@ -96,6 +96,15 @@ export interface Piano {
   rectByMidi: Map<number, SVGRectElement>;
   labelGroup: SVGGElement;
   keyGroup: SVGGElement;
+  // Glow-effect layers, populated per active note by renderKeyboard (see
+  // there for why they're separate elements rather than a filter on the
+  // key rects themselves). whiteGlowGroup paints above every white key but
+  // below every black key, so a white key's glow spreads evenly onto its
+  // white neighbors and is cleanly covered by any black key over it.
+  // blackGlowGroup paints above everything, so a black key's glow is even
+  // on all sides.
+  whiteGlowGroup: SVGGElement;
+  blackGlowGroup: SVGGElement;
   dims: KeyDimensions;
 }
 
@@ -105,7 +114,8 @@ export interface Piano {
 // keyboard - so a key's fill varies by its position on the keyboard as a
 // whole, not by its own position within a single key's width. Stop colors
 // reference the theme's CSS custom properties directly so the gradient
-// tracks live theme edits without rebuilding the SVG.
+// tracks live theme edits without rebuilding the SVG. Text is deliberately
+// not gradiented - it sits on top of the gradient and stays crisp.
 function buildGradientDefs(totalWidth: number): SVGDefsElement {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs') as SVGDefsElement;
 
@@ -129,12 +139,15 @@ function buildGradientDefs(totalWidth: number): SVGDefsElement {
     defs.appendChild(gradient);
   }
 
-  makeGradient('whiteKeyGradient', 'var(--white-key-color)', 'var(--gradient-color)');
-  makeGradient('blackKeyGradient', 'var(--black-key-color)', 'var(--gradient-color)');
-  makeGradient('activeKeyGradient', 'var(--active-key-color)', 'var(--gradient-color)');
-  makeGradient('highlightGradientWhite', 'var(--highlight-color)', 'var(--gradient-color)');
-  makeGradient('highlightGradientBlack', 'color-mix(in srgb, var(--highlight-color) 55%, black)', 'color-mix(in srgb, var(--gradient-color) 55%, black)');
-  makeGradient('textGradient', 'var(--font-color)', 'var(--gradient-color)');
+  makeGradient('whiteKeyGradient', 'var(--white-key-color)', 'var(--white-key-color-2)');
+  makeGradient('blackKeyGradient', 'var(--black-key-color)', 'var(--black-key-color-2)');
+  makeGradient('activeKeyGradient', 'var(--active-key-color)', 'var(--active-key-color-2)');
+  makeGradient('highlightGradientWhite', 'var(--highlight-color)', 'var(--highlight-color-2)');
+  makeGradient(
+    'highlightGradientBlack',
+    'color-mix(in srgb, var(--highlight-color) 55%, black)',
+    'color-mix(in srgb, var(--highlight-color-2) 55%, black)'
+  );
   return defs;
 }
 
@@ -158,6 +171,17 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
   const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   const octaveGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
+  // Four sub-groups under keyGroup, in paint order: white key bodies, then
+  // the white-glow layer (on top of all white keys), then black key
+  // bodies (on top of that, so they cover any white glow under them),
+  // then the black-glow layer (on top of everything). keyGroup itself
+  // stays the shared ancestor attachPianoMouseInput listens on.
+  const whiteKeyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const whiteGlowGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const blackKeyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const blackGlowGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  keyGroup.append(whiteKeyGroup, whiteGlowGroup, blackKeyGroup, blackGlowGroup);
+
   function makeRect(key: PianoKey): SVGRectElement {
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('x', String(key.x));
@@ -172,7 +196,7 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
   // white keys first so black keys render on top
   keys.filter(k => !k.isBlack).forEach(key => {
     const rect = makeRect(key);
-    keyGroup.appendChild(rect);
+    whiteKeyGroup.appendChild(rect);
     rectByMidi.set(key.midi, rect);
 
     if (key.midi % 12 === 0) {
@@ -187,7 +211,7 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
   });
   keys.filter(k => k.isBlack).forEach(key => {
     const rect = makeRect(key);
-    keyGroup.appendChild(rect);
+    blackKeyGroup.appendChild(rect);
     rectByMidi.set(key.midi, rect);
   });
 
@@ -195,7 +219,7 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
   svg.appendChild(octaveGroup);
   svg.appendChild(labelGroup);
 
-  return { keys, rectByMidi, labelGroup, keyGroup, dims };
+  return { keys, rectByMidi, labelGroup, keyGroup, whiteGlowGroup, blackGlowGroup, dims };
 }
 
 // Tracks whether the mouse button is currently down, globally. Call once;
@@ -276,6 +300,33 @@ export function renderKeyboard(
     text.textContent = noteNames[midi % 12];
     piano.labelGroup.appendChild(text);
   });
+
+  // Glow effect: a rect per active key, in a dedicated layer above (white)
+  // or above-everything (black) so its blur spreads evenly instead of
+  // getting clipped by a neighboring key's own paint order (see the
+  // Piano.whiteGlowGroup/blackGlowGroup doc comment). It carries the same
+  // classes as the real key rect so it picks up the exact same fill (flat
+  // or gradient); index.html only adds a drop-shadow filter on top of that
+  // when glow is enabled, and otherwise these are inert, identical-looking
+  // duplicates. Skipped entirely when glow is off, to avoid the extra
+  // paint for no visual effect.
+  while (piano.whiteGlowGroup.firstChild) piano.whiteGlowGroup.removeChild(piano.whiteGlowGroup.firstChild);
+  while (piano.blackGlowGroup.firstChild) piano.blackGlowGroup.removeChild(piano.blackGlowGroup.firstChild);
+  if (document.documentElement.classList.contains('glow-enabled')) {
+    activeNotes.forEach(midi => {
+      const key = piano.keys.find(k => k.midi === midi);
+      if (!key) return;
+      const glow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      glow.setAttribute('x', String(key.x));
+      glow.setAttribute('y', String(piano.dims.labelAreaH));
+      glow.setAttribute('width', String(key.width));
+      glow.setAttribute('height', String(key.height));
+      let cls = (key.isBlack ? 'black-key' : 'white-key') + ' active key-glow';
+      if (highlightedNotes.has(midi)) cls += ' highlighted';
+      glow.setAttribute('class', cls);
+      (key.isBlack ? piano.blackGlowGroup : piano.whiteGlowGroup).appendChild(glow);
+    });
+  }
 }
 
 // Renders the note/interval/chord name above the keyboard.
@@ -428,12 +479,19 @@ export interface Theme {
   blackKey: string;
   activeKey: string;
   highlight: string;
-  // Second color used by the gradient effect below. Always present (even
-  // when gradient is off) so turning gradient on doesn't need a color
-  // picked first.
-  gradientColor: string;
-  // When true, every themed color (background, font, keys, highlight)
-  // renders as a gradient toward gradientColor instead of flat. For the
+  // Second color for each gradient-able field, used by the gradient
+  // effect below. Each is independent so a subtle or "off" gradient is
+  // just picking the same color as the base field - no separate
+  // per-field toggle needed. Font/text has no *2 field: text is
+  // deliberately never gradiented (see index.html), so it stays crisp on
+  // top of a gradiented background or key.
+  background2: string;
+  whiteKey2: string;
+  blackKey2: string;
+  activeKey2: string;
+  highlight2: string;
+  // When true, background/whiteKey/blackKey/activeKey/highlight each
+  // render as a gradient toward their *2 color instead of flat. For the
   // keys specifically this is one continuous gradient across the whole
   // keyboard's width (see the SVG defs in createPiano), not a per-key
   // gradient repeated on each key.
@@ -448,10 +506,21 @@ export interface NamedTheme extends Theme {
 }
 
 // String-valued color fields; used to populate/compare the color swatches.
-const COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight', 'gradientColor'];
-// Colors that must be present on any parsed theme; gradientColor is not
-// among these since old saved themes won't have it (see parseNamedTheme).
+const COLOR_KEYS: (keyof Theme)[] = [
+  'background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight',
+  'background2', 'whiteKey2', 'blackKey2', 'activeKey2', 'highlight2',
+];
+// Colors that must be present on any parsed theme; the *2 fields are not
+// among these since old saved themes won't have them (see parseNamedTheme).
 const REQUIRED_COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
+// The *2 fields, paired with the base field they default to when absent.
+const GRADIENT_COLOR_KEYS: [keyof Theme, keyof Theme][] = [
+  ['background2', 'background'],
+  ['whiteKey2', 'whiteKey'],
+  ['blackKey2', 'blackKey'],
+  ['activeKey2', 'activeKey'],
+  ['highlight2', 'highlight'],
+];
 // Boolean toggle fields, validated/defaulted separately from the colors.
 const BOOLEAN_KEYS: (keyof Theme)[] = ['gradient', 'glow'];
 
@@ -466,7 +535,14 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#222222',
     activeKey: '#4a76c4',
     highlight: '#ffd54f',
-    gradientColor: '#ff7043',
+    // Each *2 defaults to its own base color, so flipping the gradient
+    // toggle on a built-in theme is a visible no-op until the user picks
+    // a different second color for something.
+    background2: '#ffffff',
+    whiteKey2: '#ffffff',
+    blackKey2: '#222222',
+    activeKey2: '#4a76c4',
+    highlight2: '#ffd54f',
     gradient: false,
     glow: false,
   },
@@ -478,7 +554,11 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#0d0d0d',
     activeKey: '#6c9bf0',
     highlight: '#ffb300',
-    gradientColor: '#9c6cff',
+    background2: '#1e1e1e',
+    whiteKey2: '#2b2b2b',
+    blackKey2: '#0d0d0d',
+    activeKey2: '#6c9bf0',
+    highlight2: '#ffb300',
     gradient: false,
     glow: false,
   },
@@ -490,7 +570,11 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#222222',
     activeKey: '#eebfa0',
     highlight: '#49b0ca',
-    gradientColor: '#ff6f91',
+    background2: '#a6c8c6',
+    whiteKey2: '#ffffff',
+    blackKey2: '#222222',
+    activeKey2: '#eebfa0',
+    highlight2: '#49b0ca',
     gradient: false,
     glow: false,
   },
@@ -508,7 +592,11 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--black-key-color', theme.blackKey);
   root.setProperty('--active-key-color', theme.activeKey);
   root.setProperty('--highlight-color', theme.highlight);
-  root.setProperty('--gradient-color', theme.gradientColor);
+  root.setProperty('--bg-color-2', theme.background2);
+  root.setProperty('--white-key-color-2', theme.whiteKey2);
+  root.setProperty('--black-key-color-2', theme.blackKey2);
+  root.setProperty('--active-key-color-2', theme.activeKey2);
+  root.setProperty('--highlight-color-2', theme.highlight2);
   document.documentElement.classList.toggle('gradient-enabled', theme.gradient);
   document.documentElement.classList.toggle('glow-enabled', theme.glow);
 }
@@ -523,10 +611,11 @@ export function themeColorsEqual(a: Theme, b: Theme): boolean {
 // imported file) into a single named theme. Returns null if the shape
 // isn't a named theme at all.
 //
-// gradientColor/gradient/glow are optional on the input and default to a
-// copy of activeKey / false / false when absent, so a themes cookie saved
-// before this feature existed still parses instead of getting wiped back
-// to the built-in defaults (see loadThemes in app.ts).
+// The *2 gradient colors and gradient/glow are all optional on the input
+// and default to a copy of their base color / false / false when absent,
+// so a themes cookie saved before this feature existed still parses
+// instead of getting wiped back to the built-in defaults (see loadThemes
+// in app.ts).
 export function parseNamedTheme(raw: unknown): NamedTheme | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const t = raw as Record<string, unknown>;
@@ -537,7 +626,9 @@ export function parseNamedTheme(raw: unknown): NamedTheme | null {
     if (typeof t[key] !== 'string') return null;
     dest[key] = t[key];
   }
-  theme.gradientColor = typeof t.gradientColor === 'string' ? t.gradientColor : theme.activeKey;
+  for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
+    dest[key] = typeof t[key] === 'string' ? t[key] : dest[fallbackKey];
+  }
   for (const key of BOOLEAN_KEYS) {
     dest[key] = typeof t[key] === 'boolean' ? t[key] : false;
   }

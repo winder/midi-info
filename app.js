@@ -411,12 +411,15 @@
       addStop(gradient, "1", endColor);
       defs.appendChild(gradient);
     }
-    makeGradient("whiteKeyGradient", "var(--white-key-color)", "var(--gradient-color)");
-    makeGradient("blackKeyGradient", "var(--black-key-color)", "var(--gradient-color)");
-    makeGradient("activeKeyGradient", "var(--active-key-color)", "var(--gradient-color)");
-    makeGradient("highlightGradientWhite", "var(--highlight-color)", "var(--gradient-color)");
-    makeGradient("highlightGradientBlack", "color-mix(in srgb, var(--highlight-color) 55%, black)", "color-mix(in srgb, var(--gradient-color) 55%, black)");
-    makeGradient("textGradient", "var(--font-color)", "var(--gradient-color)");
+    makeGradient("whiteKeyGradient", "var(--white-key-color)", "var(--white-key-color-2)");
+    makeGradient("blackKeyGradient", "var(--black-key-color)", "var(--black-key-color-2)");
+    makeGradient("activeKeyGradient", "var(--active-key-color)", "var(--active-key-color-2)");
+    makeGradient("highlightGradientWhite", "var(--highlight-color)", "var(--highlight-color-2)");
+    makeGradient(
+      "highlightGradientBlack",
+      "color-mix(in srgb, var(--highlight-color) 55%, black)",
+      "color-mix(in srgb, var(--highlight-color-2) 55%, black)"
+    );
     return defs;
   }
   function createPiano(svg2, minMidi, maxMidi, dims) {
@@ -432,6 +435,11 @@
     const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const keyGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const octaveGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const whiteKeyGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const whiteGlowGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const blackKeyGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const blackGlowGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    keyGroup.append(whiteKeyGroup, whiteGlowGroup, blackKeyGroup, blackGlowGroup);
     function makeRect(key) {
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("x", String(key.x));
@@ -444,7 +452,7 @@
     }
     keys.filter((k) => !k.isBlack).forEach((key) => {
       const rect = makeRect(key);
-      keyGroup.appendChild(rect);
+      whiteKeyGroup.appendChild(rect);
       rectByMidi.set(key.midi, rect);
       if (key.midi % 12 === 0) {
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -457,13 +465,13 @@
     });
     keys.filter((k) => k.isBlack).forEach((key) => {
       const rect = makeRect(key);
-      keyGroup.appendChild(rect);
+      blackKeyGroup.appendChild(rect);
       rectByMidi.set(key.midi, rect);
     });
     svg2.appendChild(keyGroup);
     svg2.appendChild(octaveGroup);
     svg2.appendChild(labelGroup);
-    return { keys, rectByMidi, labelGroup, keyGroup, dims };
+    return { keys, rectByMidi, labelGroup, keyGroup, whiteGlowGroup, blackGlowGroup, dims };
   }
   function trackMouseIsDown() {
     let mouseDown = false;
@@ -521,6 +529,23 @@
       text.textContent = noteNames[midi % 12];
       piano2.labelGroup.appendChild(text);
     });
+    while (piano2.whiteGlowGroup.firstChild) piano2.whiteGlowGroup.removeChild(piano2.whiteGlowGroup.firstChild);
+    while (piano2.blackGlowGroup.firstChild) piano2.blackGlowGroup.removeChild(piano2.blackGlowGroup.firstChild);
+    if (document.documentElement.classList.contains("glow-enabled")) {
+      activeNotes2.forEach((midi) => {
+        const key = piano2.keys.find((k) => k.midi === midi);
+        if (!key) return;
+        const glow = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        glow.setAttribute("x", String(key.x));
+        glow.setAttribute("y", String(piano2.dims.labelAreaH));
+        glow.setAttribute("width", String(key.width));
+        glow.setAttribute("height", String(key.height));
+        let cls = (key.isBlack ? "black-key" : "white-key") + " active key-glow";
+        if (highlightedNotes.has(midi)) cls += " highlighted";
+        glow.setAttribute("class", cls);
+        (key.isBlack ? piano2.blackGlowGroup : piano2.whiteGlowGroup).appendChild(glow);
+      });
+    }
   }
   function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode, hasPlayedNote2) {
     el.innerHTML = "";
@@ -621,8 +646,27 @@
     el.textContent = message || "";
     el.hidden = !message;
   }
-  var COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight", "gradientColor"];
+  var COLOR_KEYS = [
+    "background",
+    "font",
+    "whiteKey",
+    "blackKey",
+    "activeKey",
+    "highlight",
+    "background2",
+    "whiteKey2",
+    "blackKey2",
+    "activeKey2",
+    "highlight2"
+  ];
   var REQUIRED_COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
+  var GRADIENT_COLOR_KEYS = [
+    ["background2", "background"],
+    ["whiteKey2", "whiteKey"],
+    ["blackKey2", "blackKey"],
+    ["activeKey2", "activeKey"],
+    ["highlight2", "highlight"]
+  ];
   var BOOLEAN_KEYS = ["gradient", "glow"];
   var BUILT_IN_THEMES = [
     {
@@ -633,7 +677,14 @@
       blackKey: "#222222",
       activeKey: "#4a76c4",
       highlight: "#ffd54f",
-      gradientColor: "#ff7043",
+      // Each *2 defaults to its own base color, so flipping the gradient
+      // toggle on a built-in theme is a visible no-op until the user picks
+      // a different second color for something.
+      background2: "#ffffff",
+      whiteKey2: "#ffffff",
+      blackKey2: "#222222",
+      activeKey2: "#4a76c4",
+      highlight2: "#ffd54f",
       gradient: false,
       glow: false
     },
@@ -645,7 +696,11 @@
       blackKey: "#0d0d0d",
       activeKey: "#6c9bf0",
       highlight: "#ffb300",
-      gradientColor: "#9c6cff",
+      background2: "#1e1e1e",
+      whiteKey2: "#2b2b2b",
+      blackKey2: "#0d0d0d",
+      activeKey2: "#6c9bf0",
+      highlight2: "#ffb300",
       gradient: false,
       glow: false
     },
@@ -657,7 +712,11 @@
       blackKey: "#222222",
       activeKey: "#eebfa0",
       highlight: "#49b0ca",
-      gradientColor: "#ff6f91",
+      background2: "#a6c8c6",
+      whiteKey2: "#ffffff",
+      blackKey2: "#222222",
+      activeKey2: "#eebfa0",
+      highlight2: "#49b0ca",
       gradient: false,
       glow: false
     }
@@ -671,7 +730,11 @@
     root.setProperty("--black-key-color", theme.blackKey);
     root.setProperty("--active-key-color", theme.activeKey);
     root.setProperty("--highlight-color", theme.highlight);
-    root.setProperty("--gradient-color", theme.gradientColor);
+    root.setProperty("--bg-color-2", theme.background2);
+    root.setProperty("--white-key-color-2", theme.whiteKey2);
+    root.setProperty("--black-key-color-2", theme.blackKey2);
+    root.setProperty("--active-key-color-2", theme.activeKey2);
+    root.setProperty("--highlight-color-2", theme.highlight2);
     document.documentElement.classList.toggle("gradient-enabled", theme.gradient);
     document.documentElement.classList.toggle("glow-enabled", theme.glow);
   }
@@ -688,7 +751,9 @@
       if (typeof t[key] !== "string") return null;
       dest[key] = t[key];
     }
-    theme.gradientColor = typeof t.gradientColor === "string" ? t.gradientColor : theme.activeKey;
+    for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
+      dest[key] = typeof t[key] === "string" ? t[key] : dest[fallbackKey];
+    }
     for (const key of BOOLEAN_KEYS) {
       dest[key] = typeof t[key] === "boolean" ? t[key] : false;
     }
@@ -900,7 +965,11 @@
   var themeActiveKeyInput = document.getElementById("themeActiveKeyInput");
   var themeHighlightInput = document.getElementById("themeHighlightInput");
   var themeGradientCheckbox = document.getElementById("themeGradientCheckbox");
-  var themeGradientColorInput = document.getElementById("themeGradientColorInput");
+  var themeBackgroundGradientInput = document.getElementById("themeBackgroundGradientInput");
+  var themeWhiteKeyGradientInput = document.getElementById("themeWhiteKeyGradientInput");
+  var themeBlackKeyGradientInput = document.getElementById("themeBlackKeyGradientInput");
+  var themeActiveKeyGradientInput = document.getElementById("themeActiveKeyGradientInput");
+  var themeHighlightGradientInput = document.getElementById("themeHighlightGradientInput");
   var themeGlowCheckbox = document.getElementById("themeGlowCheckbox");
   var newThemeBtn = document.getElementById("newThemeBtn");
   var deleteThemeBtn = document.getElementById("deleteThemeBtn");
@@ -915,7 +984,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"0a7646b"}`;
+  versionInfoEl.textContent = `Build ${"5bbcf71"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1004,7 +1073,11 @@
     themeActiveKeyInput.value = theme.activeKey;
     themeHighlightInput.value = theme.highlight;
     themeGradientCheckbox.checked = theme.gradient;
-    themeGradientColorInput.value = theme.gradientColor;
+    themeBackgroundGradientInput.value = theme.background2;
+    themeWhiteKeyGradientInput.value = theme.whiteKey2;
+    themeBlackKeyGradientInput.value = theme.blackKey2;
+    themeActiveKeyGradientInput.value = theme.activeKey2;
+    themeHighlightGradientInput.value = theme.highlight2;
     themeGlowCheckbox.checked = theme.glow;
     const isBuiltIn = BUILT_IN_THEMES.some((b) => b.name === theme.name);
     themeNameInput.disabled = isBuiltIn;
@@ -1035,7 +1108,11 @@
   themeActiveKeyInput.addEventListener("input", () => updateCurrentTheme({ activeKey: themeActiveKeyInput.value }));
   themeHighlightInput.addEventListener("input", () => updateCurrentTheme({ highlight: themeHighlightInput.value }));
   themeGradientCheckbox.addEventListener("change", () => updateCurrentTheme({ gradient: themeGradientCheckbox.checked }));
-  themeGradientColorInput.addEventListener("input", () => updateCurrentTheme({ gradientColor: themeGradientColorInput.value }));
+  themeBackgroundGradientInput.addEventListener("input", () => updateCurrentTheme({ background2: themeBackgroundGradientInput.value }));
+  themeWhiteKeyGradientInput.addEventListener("input", () => updateCurrentTheme({ whiteKey2: themeWhiteKeyGradientInput.value }));
+  themeBlackKeyGradientInput.addEventListener("input", () => updateCurrentTheme({ blackKey2: themeBlackKeyGradientInput.value }));
+  themeActiveKeyGradientInput.addEventListener("input", () => updateCurrentTheme({ activeKey2: themeActiveKeyGradientInput.value }));
+  themeHighlightGradientInput.addEventListener("input", () => updateCurrentTheme({ highlight2: themeHighlightGradientInput.value }));
   themeGlowCheckbox.addEventListener("change", () => updateCurrentTheme({ glow: themeGlowCheckbox.checked }));
   themeNameInput.addEventListener("change", () => {
     const theme = getCurrentTheme();

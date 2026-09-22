@@ -170,7 +170,7 @@ describe('theme settings', () => {
     }
   });
 
-  test('gradient and glow checkboxes toggle the effect classes and gradient color var', async () => {
+  test('gradient and glow checkboxes toggle the effect classes and per-role gradient color vars', async () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
@@ -181,18 +181,18 @@ describe('theme settings', () => {
       assert.doesNotMatch(classesBefore, /gradient-enabled/);
       assert.doesNotMatch(classesBefore, /glow-enabled/);
 
-      await app.page.fill('#themeGradientColorInput', '#00c8ff');
-      await app.page.dispatchEvent('#themeGradientColorInput', 'input');
+      await app.page.fill('#themeActiveKeyGradientInput', '#00c8ff');
+      await app.page.dispatchEvent('#themeActiveKeyGradientInput', 'input');
       await app.page.check('#themeGradientCheckbox');
       await app.page.check('#themeGlowCheckbox');
 
       const classesAfter = await app.page.evaluate(() => document.documentElement.className);
       assert.match(classesAfter, /gradient-enabled/);
       assert.match(classesAfter, /glow-enabled/);
-      const gradientColor = await app.page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue('--gradient-color').trim()
+      const activeKeyGradientColor = await app.page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--active-key-color-2').trim()
       );
-      assert.equal(gradientColor, '#00c8ff');
+      assert.equal(activeKeyGradientColor, '#00c8ff');
 
       await app.page.uncheck('#themeGradientCheckbox');
       await app.page.uncheck('#themeGlowCheckbox');
@@ -210,8 +210,10 @@ describe('theme settings', () => {
       await openSettings(app.page);
       await app.page.check('#debugCheckbox');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
-      await app.page.fill('#themeGradientColorInput', '#abcdef');
-      await app.page.dispatchEvent('#themeGradientColorInput', 'input');
+      await app.page.fill('#themeBackgroundGradientInput', '#abcdef');
+      await app.page.dispatchEvent('#themeBackgroundGradientInput', 'input');
+      await app.page.fill('#themeActiveKeyGradientInput', '#123456');
+      await app.page.dispatchEvent('#themeActiveKeyGradientInput', 'input');
       await app.page.check('#themeGradientCheckbox');
       await app.page.check('#themeGlowCheckbox');
 
@@ -224,7 +226,8 @@ describe('theme settings', () => {
       const contents = JSON.parse(await fs.readFile(filePath, 'utf8'));
       assert.equal(contents.gradient, true);
       assert.equal(contents.glow, true);
-      assert.equal(contents.gradientColor, '#abcdef');
+      assert.equal(contents.background2, '#abcdef');
+      assert.equal(contents.activeKey2, '#123456');
 
       // Clicking Export closes the settings panel (see e2e-testing skill notes).
       await openSettings(app.page);
@@ -235,6 +238,8 @@ describe('theme settings', () => {
       await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Light');
       assert.equal(await app.page.isChecked('#themeGradientCheckbox'), true);
       assert.equal(await app.page.isChecked('#themeGlowCheckbox'), true);
+      assert.equal(await app.page.inputValue('#themeBackgroundGradientInput'), '#abcdef');
+      assert.equal(await app.page.inputValue('#themeActiveKeyGradientInput'), '#123456');
     } finally {
       await app.close();
     }
