@@ -90,6 +90,19 @@ function saveDebug(value: boolean): void {
   setCookie('debugMode', value ? '1' : '0', 365);
 }
 
+// ---- Chord-display line toggles and octave labels ----
+
+function loadBoolSetting(cookieName: string, defaultValue: boolean): boolean {
+  const raw = getCookie(cookieName);
+  if (raw === '1') return true;
+  if (raw === '0') return false;
+  return defaultValue;
+}
+
+function saveBoolSetting(cookieName: string, value: boolean): void {
+  setCookie(cookieName, value ? '1' : '0', 365);
+}
+
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
 
 const DEFAULT_VISIBLE_KEYS = 52;
@@ -178,6 +191,10 @@ let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
 let themes: NamedTheme[] = loadThemes();
 let currentThemeName: string = loadThemeName(themes);
+let showSecondaryLine: boolean = loadBoolSetting('showSecondaryLine', true);
+let showTertiaryLine: boolean = loadBoolSetting('showTertiaryLine', true);
+let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
+let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 let sustainOn = false;
@@ -202,6 +219,10 @@ const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
 const debugCheckbox = document.getElementById('debugCheckbox') as HTMLInputElement;
+const secondaryLineCheckbox = document.getElementById('secondaryLineCheckbox') as HTMLInputElement;
+const tertiaryLineCheckbox = document.getElementById('tertiaryLineCheckbox') as HTMLInputElement;
+const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') as HTMLInputElement;
+const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
@@ -270,7 +291,7 @@ function render(): void {
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
   renderChordDisplay(
     chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode,
-    hasPlayedNote
+    hasPlayedNote, showSecondaryLine, showTertiaryLine, showRomanNumerals
   );
 }
 
@@ -305,7 +326,7 @@ function setSustain(isDown: boolean): void {
 function rebuildPiano(): void {
   const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
   const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
-  piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims);
+  piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims, showOctaveLabels);
   attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
   centerOnMiddleC(pianoContainer, piano);
   render();
@@ -646,6 +667,36 @@ debugCheckbox.addEventListener('change', () => {
   debugMode = debugCheckbox.checked;
   saveDebug(debugMode);
   updateDebugSectionsVisibility();
+});
+
+// ---- Chord-display line toggles and octave labels ----
+
+secondaryLineCheckbox.checked = showSecondaryLine;
+secondaryLineCheckbox.addEventListener('change', () => {
+  showSecondaryLine = secondaryLineCheckbox.checked;
+  saveBoolSetting('showSecondaryLine', showSecondaryLine);
+  render();
+});
+
+tertiaryLineCheckbox.checked = showTertiaryLine;
+tertiaryLineCheckbox.addEventListener('change', () => {
+  showTertiaryLine = tertiaryLineCheckbox.checked;
+  saveBoolSetting('showTertiaryLine', showTertiaryLine);
+  render();
+});
+
+romanNumeralsCheckbox.checked = showRomanNumerals;
+romanNumeralsCheckbox.addEventListener('change', () => {
+  showRomanNumerals = romanNumeralsCheckbox.checked;
+  saveBoolSetting('showRomanNumerals', showRomanNumerals);
+  render();
+});
+
+octaveLabelsCheckbox.checked = showOctaveLabels;
+octaveLabelsCheckbox.addEventListener('change', () => {
+  showOctaveLabels = octaveLabelsCheckbox.checked;
+  saveBoolSetting('showOctaveLabels', showOctaveLabels);
+  rebuildPiano();
 });
 
 // ---- Chord table editor ----

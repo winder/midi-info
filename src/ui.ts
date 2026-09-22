@@ -155,7 +155,9 @@ function buildGradientDefs(totalWidth: number): SVGDefsElement {
 // given <svg> element and returns handles needed to render note state.
 // Replaces any previous contents of svg, so it's safe to call again (with a
 // different range/dims) to rebuild the piano in place.
-export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number, dims: KeyDimensions): Piano {
+export function createPiano(
+  svg: SVGSVGElement, minMidi: number, maxMidi: number, dims: KeyDimensions, showOctaveLabels = true
+): Piano {
   const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
   const svgWidth = totalWhiteWidth;
   const svgHeight = dims.labelAreaH + dims.whiteH;
@@ -199,7 +201,7 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
     whiteKeyGroup.appendChild(rect);
     rectByMidi.set(key.midi, rect);
 
-    if (key.midi % 12 === 0) {
+    if (showOctaveLabels && key.midi % 12 === 0) {
       // C key: label octave
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', String(key.x + key.width / 2));
@@ -331,10 +333,14 @@ export function renderKeyboard(
 
 // Renders the note/interval/chord name above the keyboard.
 //
-// The three line slots (main, roman numeral, alternates) are always present,
-// each at a fixed height set in CSS, and are merely left empty when unused.
-// That keeps the display's geometry identical across every state so neither
-// the chord name nor the keyboard below moves as lines come and go.
+// The roman-numeral and alternates line slots, when enabled via
+// showSecondaryLine/showTertiaryLine, sit at a fixed height set in CSS and
+// are merely left empty when unused (e.g. showRomanNumerals off, or no
+// chord matched). That keeps the display's geometry identical across every
+// state so neither the chord name nor the keyboard below moves as lines
+// come and go. Disabling a line via its show* flag removes it from the DOM
+// entirely, which does change the display's height - that's the point of
+// the setting.
 export function renderChordDisplay(
   el: HTMLElement,
   activeMidiSorted: number[],
@@ -343,7 +349,10 @@ export function renderChordDisplay(
   noteNames: string[],
   tonicPc: number,
   mode: Mode,
-  hasPlayedNote: boolean
+  hasPlayedNote: boolean,
+  showSecondaryLine: boolean,
+  showTertiaryLine: boolean,
+  showRomanNumerals: boolean
 ): void {
   el.innerHTML = '';
   const main = document.createElement('div');
@@ -352,7 +361,9 @@ export function renderChordDisplay(
   roman.className = 'chord-roman';
   const alt = document.createElement('div');
   alt.className = 'chord-alt';
-  el.append(main, roman, alt);
+  el.appendChild(main);
+  if (showSecondaryLine) el.appendChild(roman);
+  if (showTertiaryLine) el.appendChild(alt);
 
   if (activeMidiSorted.length === 0) {
     // Once the player has pressed at least one key, releasing back to
@@ -390,7 +401,7 @@ export function renderChordDisplay(
       text += '/' + noteNames[bassPc];
     }
     main.textContent = text;
-    roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
+    if (showRomanNumerals) roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
   } else {
     main.textContent = noteNames[bassPc] + ' n.c.';
   }

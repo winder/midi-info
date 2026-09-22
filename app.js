@@ -422,7 +422,7 @@
     );
     return defs;
   }
-  function createPiano(svg2, minMidi, maxMidi, dims) {
+  function createPiano(svg2, minMidi, maxMidi, dims, showOctaveLabels2 = true) {
     const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
     const svgWidth = totalWhiteWidth;
     const svgHeight = dims.labelAreaH + dims.whiteH;
@@ -454,7 +454,7 @@
       const rect = makeRect(key);
       whiteKeyGroup.appendChild(rect);
       rectByMidi.set(key.midi, rect);
-      if (key.midi % 12 === 0) {
+      if (showOctaveLabels2 && key.midi % 12 === 0) {
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
         text.setAttribute("x", String(key.x + key.width / 2));
         text.setAttribute("y", String(dims.labelAreaH + dims.whiteH - 8));
@@ -547,7 +547,7 @@
       });
     }
   }
-  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode, hasPlayedNote2) {
+  function renderChordDisplay(el, activeMidiSorted, pitchClasses, chordFormulas2, noteNames, tonicPc, mode, hasPlayedNote2, showSecondaryLine2, showTertiaryLine2, showRomanNumerals2) {
     el.innerHTML = "";
     const main = document.createElement("div");
     main.className = "chord-main";
@@ -555,7 +555,9 @@
     roman.className = "chord-roman";
     const alt = document.createElement("div");
     alt.className = "chord-alt";
-    el.append(main, roman, alt);
+    el.appendChild(main);
+    if (showSecondaryLine2) el.appendChild(roman);
+    if (showTertiaryLine2) el.appendChild(alt);
     if (activeMidiSorted.length === 0) {
       if (!hasPlayedNote2) {
         const placeholder = document.createElement("span");
@@ -584,7 +586,7 @@
         text += "/" + noteNames[bassPc];
       }
       main.textContent = text;
-      roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
+      if (showRomanNumerals2) roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
     } else {
       main.textContent = noteNames[bassPc] + " n.c.";
     }
@@ -862,6 +864,15 @@
   function saveDebug(value) {
     setCookie("debugMode", value ? "1" : "0", 365);
   }
+  function loadBoolSetting(cookieName, defaultValue) {
+    const raw = getCookie(cookieName);
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+    return defaultValue;
+  }
+  function saveBoolSetting(cookieName, value) {
+    setCookie(cookieName, value ? "1" : "0", 365);
+  }
   var DEFAULT_VISIBLE_KEYS = 52;
   function loadVisibleKeys() {
     const raw = getCookie("visibleKeys");
@@ -925,6 +936,10 @@
   var currentVisibleKeys = loadVisibleKeys();
   var themes = loadThemes();
   var currentThemeName = loadThemeName(themes);
+  var showSecondaryLine = loadBoolSetting("showSecondaryLine", true);
+  var showTertiaryLine = loadBoolSetting("showTertiaryLine", true);
+  var showRomanNumerals = loadBoolSetting("showRomanNumerals", true);
+  var showOctaveLabels = loadBoolSetting("showOctaveLabels", true);
   var activeNotes = /* @__PURE__ */ new Set();
   var hasPlayedNote = false;
   var sustainOn = false;
@@ -943,6 +958,10 @@
   var modeSelect = document.getElementById("modeSelect");
   var modeLabelText = document.getElementById("modeLabelText");
   var debugCheckbox = document.getElementById("debugCheckbox");
+  var secondaryLineCheckbox = document.getElementById("secondaryLineCheckbox");
+  var tertiaryLineCheckbox = document.getElementById("tertiaryLineCheckbox");
+  var romanNumeralsCheckbox = document.getElementById("romanNumeralsCheckbox");
+  var octaveLabelsCheckbox = document.getElementById("octaveLabelsCheckbox");
   var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
@@ -996,7 +1015,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"c30a5bc"}`;
+  versionInfoEl.textContent = `Build ${"1ea6517"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1011,7 +1030,10 @@
       currentNoteNames,
       currentTonicPc,
       currentMode,
-      hasPlayedNote
+      hasPlayedNote,
+      showSecondaryLine,
+      showTertiaryLine,
+      showRomanNumerals
     );
   }
   function noteOn(midi) {
@@ -1039,7 +1061,7 @@
   function rebuildPiano() {
     const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
     const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
-    piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims);
+    piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims, showOctaveLabels);
     attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => isOn ? noteOn(midi) : noteOff(midi));
     centerOnMiddleC(pianoContainer, piano);
     render();
@@ -1320,6 +1342,30 @@
     debugMode = debugCheckbox.checked;
     saveDebug(debugMode);
     updateDebugSectionsVisibility();
+  });
+  secondaryLineCheckbox.checked = showSecondaryLine;
+  secondaryLineCheckbox.addEventListener("change", () => {
+    showSecondaryLine = secondaryLineCheckbox.checked;
+    saveBoolSetting("showSecondaryLine", showSecondaryLine);
+    render();
+  });
+  tertiaryLineCheckbox.checked = showTertiaryLine;
+  tertiaryLineCheckbox.addEventListener("change", () => {
+    showTertiaryLine = tertiaryLineCheckbox.checked;
+    saveBoolSetting("showTertiaryLine", showTertiaryLine);
+    render();
+  });
+  romanNumeralsCheckbox.checked = showRomanNumerals;
+  romanNumeralsCheckbox.addEventListener("change", () => {
+    showRomanNumerals = romanNumeralsCheckbox.checked;
+    saveBoolSetting("showRomanNumerals", showRomanNumerals);
+    render();
+  });
+  octaveLabelsCheckbox.checked = showOctaveLabels;
+  octaveLabelsCheckbox.addEventListener("change", () => {
+    showOctaveLabels = octaveLabelsCheckbox.checked;
+    saveBoolSetting("showOctaveLabels", showOctaveLabels);
+    rebuildPiano();
   });
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {
