@@ -36,14 +36,32 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     background: var(--bg-color);
     color: #222222;
+    /* min-height/flex so #mainContent (flex: 1 below) always reaches the
+       bottom of the viewport even when there's little content, without
+       resorting to a body-level background - see the gradient comment
+       below for why that matters. */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  #mainContent {
+    flex: 1;
   }
   /* Gradient effect: background/keys/highlight each have their own second
      color (the theme's *2 fields) and blend toward it when enabled. Text
      is deliberately excluded - it sits on top of a gradient and stays a
-     crisp flat color. The page background uses a plain CSS gradient; the
-     keyboard keys use an SVG gradient spanning the whole keyboard width
-     (see the linearGradient defs built in ui.ts). */
-  html.gradient-enabled body {
+     crisp flat color. The gradient is scoped to #mainContent rather than
+     body: the top bar stays a flat --bg-color instead of joining the
+     diagonal, and (since body has no explicit height) a body-level
+     gradient background would get propagated to the canvas by the
+     browser and tiled/repeated past the content into the empty page
+     space below - #mainContent is a normal bounded box, so its gradient
+     never has to restart. It's stretched to the bottom of the viewport
+     (see the flex rules above) so the gradient still reaches the bottom
+     of the page even when the content itself is short. The keyboard keys
+     use a separate SVG gradient spanning the whole keyboard width (see
+     the linearGradient defs built in ui.ts). */
+  html.gradient-enabled #mainContent {
     background: linear-gradient(135deg, var(--bg-color), var(--bg-color-2));
   }
   #topBar {
@@ -541,34 +559,36 @@
     </div>
   </div>
 
-  <div id="chordDisplay">
-    <div class="chord-main"><span class="placeholder">Play some notes&hellip;</span></div>
-    <div class="chord-roman"></div>
-    <div class="chord-alt"></div>
-  </div>
+  <div id="mainContent">
+    <div id="chordDisplay">
+      <div class="chord-main"><span class="placeholder">Play some notes&hellip;</span></div>
+      <div class="chord-roman"></div>
+      <div class="chord-alt"></div>
+    </div>
 
-  <div id="pianoContainer">
-    <svg id="piano"></svg>
-  </div>
+    <div id="pianoContainer">
+      <svg id="piano"></svg>
+    </div>
 
-  <div id="highlighterSection">
-    <button id="highlighterToggle" type="button" aria-expanded="false" aria-controls="highlighterBody">
-      Chord/Scale Display <span class="chevron">&#9656;</span>
-    </button>
-    <div id="highlighterBody" hidden>
-      <div class="highlighter-group" data-kind="scale">
-        <h4>Scale</h4>
-        <div class="root-buttons" id="scaleRootButtons"></div>
-        <div class="type-buttons" id="scaleTypeButtons"></div>
-      </div>
-      <div class="highlighter-group" data-kind="chord">
-        <h4>Chord</h4>
-        <div class="root-buttons" id="chordRootButtons"></div>
-        <select id="chordTypeSelect"></select>
+    <div id="highlighterSection">
+      <button id="highlighterToggle" type="button" aria-expanded="false" aria-controls="highlighterBody">
+        Chord/Scale Display <span class="chevron">&#9656;</span>
+      </button>
+      <div id="highlighterBody" hidden>
+        <div class="highlighter-group" data-kind="scale">
+          <h4>Scale</h4>
+          <div class="root-buttons" id="scaleRootButtons"></div>
+          <div class="type-buttons" id="scaleTypeButtons"></div>
+        </div>
+        <div class="highlighter-group" data-kind="chord">
+          <h4>Chord</h4>
+          <div class="root-buttons" id="chordRootButtons"></div>
+          <select id="chordTypeSelect"></select>
+        </div>
       </div>
     </div>
   </div>
 
-<script src="app.js?v=9e1ad26"></script>
+<script src="app.js?v=5bbf7a9"></script>
 </body>
 </html>
