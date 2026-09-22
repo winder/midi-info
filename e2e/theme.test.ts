@@ -9,7 +9,7 @@ describe('theme settings', () => {
       await openSettings(app.page);
       assert.equal(await app.page.isHidden('#themeEditorSection'), true);
       const themeOptions = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(themeOptions, ['Light', 'Dark', 'Cotton Candy']);
+      assert.deepEqual(themeOptions, ['Light', 'Dark', 'Cotton Candy', 'Neon']);
     } finally {
       await app.close();
     }
@@ -43,7 +43,7 @@ describe('theme settings', () => {
       await app.page.dispatchEvent('#themeBackgroundInput', 'input');
 
       const options = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy', 'E2E Theme']);
+      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy', 'Neon', 'E2E Theme']);
       const bg = await app.page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim()
       );
@@ -51,7 +51,7 @@ describe('theme settings', () => {
 
       await app.page.click('#deleteThemeBtn');
       const optionsAfterDelete = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(optionsAfterDelete, ['Light', 'Dark', 'Cotton Candy']);
+      assert.deepEqual(optionsAfterDelete, ['Light', 'Dark', 'Cotton Candy', 'Neon']);
     } finally {
       await app.close();
     }
@@ -84,7 +84,7 @@ describe('theme settings', () => {
       await app.page.reload();
       await openSettings(app.page);
       const options = await app.page.$$eval('#themeSelect option', opts => opts.map(o => (o as HTMLOptionElement).value));
-      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy']);
+      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy', 'Neon']);
     } finally {
       await app.close();
     }

@@ -578,6 +578,26 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     gradient: false,
     glow: false,
   },
+  {
+    // Dark/green neon look: near-black keys and background, bright neon
+    // green text and active keys, glow on for a lit-LED feel, and gradient
+    // on with subtle same-hue-family shifts (not a rainbow) across
+    // background/keys/highlight.
+    name: 'Neon',
+    background: '#060b08',
+    font: '#39ff88',
+    whiteKey: '#0f1f14',
+    blackKey: '#030704',
+    activeKey: '#2bffa0',
+    highlight: '#c6ff00',
+    background2: '#0a1f12',
+    whiteKey2: '#163826',
+    blackKey2: '#081208',
+    activeKey2: '#7dffce',
+    highlight2: '#eaff7d',
+    gradient: true,
+    glow: true,
+  },
 ];
 
 export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
