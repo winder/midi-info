@@ -270,6 +270,7 @@ const scaleTypeButtonsEl = document.getElementById('scaleTypeButtons') as HTMLEl
 const chordRootButtonsEl = document.getElementById('chordRootButtons') as HTMLElement;
 const chordTypeSelect = document.getElementById('chordTypeSelect') as HTMLSelectElement;
 const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
+const themeSelectThemes = document.getElementById('themeSelectThemes') as HTMLSelectElement;
 const themeNameInput = document.getElementById('themeNameInput') as HTMLInputElement;
 const themeBackgroundInput = document.getElementById('themeBackgroundInput') as HTMLInputElement;
 const themeFontInput = document.getElementById('themeFontInput') as HTMLInputElement;
@@ -417,14 +418,16 @@ function isModifiedFromBuiltIn(theme: NamedTheme): boolean {
 }
 
 function populateThemeSelect(): void {
-  themeSelect.innerHTML = '';
-  themes.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.name;
-    opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
-    themeSelect.appendChild(opt);
-  });
-  themeSelect.value = currentThemeName;
+  for (const select of [themeSelect, themeSelectThemes]) {
+    select.innerHTML = '';
+    themes.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.name;
+      opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
+      select.appendChild(opt);
+    });
+    select.value = currentThemeName;
+  }
 }
 
 function syncThemeEditorInputs(): void {
@@ -454,6 +457,7 @@ function selectTheme(name: string): void {
   saveThemeName(name);
   applyTheme(getCurrentTheme());
   themeSelect.value = name;
+  themeSelectThemes.value = name;
   syncThemeEditorInputs();
 }
 
@@ -469,6 +473,7 @@ applyTheme(getCurrentTheme());
 syncThemeEditorInputs();
 
 themeSelect.addEventListener('change', () => selectTheme(themeSelect.value));
+themeSelectThemes.addEventListener('change', () => selectTheme(themeSelectThemes.value));
 
 themeBackgroundInput.addEventListener('input', () => updateCurrentTheme({ background: themeBackgroundInput.value }));
 themeFontInput.addEventListener('input', () => updateCurrentTheme({ font: themeFontInput.value }));

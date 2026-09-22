@@ -133,6 +133,9 @@ describe('theme settings', () => {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
       await app.page.selectOption('#themeSelect', 'Dark');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const downloadPromise = app.page.waitForEvent('download');
       await app.page.click('#exportThemeBtn');
       const download = await downloadPromise;
@@ -152,6 +155,9 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const fs = await import('node:fs/promises');
       const os = await import('node:os');
       const path = await import('node:path');
@@ -162,7 +168,7 @@ describe('theme settings', () => {
       }));
 
       await app.page.setInputFiles('#importThemeFileInput', importPath);
-      await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Sunset');
+      await app.page.waitForFunction(() => (document.getElementById('themeSelectThemes') as HTMLSelectElement).value === 'Sunset');
       const bg = await app.page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim()
       );
@@ -230,7 +236,6 @@ describe('theme settings', () => {
       await app.page.check('#themeGradientCheckbox');
       await app.page.check('#themeGlowCheckbox');
 
-      await openSettingsTab(app.page, 'display');
       const downloadPromise = app.page.waitForEvent('download');
       await app.page.click('#exportThemeBtn');
       const download = await downloadPromise;
@@ -250,14 +255,41 @@ describe('theme settings', () => {
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeGradientCheckbox:not(:checked)');
 
-      await openSettingsTab(app.page, 'display');
       await app.page.setInputFiles('#importThemeFileInput', filePath);
-      await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Light');
-      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForFunction(() => (document.getElementById('themeSelectThemes') as HTMLSelectElement).value === 'Light');
       assert.equal(await app.page.isChecked('#themeGradientCheckbox'), true);
       assert.equal(await app.page.isChecked('#themeGlowCheckbox'), true);
       assert.equal(await app.page.inputValue('#themeBackgroundGradientInput'), '#abcdef');
       assert.equal(await app.page.inputValue('#themeActiveKeyGradientInput'), '#123456');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('the themes tab has its own theme picker, kept in sync with the display tab picker', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+
+      const options = await app.page.$$eval('#themeSelectThemes option', opts => opts.map(o => (o as HTMLOptionElement).value));
+      assert.deepEqual(options, ['Light', 'Dark', 'Cotton Candy', 'Neon']);
+
+      await app.page.selectOption('#themeSelectThemes', 'Dark');
+      const bg = await app.page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim()
+      );
+      assert.equal(bg, '#1e1e1e');
+
+      await openSettingsTab(app.page, 'display');
+      assert.equal(await app.page.$eval('#themeSelect', el => (el as HTMLSelectElement).value), 'Dark');
+
+      await app.page.selectOption('#themeSelect', 'Light');
+      await openSettingsTab(app.page, 'themes');
+      assert.equal(await app.page.$eval('#themeSelectThemes', el => (el as HTMLSelectElement).value), 'Light');
     } finally {
       await app.close();
     }
@@ -268,6 +300,9 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const fs = await import('node:fs/promises');
       const os = await import('node:os');
       const path = await import('node:path');
@@ -278,7 +313,7 @@ describe('theme settings', () => {
       }));
 
       await app.page.setInputFiles('#importThemeFileInput', importPath);
-      await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Legacy');
+      await app.page.waitForFunction(() => (document.getElementById('themeSelectThemes') as HTMLSelectElement).value === 'Legacy');
       const classes = await app.page.evaluate(() => document.documentElement.className);
       assert.doesNotMatch(classes, /gradient-enabled/);
       assert.doesNotMatch(classes, /glow-enabled/);

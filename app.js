@@ -979,6 +979,7 @@
   var chordRootButtonsEl = document.getElementById("chordRootButtons");
   var chordTypeSelect = document.getElementById("chordTypeSelect");
   var themeSelect = document.getElementById("themeSelect");
+  var themeSelectThemes = document.getElementById("themeSelectThemes");
   var themeNameInput = document.getElementById("themeNameInput");
   var themeBackgroundInput = document.getElementById("themeBackgroundInput");
   var themeFontInput = document.getElementById("themeFontInput");
@@ -1006,7 +1007,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"8d960aa"}`;
+  versionInfoEl.textContent = `Build ${"bc1e97d"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1100,14 +1101,16 @@
     return builtIn !== void 0 && !themeColorsEqual(theme, builtIn);
   }
   function populateThemeSelect() {
-    themeSelect.innerHTML = "";
-    themes.forEach((t) => {
-      const opt = document.createElement("option");
-      opt.value = t.name;
-      opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
-      themeSelect.appendChild(opt);
-    });
-    themeSelect.value = currentThemeName;
+    for (const select of [themeSelect, themeSelectThemes]) {
+      select.innerHTML = "";
+      themes.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.name;
+        opt.textContent = isModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
+        select.appendChild(opt);
+      });
+      select.value = currentThemeName;
+    }
   }
   function syncThemeEditorInputs() {
     const theme = getCurrentTheme();
@@ -1135,6 +1138,7 @@
     saveThemeName(name);
     applyTheme(getCurrentTheme());
     themeSelect.value = name;
+    themeSelectThemes.value = name;
     syncThemeEditorInputs();
   }
   function updateCurrentTheme(partial) {
@@ -1147,6 +1151,7 @@
   applyTheme(getCurrentTheme());
   syncThemeEditorInputs();
   themeSelect.addEventListener("change", () => selectTheme(themeSelect.value));
+  themeSelectThemes.addEventListener("change", () => selectTheme(themeSelectThemes.value));
   themeBackgroundInput.addEventListener("input", () => updateCurrentTheme({ background: themeBackgroundInput.value }));
   themeFontInput.addEventListener("input", () => updateCurrentTheme({ font: themeFontInput.value }));
   themeWhiteKeyInput.addEventListener("input", () => updateCurrentTheme({ whiteKey: themeWhiteKeyInput.value }));
