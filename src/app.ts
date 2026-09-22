@@ -179,6 +179,7 @@ let showSecondaryLine: boolean = loadBoolSetting('showSecondaryLine', true);
 let showTertiaryLine: boolean = loadBoolSetting('showTertiaryLine', true);
 let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
 let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
+let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 let sustainOn = false;
@@ -206,6 +207,7 @@ const secondaryLineCheckbox = document.getElementById('secondaryLineCheckbox') a
 const tertiaryLineCheckbox = document.getElementById('tertiaryLineCheckbox') as HTMLInputElement;
 const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') as HTMLInputElement;
 const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
+const noteLabelsCheckbox = document.getElementById('noteLabelsCheckbox') as HTMLInputElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
@@ -266,7 +268,7 @@ let piano: Piano;
 const isMouseDown = trackMouseIsDown();
 
 function render(): void {
-  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes());
+  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
 
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
@@ -660,6 +662,13 @@ octaveLabelsCheckbox.addEventListener('change', () => {
   showOctaveLabels = octaveLabelsCheckbox.checked;
   saveBoolSetting('showOctaveLabels', showOctaveLabels);
   rebuildPiano();
+});
+
+noteLabelsCheckbox.checked = showNoteLabels;
+noteLabelsCheckbox.addEventListener('change', () => {
+  showNoteLabels = noteLabelsCheckbox.checked;
+  saveBoolSetting('showNoteLabels', showNoteLabels);
+  render();
 });
 
 // ---- Chord table editor ----

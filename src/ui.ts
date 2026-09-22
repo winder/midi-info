@@ -273,15 +273,17 @@ export function centerOnMiddleC(container: HTMLElement, piano: Piano): void {
   container.scrollLeft = Math.max(0, middleCX - container.clientWidth / 2);
 }
 
-// Highlights the active keys and floats a note-name label above each one.
-// highlightedNotes marks keys lit up by the Highlighter (scale/chord study
-// aid), independent of - and combinable with - the "currently pressed"
+// Highlights the active keys and, when showNoteLabels is true, floats a
+// note-name label above each one. highlightedNotes marks keys lit up by
+// the Highlighter (scale/chord study aid), independent of - and
+// combinable with - the "currently pressed"
 // active state.
 export function renderKeyboard(
   piano: Piano,
   activeNotes: Set<number>,
   noteNames: string[],
-  highlightedNotes: Set<number> = new Set()
+  highlightedNotes: Set<number> = new Set(),
+  showNoteLabels = true
 ): void {
   piano.rectByMidi.forEach((rect, midi) => {
     const base = rect.classList.contains('black-key') ? 'black-key' : 'white-key';
@@ -292,16 +294,18 @@ export function renderKeyboard(
   });
 
   while (piano.labelGroup.firstChild) piano.labelGroup.removeChild(piano.labelGroup.firstChild);
-  activeNotes.forEach(midi => {
-    const key = piano.keys.find(k => k.midi === midi);
-    if (!key) return;
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', String(key.x + key.width / 2));
-    text.setAttribute('y', String(piano.dims.labelAreaH - 12));
-    text.setAttribute('class', 'note-label');
-    text.textContent = noteNames[midi % 12];
-    piano.labelGroup.appendChild(text);
-  });
+  if (showNoteLabels) {
+    activeNotes.forEach(midi => {
+      const key = piano.keys.find(k => k.midi === midi);
+      if (!key) return;
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', String(key.x + key.width / 2));
+      text.setAttribute('y', String(piano.dims.labelAreaH - 12));
+      text.setAttribute('class', 'note-label');
+      text.textContent = noteNames[midi % 12];
+      piano.labelGroup.appendChild(text);
+    });
+  }
 
   // Glow effect: a rect per active key, in a dedicated layer above (white)
   // or above-everything (black) so its blur spreads evenly instead of

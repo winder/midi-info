@@ -65,4 +65,26 @@ describe('display tab toggles', () => {
       await app.close();
     }
   });
+
+  test('the floating note label above active keys can be hidden and the choice survives a reload', async () => {
+    const app = await launchApp();
+    try {
+      await pressKeys(app.page, [60, 64, 67]);
+      assert.equal(await app.page.locator('.note-label').count(), 3);
+
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      await app.page.locator('#noteLabelsCheckbox').uncheck();
+      assert.equal(await app.page.locator('.note-label').count(), 0);
+
+      await app.page.reload();
+      await pressKeys(app.page, [60, 64, 67]);
+      assert.equal(await app.page.locator('.note-label').count(), 0);
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      assert.equal(await app.page.locator('#noteLabelsCheckbox').isChecked(), false);
+    } finally {
+      await app.close();
+    }
+  });
 });

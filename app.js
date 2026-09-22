@@ -510,7 +510,7 @@
     const middleCX = middleCRect ? Number(middleCRect.getAttribute("x")) : 0;
     container.scrollLeft = Math.max(0, middleCX - container.clientWidth / 2);
   }
-  function renderKeyboard(piano2, activeNotes2, noteNames, highlightedNotes = /* @__PURE__ */ new Set()) {
+  function renderKeyboard(piano2, activeNotes2, noteNames, highlightedNotes = /* @__PURE__ */ new Set(), showNoteLabels2 = true) {
     piano2.rectByMidi.forEach((rect, midi) => {
       const base = rect.classList.contains("black-key") ? "black-key" : "white-key";
       let cls = base;
@@ -519,16 +519,18 @@
       rect.setAttribute("class", cls);
     });
     while (piano2.labelGroup.firstChild) piano2.labelGroup.removeChild(piano2.labelGroup.firstChild);
-    activeNotes2.forEach((midi) => {
-      const key = piano2.keys.find((k) => k.midi === midi);
-      if (!key) return;
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", String(key.x + key.width / 2));
-      text.setAttribute("y", String(piano2.dims.labelAreaH - 12));
-      text.setAttribute("class", "note-label");
-      text.textContent = noteNames[midi % 12];
-      piano2.labelGroup.appendChild(text);
-    });
+    if (showNoteLabels2) {
+      activeNotes2.forEach((midi) => {
+        const key = piano2.keys.find((k) => k.midi === midi);
+        if (!key) return;
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", String(key.x + key.width / 2));
+        text.setAttribute("y", String(piano2.dims.labelAreaH - 12));
+        text.setAttribute("class", "note-label");
+        text.textContent = noteNames[midi % 12];
+        piano2.labelGroup.appendChild(text);
+      });
+    }
     while (piano2.whiteGlowGroup.firstChild) piano2.whiteGlowGroup.removeChild(piano2.whiteGlowGroup.firstChild);
     while (piano2.blackGlowGroup.firstChild) piano2.blackGlowGroup.removeChild(piano2.blackGlowGroup.firstChild);
     if (document.documentElement.classList.contains("glow-enabled")) {
@@ -930,6 +932,7 @@
   var showTertiaryLine = loadBoolSetting("showTertiaryLine", true);
   var showRomanNumerals = loadBoolSetting("showRomanNumerals", true);
   var showOctaveLabels = loadBoolSetting("showOctaveLabels", true);
+  var showNoteLabels = loadBoolSetting("showNoteLabels", true);
   var activeNotes = /* @__PURE__ */ new Set();
   var hasPlayedNote = false;
   var sustainOn = false;
@@ -951,6 +954,7 @@
   var tertiaryLineCheckbox = document.getElementById("tertiaryLineCheckbox");
   var romanNumeralsCheckbox = document.getElementById("romanNumeralsCheckbox");
   var octaveLabelsCheckbox = document.getElementById("octaveLabelsCheckbox");
+  var noteLabelsCheckbox = document.getElementById("noteLabelsCheckbox");
   var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
@@ -1002,11 +1006,11 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"fa5509d"}`;
+  versionInfoEl.textContent = `Build ${"be3632d"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
-    renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes());
+    renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
     const pitchClasses = Array.from(new Set(activeMidiSorted.map((m) => m % 12)));
     renderChordDisplay(
@@ -1339,6 +1343,12 @@
     showOctaveLabels = octaveLabelsCheckbox.checked;
     saveBoolSetting("showOctaveLabels", showOctaveLabels);
     rebuildPiano();
+  });
+  noteLabelsCheckbox.checked = showNoteLabels;
+  noteLabelsCheckbox.addEventListener("change", () => {
+    showNoteLabels = noteLabelsCheckbox.checked;
+    saveBoolSetting("showNoteLabels", showNoteLabels);
+    render();
   });
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {
