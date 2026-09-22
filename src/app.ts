@@ -75,21 +75,6 @@ function saveLevel(level: Level): void {
   setCookie('level', level, 365);
 }
 
-// ---- Debug (gates debug-only features, e.g. the chord table editor) ----
-
-function loadDebug(): boolean {
-  const raw = getCookie('debugMode');
-  if (raw === '1') return true;
-  if (raw === '0') return false;
-  // No explicit preference yet: default on if the user has already
-  // customized their chord table, so they don't lose the editor.
-  return getCookie('chordFormulas') !== null;
-}
-
-function saveDebug(value: boolean): void {
-  setCookie('debugMode', value ? '1' : '0', 365);
-}
-
 // ---- Chord-display line toggles and octave labels ----
 
 function loadBoolSetting(cookieName: string, defaultValue: boolean): boolean {
@@ -187,7 +172,6 @@ let currentTonicPc: number = keyPitchClass(KEYS[0]);
 let currentMode: Mode = MODES[0];
 let chordFormulas: ChordFormula[] = loadChordFormulas();
 let currentLevel: Level = loadLevel();
-let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
 let themes: NamedTheme[] = loadThemes();
 let currentThemeName: string = loadThemeName(themes);
@@ -218,7 +202,6 @@ const rangeInput = document.getElementById('rangeInput') as HTMLInputElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
-const debugCheckbox = document.getElementById('debugCheckbox') as HTMLInputElement;
 const secondaryLineCheckbox = document.getElementById('secondaryLineCheckbox') as HTMLInputElement;
 const tertiaryLineCheckbox = document.getElementById('tertiaryLineCheckbox') as HTMLInputElement;
 const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') as HTMLInputElement;
@@ -235,8 +218,6 @@ const menuButton = document.getElementById('menuButton') as HTMLElement;
 const settingsOverlay = document.getElementById('settingsOverlay') as HTMLElement;
 const settingsPanel = document.getElementById('settingsPanel') as HTMLElement;
 const settingsCloseBtn = document.getElementById('settingsCloseBtn') as HTMLButtonElement;
-const settingsNavChords = document.getElementById('settingsNavChords') as HTMLButtonElement;
-const settingsNavThemes = document.getElementById('settingsNavThemes') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const inputSelect = document.getElementById('inputSelect') as HTMLSelectElement;
 const inputRow = document.getElementById('inputRow') as HTMLElement;
@@ -650,24 +631,6 @@ levelButtons.forEach(btn => {
   btn.addEventListener('click', () => setLevel(btn.dataset.level as Level));
 });
 updateLevelButtons();
-
-// ---- Debug toggle (gates debug-only sections, e.g. the chord and theme editors) ----
-
-function updateDebugSectionsVisibility(): void {
-  settingsNavChords.hidden = !debugMode;
-  settingsNavThemes.hidden = !debugMode;
-  if (!debugMode && (activeSettingsTab === 'chords' || activeSettingsTab === 'themes')) {
-    setActiveSettingsTab('display');
-  }
-}
-
-debugCheckbox.checked = debugMode;
-updateDebugSectionsVisibility();
-debugCheckbox.addEventListener('change', () => {
-  debugMode = debugCheckbox.checked;
-  saveDebug(debugMode);
-  updateDebugSectionsVisibility();
-});
 
 // ---- Chord-display line toggles and octave labels ----
 

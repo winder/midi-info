@@ -855,15 +855,6 @@
   function saveLevel(level) {
     setCookie("level", level, 365);
   }
-  function loadDebug() {
-    const raw = getCookie("debugMode");
-    if (raw === "1") return true;
-    if (raw === "0") return false;
-    return getCookie("chordFormulas") !== null;
-  }
-  function saveDebug(value) {
-    setCookie("debugMode", value ? "1" : "0", 365);
-  }
   function loadBoolSetting(cookieName, defaultValue) {
     const raw = getCookie(cookieName);
     if (raw === "1") return true;
@@ -932,7 +923,6 @@
   var currentMode = MODES[0];
   var chordFormulas = loadChordFormulas();
   var currentLevel = loadLevel();
-  var debugMode = loadDebug();
   var currentVisibleKeys = loadVisibleKeys();
   var themes = loadThemes();
   var currentThemeName = loadThemeName(themes);
@@ -957,7 +947,6 @@
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
   var modeLabelText = document.getElementById("modeLabelText");
-  var debugCheckbox = document.getElementById("debugCheckbox");
   var secondaryLineCheckbox = document.getElementById("secondaryLineCheckbox");
   var tertiaryLineCheckbox = document.getElementById("tertiaryLineCheckbox");
   var romanNumeralsCheckbox = document.getElementById("romanNumeralsCheckbox");
@@ -974,8 +963,6 @@
   var settingsOverlay = document.getElementById("settingsOverlay");
   var settingsPanel = document.getElementById("settingsPanel");
   var settingsCloseBtn = document.getElementById("settingsCloseBtn");
-  var settingsNavChords = document.getElementById("settingsNavChords");
-  var settingsNavThemes = document.getElementById("settingsNavThemes");
   var statusEl = document.getElementById("status");
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
@@ -1015,7 +1002,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"1ea6517"}`;
+  versionInfoEl.textContent = `Build ${"fa5509d"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1329,20 +1316,6 @@
     btn.addEventListener("click", () => setLevel(btn.dataset.level));
   });
   updateLevelButtons();
-  function updateDebugSectionsVisibility() {
-    settingsNavChords.hidden = !debugMode;
-    settingsNavThemes.hidden = !debugMode;
-    if (!debugMode && (activeSettingsTab === "chords" || activeSettingsTab === "themes")) {
-      setActiveSettingsTab("display");
-    }
-  }
-  debugCheckbox.checked = debugMode;
-  updateDebugSectionsVisibility();
-  debugCheckbox.addEventListener("change", () => {
-    debugMode = debugCheckbox.checked;
-    saveDebug(debugMode);
-    updateDebugSectionsVisibility();
-  });
   secondaryLineCheckbox.checked = showSecondaryLine;
   secondaryLineCheckbox.addEventListener("change", () => {
     showSecondaryLine = secondaryLineCheckbox.checked;

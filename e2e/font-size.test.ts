@@ -8,7 +8,6 @@ describe('font size settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 

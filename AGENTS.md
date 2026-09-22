@@ -53,12 +53,12 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 - **9ths are often implied**: `Δ7#11` includes the natural 9 because that is how it is voiced. A real bug report drove this; the 5-note formula was rejecting valid input.
 - **Notation uses real jazz symbols**: minor `-`, diminished `°`/`°7`, half-diminished `ø7`, major 7 `Δ7`. Slash chords render tight as `C/E`. Explicitly requested; `m`/`dim`/`Maj7`/`C / E bass` are regressions.
 - **Key spelling** (`buildKeyNoteNames`): the 7 diatonic tones use real key-signature math (F# major spells the F key as `E#`); the 5 chromatic tones fall back to a per-key sharp/flat table, since passing-tone spelling has no settled convention.
-- **Chord table is user-editable** behind debug mode, persisted in the `chordFormulas` cookie, with JSON Export/Import. `parseChordFormulas` is the single validator for both paths and rejects a malformed table outright rather than defaulting bad entries.
+- **Chord table is user-editable**, persisted in the `chordFormulas` cookie, with JSON Export/Import. `parseChordFormulas` is the single validator for both paths and rejects a malformed table outright rather than defaulting bad entries.
 
 ### Settings and persistence
 
-- **Settings levels** `basic` / `intermediate` / `nerd` progressively disclose content. Gating is data-driven: modes, highlight scales and highlight chords carry a `minLevel` and `app.ts` filters them with `levelAtLeast`. Give new theory content a `minLevel` rather than adding UI branches. The chord and theme editors are separate, behind the `debugMode` checkbox, independent of level.
-- **Everything persists in cookies**, one per setting (`level`, `debugMode`, `visibleKeys`, `themes`, `themeName`, `fontFamily`, `chordFormulas`). Follow the `loadX`/`saveX` pair pattern at the top of `app.ts` for a new setting.
+- **Settings levels** `basic` / `intermediate` / `nerd` progressively disclose content. Gating is data-driven: modes, highlight scales and highlight chords carry a `minLevel` and `app.ts` filters them with `levelAtLeast`. Give new theory content a `minLevel` rather than adding UI branches. The chord and theme editors are separate tabs, always enabled, independent of level.
+- **Everything persists in cookies**, one per setting (`level`, `visibleKeys`, `themes`, `themeName`, `chordFormulas`). Follow the `loadX`/`saveX` pair pattern at the top of `app.ts` for a new setting.
 - **Themes are named color sets** in `BUILT_IN_THEMES` (`ui.ts`). Built-ins are always merged back into the saved list, cannot be deleted or renamed, and show as modified in the picker when edited. Any loader for persisted JSON goes through a strict `parse*` function that returns `null` on bad input, mirroring `parseChordFormulas`.
 - **Visible keys is a zoom level**, not a range: all 88 keys always exist and the count only sets key width so that many fit the container. The rest scroll.
 

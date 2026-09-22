@@ -42,7 +42,6 @@ describe('chord display layout', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.click('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       await app.page.selectOption('#fontFamilySelect', 'real-book');

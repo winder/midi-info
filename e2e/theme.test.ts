@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { launchApp, openSettings, openSettingsTab } from './fixtures';
 
 describe('theme settings', () => {
-  test('non-debug mode only offers a named theme picker, no color inputs', async () => {
+  test('the theme editor stays hidden until the Themes tab is selected', async () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
@@ -30,12 +30,11 @@ describe('theme settings', () => {
     }
   });
 
-  test('debug mode exposes the editor: new theme, rename, edit, delete', async () => {
+  test('the Themes tab exposes the editor: new theme, rename, edit, delete', async () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 
@@ -65,7 +64,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await app.page.selectOption('#themeSelect', 'Light');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
@@ -100,7 +98,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await app.page.selectOption('#themeSelect', 'Light');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
@@ -133,7 +130,6 @@ describe('theme settings', () => {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
       await app.page.selectOption('#themeSelect', 'Dark');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const downloadPromise = app.page.waitForEvent('download');
@@ -155,7 +151,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const fs = await import('node:fs/promises');
@@ -190,7 +185,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 
@@ -226,7 +220,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       await app.page.fill('#themeBackgroundGradientInput', '#abcdef');
@@ -271,7 +264,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 
@@ -300,7 +292,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       const fs = await import('node:fs/promises');
@@ -333,7 +324,6 @@ describe('theme settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
-      await app.page.check('#debugCheckbox');
       await openSettingsTab(app.page, 'themes');
       await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 

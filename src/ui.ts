@@ -596,8 +596,8 @@ const BOOLEAN_KEYS: (keyof Theme)[] = ['gradient', 'glow'];
 // FontSizes fields, validated/defaulted separately (see parseNamedTheme).
 const FONT_SIZE_KEYS: (keyof FontSizes)[] = ['chord', 'secondary', 'tertiary', 'note', 'octave'];
 
-// The themes users can pick from without turning on Debug. Debug mode adds
-// the ability to edit these (and any custom themes) in place.
+// The themes offered in the picker. The Themes settings tab lets users edit
+// these (and any custom themes) in place.
 export const BUILT_IN_THEMES: NamedTheme[] = [
   {
     name: 'Light',
