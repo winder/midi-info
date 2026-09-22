@@ -232,7 +232,7 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 8px 24px;
+    padding: 4px 24px 2px;
     font-family: var(--font-family);
   }
   /* The three line slots are always rendered (empty when unused) and each has
@@ -269,7 +269,7 @@
     /* A lighter tint of the configured font color: less washed out than
        .chord-alt below it, since the roman numeral outranks tertiary text. */
     color: color-mix(in srgb, var(--font-color) 70%, white);
-    margin-top: 2px;
+    margin-top: 0;
   }
   #chordDisplay .chord-alt {
     font-size: var(--font-size-tertiary);
@@ -278,7 +278,7 @@
     /* A lighter tint of the configured font color, for secondary/alternate
        detection text (interval breakdown, alternate chord matches). */
     color: color-mix(in srgb, var(--font-color) 55%, white);
-    margin-top: 4px;
+    margin-top: 0;
   }
   #pianoContainer {
     overflow-x: auto;
@@ -509,6 +509,6 @@
     </div>
   </div>
 
-<script src="app.js?v=abbadd2"></script>
+<script src="app.js?v=2a8840a"></script>
 </body>
 </html>
