@@ -43,6 +43,8 @@ describe('chord display layout', () => {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
       await app.page.click('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       await app.page.selectOption('#fontFamilySelect', 'real-book');
       await app.page.fill('#chordFontSizeInput', '60');
       await app.page.dispatchEvent('#chordFontSizeInput', 'change');

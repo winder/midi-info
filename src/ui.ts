@@ -470,205 +470,6 @@ export function setErrorMessage(el: HTMLElement, message: string | null): void {
   el.hidden = !message;
 }
 
-// ---- Theme (named color sets) ----
-
-export interface Theme {
-  background: string;
-  font: string;
-  whiteKey: string;
-  blackKey: string;
-  activeKey: string;
-  highlight: string;
-  // Second color for each gradient-able field, used by the gradient
-  // effect below. Each is independent so a subtle or "off" gradient is
-  // just picking the same color as the base field - no separate
-  // per-field toggle needed. Font/text has no *2 field: text is
-  // deliberately never gradiented (see index.html), so it stays crisp on
-  // top of a gradiented background or key.
-  background2: string;
-  whiteKey2: string;
-  blackKey2: string;
-  activeKey2: string;
-  highlight2: string;
-  // When true, background/whiteKey/blackKey/activeKey/highlight each
-  // render as a gradient toward their *2 color instead of flat. For the
-  // keys specifically this is one continuous gradient across the whole
-  // keyboard's width (see the SVG defs in createPiano), not a per-key
-  // gradient repeated on each key.
-  gradient: boolean;
-  // When true, the currently active key(s) get a soft glow (CSS
-  // drop-shadow) in the theme's active-key color.
-  glow: boolean;
-}
-
-export interface NamedTheme extends Theme {
-  name: string;
-}
-
-// String-valued color fields; used to populate/compare the color swatches.
-const COLOR_KEYS: (keyof Theme)[] = [
-  'background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight',
-  'background2', 'whiteKey2', 'blackKey2', 'activeKey2', 'highlight2',
-];
-// Colors that must be present on any parsed theme; the *2 fields are not
-// among these since old saved themes won't have them (see parseNamedTheme).
-const REQUIRED_COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
-// The *2 fields, paired with the base field they default to when absent.
-const GRADIENT_COLOR_KEYS: [keyof Theme, keyof Theme][] = [
-  ['background2', 'background'],
-  ['whiteKey2', 'whiteKey'],
-  ['blackKey2', 'blackKey'],
-  ['activeKey2', 'activeKey'],
-  ['highlight2', 'highlight'],
-];
-// Boolean toggle fields, validated/defaulted separately from the colors.
-const BOOLEAN_KEYS: (keyof Theme)[] = ['gradient', 'glow'];
-
-// The themes users can pick from without turning on Debug. Debug mode adds
-// the ability to edit these (and any custom themes) in place.
-export const BUILT_IN_THEMES: NamedTheme[] = [
-  {
-    name: 'Light',
-    background: '#ffffff',
-    font: '#222222',
-    whiteKey: '#ffffff',
-    blackKey: '#222222',
-    activeKey: '#4a76c4',
-    highlight: '#ffd54f',
-    // Each *2 defaults to its own base color, so flipping the gradient
-    // toggle on a built-in theme is a visible no-op until the user picks
-    // a different second color for something.
-    background2: '#ffffff',
-    whiteKey2: '#ffffff',
-    blackKey2: '#222222',
-    activeKey2: '#4a76c4',
-    highlight2: '#ffd54f',
-    gradient: false,
-    glow: false,
-  },
-  {
-    name: 'Dark',
-    background: '#1e1e1e',
-    font: '#e8e8e8',
-    whiteKey: '#2b2b2b',
-    blackKey: '#0d0d0d',
-    activeKey: '#6c9bf0',
-    highlight: '#ffb300',
-    background2: '#1e1e1e',
-    whiteKey2: '#2b2b2b',
-    blackKey2: '#0d0d0d',
-    activeKey2: '#6c9bf0',
-    highlight2: '#ffb300',
-    gradient: false,
-    glow: false,
-  },
-  {
-    name: 'Cotton Candy',
-    background: '#a6c8c6',
-    font: '#0a0000',
-    whiteKey: '#ffffff',
-    blackKey: '#222222',
-    activeKey: '#eebfa0',
-    highlight: '#49b0ca',
-    background2: '#a6c8c6',
-    whiteKey2: '#ffffff',
-    blackKey2: '#222222',
-    activeKey2: '#eebfa0',
-    highlight2: '#49b0ca',
-    gradient: false,
-    glow: false,
-  },
-  {
-    // Dark/green neon look: near-black keys and background, bright neon
-    // green text and active keys, glow on for a lit-LED feel, and gradient
-    // on with subtle same-hue-family shifts (not a rainbow) across
-    // background/keys/highlight.
-    name: 'Neon',
-    background: '#060b08',
-    font: '#39ff88',
-    whiteKey: '#0f1f14',
-    blackKey: '#030704',
-    activeKey: '#2bffa0',
-    highlight: '#c6ff00',
-    background2: '#0a1f12',
-    whiteKey2: '#163826',
-    blackKey2: '#081208',
-    activeKey2: '#7dffce',
-    highlight2: '#eaff7d',
-    gradient: true,
-    glow: true,
-  },
-];
-
-export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
-
-// Applies the theme by setting CSS custom properties on the root element;
-// index.html's stylesheet reads these to color the page and keyboard.
-export function applyTheme(theme: Theme): void {
-  const root = document.documentElement.style;
-  root.setProperty('--bg-color', theme.background);
-  root.setProperty('--font-color', theme.font);
-  root.setProperty('--white-key-color', theme.whiteKey);
-  root.setProperty('--black-key-color', theme.blackKey);
-  root.setProperty('--active-key-color', theme.activeKey);
-  root.setProperty('--highlight-color', theme.highlight);
-  root.setProperty('--bg-color-2', theme.background2);
-  root.setProperty('--white-key-color-2', theme.whiteKey2);
-  root.setProperty('--black-key-color-2', theme.blackKey2);
-  root.setProperty('--active-key-color-2', theme.activeKey2);
-  root.setProperty('--highlight-color-2', theme.highlight2);
-  document.documentElement.classList.toggle('gradient-enabled', theme.gradient);
-  document.documentElement.classList.toggle('glow-enabled', theme.glow);
-}
-
-// True if two themes have identical colors and effect toggles (name is
-// ignored).
-export function themeColorsEqual(a: Theme, b: Theme): boolean {
-  return COLOR_KEYS.every(key => a[key] === b[key]) && BOOLEAN_KEYS.every(key => a[key] === b[key]);
-}
-
-// Validates and normalizes arbitrary parsed JSON (from a cookie or an
-// imported file) into a single named theme. Returns null if the shape
-// isn't a named theme at all.
-//
-// The *2 gradient colors and gradient/glow are all optional on the input
-// and default to a copy of their base color / false / false when absent,
-// so a themes cookie saved before this feature existed still parses
-// instead of getting wiped back to the built-in defaults (see loadThemes
-// in app.ts).
-export function parseNamedTheme(raw: unknown): NamedTheme | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const t = raw as Record<string, unknown>;
-  if (typeof t.name !== 'string' || !t.name.trim()) return null;
-  const theme = { name: t.name.trim() } as NamedTheme;
-  const dest = theme as unknown as Record<string, unknown>;
-  for (const key of REQUIRED_COLOR_KEYS) {
-    if (typeof t[key] !== 'string') return null;
-    dest[key] = t[key];
-  }
-  for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
-    dest[key] = typeof t[key] === 'string' ? t[key] : dest[fallbackKey];
-  }
-  for (const key of BOOLEAN_KEYS) {
-    dest[key] = typeof t[key] === 'boolean' ? t[key] : false;
-  }
-  return theme;
-}
-
-// Validates and normalizes arbitrary parsed JSON into a list of named
-// themes (e.g. from the themes cookie). Returns null if any entry isn't a
-// named theme, or the list is empty.
-export function parseNamedThemes(raw: unknown): NamedTheme[] | null {
-  if (!Array.isArray(raw)) return null;
-  const result: NamedTheme[] = [];
-  for (const item of raw) {
-    const theme = parseNamedTheme(item);
-    if (!theme) return null;
-    result.push(theme);
-  }
-  return result.length ? result : null;
-}
-
 // ---- Font family selection ----
 
 export interface FontOption {
@@ -723,3 +524,232 @@ export function applyFontSizes(sizes: FontSizes): void {
   root.setProperty('--font-size-note', `${sizes.note}px`);
   root.setProperty('--font-size-octave', `${sizes.octave}px`);
 }
+
+// ---- Theme (named color sets) ----
+
+export interface Theme {
+  background: string;
+  font: string;
+  whiteKey: string;
+  blackKey: string;
+  activeKey: string;
+  highlight: string;
+  // Second color for each gradient-able field, used by the gradient
+  // effect below. Each is independent so a subtle or "off" gradient is
+  // just picking the same color as the base field - no separate
+  // per-field toggle needed. Font/text has no *2 field: text is
+  // deliberately never gradiented (see index.html), so it stays crisp on
+  // top of a gradiented background or key.
+  background2: string;
+  whiteKey2: string;
+  blackKey2: string;
+  activeKey2: string;
+  highlight2: string;
+  // When true, background/whiteKey/blackKey/activeKey/highlight each
+  // render as a gradient toward their *2 color instead of flat. For the
+  // keys specifically this is one continuous gradient across the whole
+  // keyboard's width (see the SVG defs in createPiano), not a per-key
+  // gradient repeated on each key.
+  gradient: boolean;
+  // When true, the currently active key(s) get a soft glow (CSS
+  // drop-shadow) in the theme's active-key color.
+  glow: boolean;
+  // A theme also carries the font family and the five per-area font sizes,
+  // so switching themes changes the whole look in one step.
+  fontId: string;
+  fontSizes: FontSizes;
+}
+
+export interface NamedTheme extends Theme {
+  name: string;
+}
+
+// String-valued color fields; used to populate/compare the color swatches.
+const COLOR_KEYS: (keyof Theme)[] = [
+  'background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight',
+  'background2', 'whiteKey2', 'blackKey2', 'activeKey2', 'highlight2',
+];
+// Colors that must be present on any parsed theme; the *2 fields are not
+// among these since old saved themes won't have them (see parseNamedTheme).
+const REQUIRED_COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
+// The *2 fields, paired with the base field they default to when absent.
+const GRADIENT_COLOR_KEYS: [keyof Theme, keyof Theme][] = [
+  ['background2', 'background'],
+  ['whiteKey2', 'whiteKey'],
+  ['blackKey2', 'blackKey'],
+  ['activeKey2', 'activeKey'],
+  ['highlight2', 'highlight'],
+];
+// Boolean toggle fields, validated/defaulted separately from the colors.
+const BOOLEAN_KEYS: (keyof Theme)[] = ['gradient', 'glow'];
+// FontSizes fields, validated/defaulted separately (see parseNamedTheme).
+const FONT_SIZE_KEYS: (keyof FontSizes)[] = ['chord', 'secondary', 'tertiary', 'note', 'octave'];
+
+// The themes users can pick from without turning on Debug. Debug mode adds
+// the ability to edit these (and any custom themes) in place.
+export const BUILT_IN_THEMES: NamedTheme[] = [
+  {
+    name: 'Light',
+    background: '#ffffff',
+    font: '#222222',
+    whiteKey: '#ffffff',
+    blackKey: '#222222',
+    activeKey: '#4a76c4',
+    highlight: '#ffd54f',
+    // Each *2 defaults to its own base color, so flipping the gradient
+    // toggle on a built-in theme is a visible no-op until the user picks
+    // a different second color for something.
+    background2: '#ffffff',
+    whiteKey2: '#ffffff',
+    blackKey2: '#222222',
+    activeKey2: '#4a76c4',
+    highlight2: '#ffd54f',
+    gradient: false,
+    glow: false,
+    fontId: DEFAULT_FONT_ID,
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+  {
+    name: 'Dark',
+    background: '#1e1e1e',
+    font: '#e8e8e8',
+    whiteKey: '#2b2b2b',
+    blackKey: '#0d0d0d',
+    activeKey: '#6c9bf0',
+    highlight: '#ffb300',
+    background2: '#1e1e1e',
+    whiteKey2: '#2b2b2b',
+    blackKey2: '#0d0d0d',
+    activeKey2: '#6c9bf0',
+    highlight2: '#ffb300',
+    gradient: false,
+    glow: false,
+    fontId: DEFAULT_FONT_ID,
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+  {
+    name: 'Cotton Candy',
+    background: '#a6c8c6',
+    font: '#0a0000',
+    whiteKey: '#ffffff',
+    blackKey: '#222222',
+    activeKey: '#eebfa0',
+    highlight: '#49b0ca',
+    background2: '#a6c8c6',
+    whiteKey2: '#ffffff',
+    blackKey2: '#222222',
+    activeKey2: '#eebfa0',
+    highlight2: '#49b0ca',
+    gradient: false,
+    glow: false,
+    fontId: DEFAULT_FONT_ID,
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+  {
+    // Dark/green neon look: near-black keys and background, bright neon
+    // green text and active keys, glow on for a lit-LED feel, and gradient
+    // on with subtle same-hue-family shifts (not a rainbow) across
+    // background/keys/highlight.
+    name: 'Neon',
+    background: '#060b08',
+    font: '#39ff88',
+    whiteKey: '#0f1f14',
+    blackKey: '#030704',
+    activeKey: '#2bffa0',
+    highlight: '#c6ff00',
+    background2: '#0a1f12',
+    whiteKey2: '#163826',
+    blackKey2: '#081208',
+    activeKey2: '#7dffce',
+    highlight2: '#eaff7d',
+    gradient: true,
+    glow: true,
+    fontId: DEFAULT_FONT_ID,
+    fontSizes: { ...DEFAULT_FONT_SIZES },
+  },
+];
+
+export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
+
+// Applies the theme by setting CSS custom properties on the root element;
+// index.html's stylesheet reads these to color the page and keyboard.
+export function applyTheme(theme: Theme): void {
+  const root = document.documentElement.style;
+  root.setProperty('--bg-color', theme.background);
+  root.setProperty('--font-color', theme.font);
+  root.setProperty('--white-key-color', theme.whiteKey);
+  root.setProperty('--black-key-color', theme.blackKey);
+  root.setProperty('--active-key-color', theme.activeKey);
+  root.setProperty('--highlight-color', theme.highlight);
+  root.setProperty('--bg-color-2', theme.background2);
+  root.setProperty('--white-key-color-2', theme.whiteKey2);
+  root.setProperty('--black-key-color-2', theme.blackKey2);
+  root.setProperty('--active-key-color-2', theme.activeKey2);
+  root.setProperty('--highlight-color-2', theme.highlight2);
+  document.documentElement.classList.toggle('gradient-enabled', theme.gradient);
+  document.documentElement.classList.toggle('glow-enabled', theme.glow);
+  applyFont(theme.fontId);
+  applyFontSizes(theme.fontSizes);
+}
+
+// True if two themes have identical colors, effect toggles, font family and
+// font sizes (name is ignored).
+export function themeEqual(a: Theme, b: Theme): boolean {
+  return COLOR_KEYS.every(key => a[key] === b[key]) &&
+    BOOLEAN_KEYS.every(key => a[key] === b[key]) &&
+    a.fontId === b.fontId &&
+    FONT_SIZE_KEYS.every(key => a.fontSizes[key] === b.fontSizes[key]);
+}
+
+// Validates and normalizes arbitrary parsed JSON (from a cookie or an
+// imported file) into a single named theme. Returns null if the shape
+// isn't a named theme at all.
+//
+// The *2 gradient colors, gradient/glow and the font fields are all
+// optional on the input and default to a copy of their base color / false /
+// the app defaults when absent, so a themes cookie or export saved before
+// one of these features existed still parses instead of getting wiped back
+// to the built-in defaults (see loadThemes in app.ts).
+export function parseNamedTheme(raw: unknown): NamedTheme | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const t = raw as Record<string, unknown>;
+  if (typeof t.name !== 'string' || !t.name.trim()) return null;
+  const theme = { name: t.name.trim() } as NamedTheme;
+  const dest = theme as unknown as Record<string, unknown>;
+  for (const key of REQUIRED_COLOR_KEYS) {
+    if (typeof t[key] !== 'string') return null;
+    dest[key] = t[key];
+  }
+  for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
+    dest[key] = typeof t[key] === 'string' ? t[key] : dest[fallbackKey];
+  }
+  for (const key of BOOLEAN_KEYS) {
+    dest[key] = typeof t[key] === 'boolean' ? t[key] : false;
+  }
+  theme.fontId = typeof t.fontId === 'string' && FONT_OPTIONS.some(f => f.id === t.fontId)
+    ? t.fontId : DEFAULT_FONT_ID;
+  const rawSizes = typeof t.fontSizes === 'object' && t.fontSizes !== null
+    ? t.fontSizes as Record<string, unknown> : {};
+  const sizes = {} as Record<string, number>;
+  for (const key of FONT_SIZE_KEYS) {
+    const n = rawSizes[key];
+    sizes[key] = typeof n === 'number' && n > 0 ? n : DEFAULT_FONT_SIZES[key];
+  }
+  theme.fontSizes = sizes as unknown as FontSizes;
+  return theme;
+}
+
+// Validates and normalizes arbitrary parsed JSON into a list of named
+// themes (e.g. from the themes cookie). Returns null if any entry isn't a
+// named theme, or the list is empty.
+export function parseNamedThemes(raw: unknown): NamedTheme[] | null {
+  if (!Array.isArray(raw)) return null;
+  const result: NamedTheme[] = [];
+  for (const item of raw) {
+    const theme = parseNamedTheme(item);
+    if (!theme) return null;
+    result.push(theme);
+  }
+  return result.length ? result : null;
+}
+

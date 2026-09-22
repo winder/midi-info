@@ -360,16 +360,24 @@
     max-width: none;
     gap: 8px;
   }
-  /* Bordered card around the color table, echoing #chordTableWrap, so the
-     Colors section reads as a distinct group instead of floating loose
-     among the toolbar/name/checkbox rows above it. */
-  #themeColorGroup {
+  /* Bordered card around the color table and the font settings, echoing
+     #chordTableWrap, so each section reads as a distinct group instead of
+     floating loose among the toolbar/name/checkbox rows above them. */
+  #themeColorGroup, #themeFontGroup {
     border: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
     border-radius: 6px;
     padding: 12px 14px;
   }
+  #themeFontGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   #themeColorGroup h4 {
     margin: 0 0 8px;
+  }
+  #themeFontGroup h4 {
+    margin: 0;
   }
   /* Percentage column widths (matching #chordTable's approach) so the
      label/Primary/Gradient columns stay aligned at any panel width
@@ -676,16 +684,9 @@
 
             <section id="settingsTabDisplay" class="settings-tab-panel" data-tab-panel="display">
               <h3>Display</h3>
-              <p class="tab-desc">Keyboard size, theme and fonts.</p>
+              <p class="tab-desc">Keyboard size and theme.</p>
               <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
               <label for="themeSelect">Theme <select id="themeSelect"></select></label>
-              <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
-              <h4>Font sizes</h4>
-              <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
-              <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
-              <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
-              <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
-              <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
               <h4>Advanced</h4>
               <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
             </section>
@@ -769,6 +770,16 @@
                 </table>
               </div>
 
+              <div id="themeFontGroup">
+                <h4>Font</h4>
+                <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
+                <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
+                <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
+                <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
+                <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
+                <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
+              </div>
+
               <div class="settings-actions">
                 <button id="exportThemeBtn" type="button">Export&hellip;</button>
                 <button id="importThemeBtn" type="button">Import&hellip;</button>
@@ -816,6 +827,6 @@
     </div>
   </div>
 
-<script src="app.js?v=bc1e97d"></script>
+<script src="app.js?v=c30a5bc"></script>
 </body>
 </html>

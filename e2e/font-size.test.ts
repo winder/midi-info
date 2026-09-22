@@ -8,6 +8,9 @@ describe('font size settings', () => {
     try {
       await openSettings(app.page);
       await openSettingsTab(app.page, 'display');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
 
       const defaults = {
         chordFontSizeInput: '40',
@@ -40,7 +43,8 @@ describe('font size settings', () => {
 
       await app.page.reload();
       await openSettings(app.page);
-      await openSettingsTab(app.page, 'display');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
       assert.equal(await app.page.$eval('#chordFontSizeInput', el => (el as HTMLInputElement).value), '60');
       assert.equal(await app.page.$eval('#octaveFontSizeInput', el => (el as HTMLInputElement).value), '18');
       assert.equal(await app.page.$eval('#secondaryFontSizeInput', el => (el as HTMLInputElement).value), '16');

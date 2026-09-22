@@ -646,149 +646,6 @@
     el.textContent = message || "";
     el.hidden = !message;
   }
-  var COLOR_KEYS = [
-    "background",
-    "font",
-    "whiteKey",
-    "blackKey",
-    "activeKey",
-    "highlight",
-    "background2",
-    "whiteKey2",
-    "blackKey2",
-    "activeKey2",
-    "highlight2"
-  ];
-  var REQUIRED_COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
-  var GRADIENT_COLOR_KEYS = [
-    ["background2", "background"],
-    ["whiteKey2", "whiteKey"],
-    ["blackKey2", "blackKey"],
-    ["activeKey2", "activeKey"],
-    ["highlight2", "highlight"]
-  ];
-  var BOOLEAN_KEYS = ["gradient", "glow"];
-  var BUILT_IN_THEMES = [
-    {
-      name: "Light",
-      background: "#ffffff",
-      font: "#222222",
-      whiteKey: "#ffffff",
-      blackKey: "#222222",
-      activeKey: "#4a76c4",
-      highlight: "#ffd54f",
-      // Each *2 defaults to its own base color, so flipping the gradient
-      // toggle on a built-in theme is a visible no-op until the user picks
-      // a different second color for something.
-      background2: "#ffffff",
-      whiteKey2: "#ffffff",
-      blackKey2: "#222222",
-      activeKey2: "#4a76c4",
-      highlight2: "#ffd54f",
-      gradient: false,
-      glow: false
-    },
-    {
-      name: "Dark",
-      background: "#1e1e1e",
-      font: "#e8e8e8",
-      whiteKey: "#2b2b2b",
-      blackKey: "#0d0d0d",
-      activeKey: "#6c9bf0",
-      highlight: "#ffb300",
-      background2: "#1e1e1e",
-      whiteKey2: "#2b2b2b",
-      blackKey2: "#0d0d0d",
-      activeKey2: "#6c9bf0",
-      highlight2: "#ffb300",
-      gradient: false,
-      glow: false
-    },
-    {
-      name: "Cotton Candy",
-      background: "#a6c8c6",
-      font: "#0a0000",
-      whiteKey: "#ffffff",
-      blackKey: "#222222",
-      activeKey: "#eebfa0",
-      highlight: "#49b0ca",
-      background2: "#a6c8c6",
-      whiteKey2: "#ffffff",
-      blackKey2: "#222222",
-      activeKey2: "#eebfa0",
-      highlight2: "#49b0ca",
-      gradient: false,
-      glow: false
-    },
-    {
-      // Dark/green neon look: near-black keys and background, bright neon
-      // green text and active keys, glow on for a lit-LED feel, and gradient
-      // on with subtle same-hue-family shifts (not a rainbow) across
-      // background/keys/highlight.
-      name: "Neon",
-      background: "#060b08",
-      font: "#39ff88",
-      whiteKey: "#0f1f14",
-      blackKey: "#030704",
-      activeKey: "#2bffa0",
-      highlight: "#c6ff00",
-      background2: "#0a1f12",
-      whiteKey2: "#163826",
-      blackKey2: "#081208",
-      activeKey2: "#7dffce",
-      highlight2: "#eaff7d",
-      gradient: true,
-      glow: true
-    }
-  ];
-  var DEFAULT_THEME = BUILT_IN_THEMES[0];
-  function applyTheme(theme) {
-    const root = document.documentElement.style;
-    root.setProperty("--bg-color", theme.background);
-    root.setProperty("--font-color", theme.font);
-    root.setProperty("--white-key-color", theme.whiteKey);
-    root.setProperty("--black-key-color", theme.blackKey);
-    root.setProperty("--active-key-color", theme.activeKey);
-    root.setProperty("--highlight-color", theme.highlight);
-    root.setProperty("--bg-color-2", theme.background2);
-    root.setProperty("--white-key-color-2", theme.whiteKey2);
-    root.setProperty("--black-key-color-2", theme.blackKey2);
-    root.setProperty("--active-key-color-2", theme.activeKey2);
-    root.setProperty("--highlight-color-2", theme.highlight2);
-    document.documentElement.classList.toggle("gradient-enabled", theme.gradient);
-    document.documentElement.classList.toggle("glow-enabled", theme.glow);
-  }
-  function themeColorsEqual(a, b) {
-    return COLOR_KEYS.every((key) => a[key] === b[key]) && BOOLEAN_KEYS.every((key) => a[key] === b[key]);
-  }
-  function parseNamedTheme(raw) {
-    if (typeof raw !== "object" || raw === null) return null;
-    const t = raw;
-    if (typeof t.name !== "string" || !t.name.trim()) return null;
-    const theme = { name: t.name.trim() };
-    const dest = theme;
-    for (const key of REQUIRED_COLOR_KEYS) {
-      if (typeof t[key] !== "string") return null;
-      dest[key] = t[key];
-    }
-    for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
-      dest[key] = typeof t[key] === "string" ? t[key] : dest[fallbackKey];
-    }
-    for (const key of BOOLEAN_KEYS) {
-      dest[key] = typeof t[key] === "boolean" ? t[key] : false;
-    }
-    return theme;
-  }
-  function parseNamedThemes(raw) {
-    if (!Array.isArray(raw)) return null;
-    const result = [];
-    for (const item of raw) {
-      const theme = parseNamedTheme(item);
-      if (!theme) return null;
-      result.push(theme);
-    }
-    return result.length ? result : null;
-  }
   var FONT_OPTIONS = [
     { id: "sans", label: "Sans-serif", family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' },
     { id: "serif", label: "Serif", family: 'Georgia, "Times New Roman", serif' },
@@ -814,6 +671,168 @@
     root.setProperty("--font-size-tertiary", `${sizes.tertiary}px`);
     root.setProperty("--font-size-note", `${sizes.note}px`);
     root.setProperty("--font-size-octave", `${sizes.octave}px`);
+  }
+  var COLOR_KEYS = [
+    "background",
+    "font",
+    "whiteKey",
+    "blackKey",
+    "activeKey",
+    "highlight",
+    "background2",
+    "whiteKey2",
+    "blackKey2",
+    "activeKey2",
+    "highlight2"
+  ];
+  var REQUIRED_COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
+  var GRADIENT_COLOR_KEYS = [
+    ["background2", "background"],
+    ["whiteKey2", "whiteKey"],
+    ["blackKey2", "blackKey"],
+    ["activeKey2", "activeKey"],
+    ["highlight2", "highlight"]
+  ];
+  var BOOLEAN_KEYS = ["gradient", "glow"];
+  var FONT_SIZE_KEYS = ["chord", "secondary", "tertiary", "note", "octave"];
+  var BUILT_IN_THEMES = [
+    {
+      name: "Light",
+      background: "#ffffff",
+      font: "#222222",
+      whiteKey: "#ffffff",
+      blackKey: "#222222",
+      activeKey: "#4a76c4",
+      highlight: "#ffd54f",
+      // Each *2 defaults to its own base color, so flipping the gradient
+      // toggle on a built-in theme is a visible no-op until the user picks
+      // a different second color for something.
+      background2: "#ffffff",
+      whiteKey2: "#ffffff",
+      blackKey2: "#222222",
+      activeKey2: "#4a76c4",
+      highlight2: "#ffd54f",
+      gradient: false,
+      glow: false,
+      fontId: DEFAULT_FONT_ID,
+      fontSizes: { ...DEFAULT_FONT_SIZES }
+    },
+    {
+      name: "Dark",
+      background: "#1e1e1e",
+      font: "#e8e8e8",
+      whiteKey: "#2b2b2b",
+      blackKey: "#0d0d0d",
+      activeKey: "#6c9bf0",
+      highlight: "#ffb300",
+      background2: "#1e1e1e",
+      whiteKey2: "#2b2b2b",
+      blackKey2: "#0d0d0d",
+      activeKey2: "#6c9bf0",
+      highlight2: "#ffb300",
+      gradient: false,
+      glow: false,
+      fontId: DEFAULT_FONT_ID,
+      fontSizes: { ...DEFAULT_FONT_SIZES }
+    },
+    {
+      name: "Cotton Candy",
+      background: "#a6c8c6",
+      font: "#0a0000",
+      whiteKey: "#ffffff",
+      blackKey: "#222222",
+      activeKey: "#eebfa0",
+      highlight: "#49b0ca",
+      background2: "#a6c8c6",
+      whiteKey2: "#ffffff",
+      blackKey2: "#222222",
+      activeKey2: "#eebfa0",
+      highlight2: "#49b0ca",
+      gradient: false,
+      glow: false,
+      fontId: DEFAULT_FONT_ID,
+      fontSizes: { ...DEFAULT_FONT_SIZES }
+    },
+    {
+      // Dark/green neon look: near-black keys and background, bright neon
+      // green text and active keys, glow on for a lit-LED feel, and gradient
+      // on with subtle same-hue-family shifts (not a rainbow) across
+      // background/keys/highlight.
+      name: "Neon",
+      background: "#060b08",
+      font: "#39ff88",
+      whiteKey: "#0f1f14",
+      blackKey: "#030704",
+      activeKey: "#2bffa0",
+      highlight: "#c6ff00",
+      background2: "#0a1f12",
+      whiteKey2: "#163826",
+      blackKey2: "#081208",
+      activeKey2: "#7dffce",
+      highlight2: "#eaff7d",
+      gradient: true,
+      glow: true,
+      fontId: DEFAULT_FONT_ID,
+      fontSizes: { ...DEFAULT_FONT_SIZES }
+    }
+  ];
+  var DEFAULT_THEME = BUILT_IN_THEMES[0];
+  function applyTheme(theme) {
+    const root = document.documentElement.style;
+    root.setProperty("--bg-color", theme.background);
+    root.setProperty("--font-color", theme.font);
+    root.setProperty("--white-key-color", theme.whiteKey);
+    root.setProperty("--black-key-color", theme.blackKey);
+    root.setProperty("--active-key-color", theme.activeKey);
+    root.setProperty("--highlight-color", theme.highlight);
+    root.setProperty("--bg-color-2", theme.background2);
+    root.setProperty("--white-key-color-2", theme.whiteKey2);
+    root.setProperty("--black-key-color-2", theme.blackKey2);
+    root.setProperty("--active-key-color-2", theme.activeKey2);
+    root.setProperty("--highlight-color-2", theme.highlight2);
+    document.documentElement.classList.toggle("gradient-enabled", theme.gradient);
+    document.documentElement.classList.toggle("glow-enabled", theme.glow);
+    applyFont(theme.fontId);
+    applyFontSizes(theme.fontSizes);
+  }
+  function themeEqual(a, b) {
+    return COLOR_KEYS.every((key) => a[key] === b[key]) && BOOLEAN_KEYS.every((key) => a[key] === b[key]) && a.fontId === b.fontId && FONT_SIZE_KEYS.every((key) => a.fontSizes[key] === b.fontSizes[key]);
+  }
+  function parseNamedTheme(raw) {
+    if (typeof raw !== "object" || raw === null) return null;
+    const t = raw;
+    if (typeof t.name !== "string" || !t.name.trim()) return null;
+    const theme = { name: t.name.trim() };
+    const dest = theme;
+    for (const key of REQUIRED_COLOR_KEYS) {
+      if (typeof t[key] !== "string") return null;
+      dest[key] = t[key];
+    }
+    for (const [key, fallbackKey] of GRADIENT_COLOR_KEYS) {
+      dest[key] = typeof t[key] === "string" ? t[key] : dest[fallbackKey];
+    }
+    for (const key of BOOLEAN_KEYS) {
+      dest[key] = typeof t[key] === "boolean" ? t[key] : false;
+    }
+    theme.fontId = typeof t.fontId === "string" && FONT_OPTIONS.some((f) => f.id === t.fontId) ? t.fontId : DEFAULT_FONT_ID;
+    const rawSizes = typeof t.fontSizes === "object" && t.fontSizes !== null ? t.fontSizes : {};
+    const sizes = {};
+    for (const key of FONT_SIZE_KEYS) {
+      const n = rawSizes[key];
+      sizes[key] = typeof n === "number" && n > 0 ? n : DEFAULT_FONT_SIZES[key];
+    }
+    theme.fontSizes = sizes;
+    return theme;
+  }
+  function parseNamedThemes(raw) {
+    if (!Array.isArray(raw)) return null;
+    const result = [];
+    for (const item of raw) {
+      const theme = parseNamedTheme(item);
+      if (!theme) return null;
+      result.push(theme);
+    }
+    return result.length ? result : null;
   }
 
   // src/app.ts
@@ -877,34 +896,6 @@
   function saveThemeName(name) {
     setCookie("themeName", name, 365);
   }
-  function loadFontId() {
-    const raw = getCookie("fontFamily");
-    return raw !== null && FONT_OPTIONS.some((f) => f.id === raw) ? raw : DEFAULT_FONT_ID;
-  }
-  function saveFontId(id) {
-    setCookie("fontFamily", id, 365);
-  }
-  function loadFontSize(cookieName, fallback) {
-    const raw = getCookie(cookieName);
-    const n = raw !== null ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-  }
-  function loadFontSizes() {
-    return {
-      chord: loadFontSize("fontSizeChord", DEFAULT_FONT_SIZES.chord),
-      secondary: loadFontSize("fontSizeSecondary", DEFAULT_FONT_SIZES.secondary),
-      tertiary: loadFontSize("fontSizeTertiary", DEFAULT_FONT_SIZES.tertiary),
-      note: loadFontSize("fontSizeNote", DEFAULT_FONT_SIZES.note),
-      octave: loadFontSize("fontSizeOctave", DEFAULT_FONT_SIZES.octave)
-    };
-  }
-  function saveFontSizes(sizes) {
-    setCookie("fontSizeChord", String(sizes.chord), 365);
-    setCookie("fontSizeSecondary", String(sizes.secondary), 365);
-    setCookie("fontSizeTertiary", String(sizes.tertiary), 365);
-    setCookie("fontSizeNote", String(sizes.note), 365);
-    setCookie("fontSizeOctave", String(sizes.octave), 365);
-  }
   function cloneDefaultChordFormulas() {
     return DEFAULT_CHORD_FORMULAS.map((f) => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
   }
@@ -934,8 +925,6 @@
   var currentVisibleKeys = loadVisibleKeys();
   var themes = loadThemes();
   var currentThemeName = loadThemeName(themes);
-  var currentFontId = loadFontId();
-  var currentFontSizes = loadFontSizes();
   var activeNotes = /* @__PURE__ */ new Set();
   var hasPlayedNote = false;
   var sustainOn = false;
@@ -1007,7 +996,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"bc1e97d"}`;
+  versionInfoEl.textContent = `Build ${"c30a5bc"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1098,7 +1087,7 @@
   }
   function isModifiedFromBuiltIn(theme) {
     const builtIn = BUILT_IN_THEMES.find((b) => b.name === theme.name);
-    return builtIn !== void 0 && !themeColorsEqual(theme, builtIn);
+    return builtIn !== void 0 && !themeEqual(theme, builtIn);
   }
   function populateThemeSelect() {
     for (const select of [themeSelect, themeSelectThemes]) {
@@ -1128,6 +1117,12 @@
     themeActiveKeyGradientInput.value = theme.activeKey2;
     themeHighlightGradientInput.value = theme.highlight2;
     themeGlowCheckbox.checked = theme.glow;
+    fontFamilySelect.value = theme.fontId;
+    chordFontSizeInput.value = String(theme.fontSizes.chord);
+    secondaryFontSizeInput.value = String(theme.fontSizes.secondary);
+    tertiaryFontSizeInput.value = String(theme.fontSizes.tertiary);
+    noteFontSizeInput.value = String(theme.fontSizes.note);
+    octaveFontSizeInput.value = String(theme.fontSizes.octave);
     const isBuiltIn = BUILT_IN_THEMES.some((b) => b.name === theme.name);
     themeNameInput.disabled = isBuiltIn;
     deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
@@ -1147,6 +1142,13 @@
     saveThemes();
     populateThemeSelect();
   }
+  FONT_OPTIONS.forEach((font) => {
+    const opt = document.createElement("option");
+    opt.value = font.id;
+    opt.textContent = font.label;
+    opt.style.fontFamily = font.family;
+    fontFamilySelect.appendChild(opt);
+  });
   populateThemeSelect();
   applyTheme(getCurrentTheme());
   syncThemeEditorInputs();
@@ -1165,6 +1167,17 @@
   themeActiveKeyGradientInput.addEventListener("input", () => updateCurrentTheme({ activeKey2: themeActiveKeyGradientInput.value }));
   themeHighlightGradientInput.addEventListener("input", () => updateCurrentTheme({ highlight2: themeHighlightGradientInput.value }));
   themeGlowCheckbox.addEventListener("change", () => updateCurrentTheme({ glow: themeGlowCheckbox.checked }));
+  fontFamilySelect.addEventListener("change", () => updateCurrentTheme({ fontId: fontFamilySelect.value }));
+  function updateFontSize(key, value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return;
+    updateCurrentTheme({ fontSizes: { ...getCurrentTheme().fontSizes, [key]: n } });
+  }
+  chordFontSizeInput.addEventListener("change", () => updateFontSize("chord", chordFontSizeInput.value));
+  secondaryFontSizeInput.addEventListener("change", () => updateFontSize("secondary", secondaryFontSizeInput.value));
+  tertiaryFontSizeInput.addEventListener("change", () => updateFontSize("tertiary", tertiaryFontSizeInput.value));
+  noteFontSizeInput.addEventListener("change", () => updateFontSize("note", noteFontSizeInput.value));
+  octaveFontSizeInput.addEventListener("change", () => updateFontSize("octave", octaveFontSizeInput.value));
   themeNameInput.addEventListener("change", () => {
     const theme = getCurrentTheme();
     const nextName = themeNameInput.value.trim();
@@ -1247,38 +1260,6 @@
     reader.onerror = () => setErrorMessage(themeImportError, "Could not read that file.");
     reader.readAsText(file);
   });
-  FONT_OPTIONS.forEach((font) => {
-    const opt = document.createElement("option");
-    opt.value = font.id;
-    opt.textContent = font.label;
-    opt.style.fontFamily = font.family;
-    fontFamilySelect.appendChild(opt);
-  });
-  fontFamilySelect.value = currentFontId;
-  applyFont(currentFontId);
-  fontFamilySelect.addEventListener("change", () => {
-    currentFontId = fontFamilySelect.value;
-    applyFont(currentFontId);
-    saveFontId(currentFontId);
-  });
-  chordFontSizeInput.value = String(currentFontSizes.chord);
-  secondaryFontSizeInput.value = String(currentFontSizes.secondary);
-  tertiaryFontSizeInput.value = String(currentFontSizes.tertiary);
-  noteFontSizeInput.value = String(currentFontSizes.note);
-  octaveFontSizeInput.value = String(currentFontSizes.octave);
-  applyFontSizes(currentFontSizes);
-  function updateFontSize(key, value) {
-    const n = Number(value);
-    if (!Number.isFinite(n) || n <= 0) return;
-    currentFontSizes = { ...currentFontSizes, [key]: n };
-    applyFontSizes(currentFontSizes);
-    saveFontSizes(currentFontSizes);
-  }
-  chordFontSizeInput.addEventListener("change", () => updateFontSize("chord", chordFontSizeInput.value));
-  secondaryFontSizeInput.addEventListener("change", () => updateFontSize("secondary", secondaryFontSizeInput.value));
-  tertiaryFontSizeInput.addEventListener("change", () => updateFontSize("tertiary", tertiaryFontSizeInput.value));
-  noteFontSizeInput.addEventListener("change", () => updateFontSize("note", noteFontSizeInput.value));
-  octaveFontSizeInput.addEventListener("change", () => updateFontSize("octave", octaveFontSizeInput.value));
   KEYS.forEach((key, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);

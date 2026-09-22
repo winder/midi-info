@@ -317,8 +317,58 @@ describe('theme settings', () => {
       const classes = await app.page.evaluate(() => document.documentElement.className);
       assert.doesNotMatch(classes, /gradient-enabled/);
       assert.doesNotMatch(classes, /glow-enabled/);
+      // Font was added to the theme later too; a pre-feature export should
+      // fall back to the app defaults instead of failing to parse.
+      assert.equal(await app.page.$eval('#fontFamilySelect', el => (el as HTMLSelectElement).value), 'sans');
+      assert.equal(await app.page.$eval('#chordFontSizeInput', el => (el as HTMLInputElement).value), '40');
 
       await fs.unlink(importPath);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('font family and sizes are part of the theme, not a separate setting', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      await app.page.check('#debugCheckbox');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+
+      await app.page.selectOption('#fontFamilySelect', 'real-book');
+      await app.page.fill('#chordFontSizeInput', '77');
+      await app.page.dispatchEvent('#chordFontSizeInput', 'change');
+      const fontFamilyVar = await app.page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim()
+      );
+      assert.match(fontFamilyVar, /Reenie Beanie/);
+
+      const downloadPromise = app.page.waitForEvent('download');
+      await app.page.click('#exportThemeBtn');
+      const download = await downloadPromise;
+      const filePath = await download.path();
+      assert.ok(filePath);
+      const fs = await import('node:fs/promises');
+      const contents = JSON.parse(await fs.readFile(filePath, 'utf8'));
+      assert.equal(contents.fontId, 'real-book');
+      assert.equal(contents.fontSizes.chord, 77);
+
+      // Switching to a different theme swaps in its own (default) font.
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      await app.page.selectOption('#themeSelect', 'Dark');
+      await openSettingsTab(app.page, 'themes');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+      assert.equal(await app.page.$eval('#fontFamilySelect', el => (el as HTMLSelectElement).value), 'sans');
+      assert.equal(await app.page.$eval('#chordFontSizeInput', el => (el as HTMLInputElement).value), '40');
+
+      // Re-importing the export restores its custom font too.
+      await app.page.setInputFiles('#importThemeFileInput', filePath);
+      await app.page.waitForFunction(() => (document.getElementById('themeSelectThemes') as HTMLSelectElement).value === 'Light');
+      assert.equal(await app.page.$eval('#fontFamilySelect', el => (el as HTMLSelectElement).value), 'real-book');
+      assert.equal(await app.page.$eval('#chordFontSizeInput', el => (el as HTMLInputElement).value), '77');
     } finally {
       await app.close();
     }

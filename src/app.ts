@@ -23,8 +23,6 @@ import {
 } from './theory';
 import {
   BUILT_IN_THEMES,
-  DEFAULT_FONT_ID,
-  DEFAULT_FONT_SIZES,
   FONT_OPTIONS,
   FontSizes,
   MAX_MIDI,
@@ -33,8 +31,6 @@ import {
   Piano,
   Theme,
   TOTAL_KEYS,
-  applyFont,
-  applyFontSizes,
   applyTheme,
   attachPianoMouseInput,
   centerOnMiddleC,
@@ -48,7 +44,7 @@ import {
   renderKeyboard,
   setErrorMessage,
   setSettingsOpen,
-  themeColorsEqual,
+  themeEqual,
   trackMouseIsDown,
 } from './ui';
 
@@ -144,43 +140,6 @@ function saveThemeName(name: string): void {
   setCookie('themeName', name, 365);
 }
 
-// ---- Font family ----
-
-function loadFontId(): string {
-  const raw = getCookie('fontFamily');
-  return raw !== null && FONT_OPTIONS.some(f => f.id === raw) ? raw : DEFAULT_FONT_ID;
-}
-
-function saveFontId(id: string): void {
-  setCookie('fontFamily', id, 365);
-}
-
-// ---- Font sizes (one cookie per area) ----
-
-function loadFontSize(cookieName: string, fallback: number): number {
-  const raw = getCookie(cookieName);
-  const n = raw !== null ? Number(raw) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function loadFontSizes(): FontSizes {
-  return {
-    chord: loadFontSize('fontSizeChord', DEFAULT_FONT_SIZES.chord),
-    secondary: loadFontSize('fontSizeSecondary', DEFAULT_FONT_SIZES.secondary),
-    tertiary: loadFontSize('fontSizeTertiary', DEFAULT_FONT_SIZES.tertiary),
-    note: loadFontSize('fontSizeNote', DEFAULT_FONT_SIZES.note),
-    octave: loadFontSize('fontSizeOctave', DEFAULT_FONT_SIZES.octave),
-  };
-}
-
-function saveFontSizes(sizes: FontSizes): void {
-  setCookie('fontSizeChord', String(sizes.chord), 365);
-  setCookie('fontSizeSecondary', String(sizes.secondary), 365);
-  setCookie('fontSizeTertiary', String(sizes.tertiary), 365);
-  setCookie('fontSizeNote', String(sizes.note), 365);
-  setCookie('fontSizeOctave', String(sizes.octave), 365);
-}
-
 function cloneDefaultChordFormulas(): ChordFormula[] {
   return DEFAULT_CHORD_FORMULAS.map(f => ({ symbol: f.symbol, intervals: f.intervals.slice() }));
 }
@@ -219,8 +178,6 @@ let debugMode: boolean = loadDebug();
 let currentVisibleKeys: number = loadVisibleKeys();
 let themes: NamedTheme[] = loadThemes();
 let currentThemeName: string = loadThemeName(themes);
-let currentFontId: string = loadFontId();
-let currentFontSizes: FontSizes = loadFontSizes();
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 let sustainOn = false;
@@ -414,7 +371,7 @@ function getCurrentTheme(): NamedTheme {
 
 function isModifiedFromBuiltIn(theme: NamedTheme): boolean {
   const builtIn = BUILT_IN_THEMES.find(b => b.name === theme.name);
-  return builtIn !== undefined && !themeColorsEqual(theme, builtIn);
+  return builtIn !== undefined && !themeEqual(theme, builtIn);
 }
 
 function populateThemeSelect(): void {
@@ -446,6 +403,12 @@ function syncThemeEditorInputs(): void {
   themeActiveKeyGradientInput.value = theme.activeKey2;
   themeHighlightGradientInput.value = theme.highlight2;
   themeGlowCheckbox.checked = theme.glow;
+  fontFamilySelect.value = theme.fontId;
+  chordFontSizeInput.value = String(theme.fontSizes.chord);
+  secondaryFontSizeInput.value = String(theme.fontSizes.secondary);
+  tertiaryFontSizeInput.value = String(theme.fontSizes.tertiary);
+  noteFontSizeInput.value = String(theme.fontSizes.note);
+  octaveFontSizeInput.value = String(theme.fontSizes.octave);
   const isBuiltIn = BUILT_IN_THEMES.some(b => b.name === theme.name);
   themeNameInput.disabled = isBuiltIn;
   deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
@@ -468,6 +431,17 @@ function updateCurrentTheme(partial: Partial<Theme>): void {
   populateThemeSelect();
 }
 
+// Populate the <select> before syncThemeEditorInputs() below sets its
+// value from the current theme's fontId - setting .value on an empty
+// select silently does nothing.
+FONT_OPTIONS.forEach(font => {
+  const opt = document.createElement('option');
+  opt.value = font.id;
+  opt.textContent = font.label;
+  opt.style.fontFamily = font.family;
+  fontFamilySelect.appendChild(opt);
+});
+
 populateThemeSelect();
 applyTheme(getCurrentTheme());
 syncThemeEditorInputs();
@@ -488,6 +462,19 @@ themeBlackKeyGradientInput.addEventListener('input', () => updateCurrentTheme({ 
 themeActiveKeyGradientInput.addEventListener('input', () => updateCurrentTheme({ activeKey2: themeActiveKeyGradientInput.value }));
 themeHighlightGradientInput.addEventListener('input', () => updateCurrentTheme({ highlight2: themeHighlightGradientInput.value }));
 themeGlowCheckbox.addEventListener('change', () => updateCurrentTheme({ glow: themeGlowCheckbox.checked }));
+
+fontFamilySelect.addEventListener('change', () => updateCurrentTheme({ fontId: fontFamilySelect.value }));
+
+function updateFontSize(key: keyof FontSizes, value: string): void {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return;
+  updateCurrentTheme({ fontSizes: { ...getCurrentTheme().fontSizes, [key]: n } });
+}
+chordFontSizeInput.addEventListener('change', () => updateFontSize('chord', chordFontSizeInput.value));
+secondaryFontSizeInput.addEventListener('change', () => updateFontSize('secondary', secondaryFontSizeInput.value));
+tertiaryFontSizeInput.addEventListener('change', () => updateFontSize('tertiary', tertiaryFontSizeInput.value));
+noteFontSizeInput.addEventListener('change', () => updateFontSize('note', noteFontSizeInput.value));
+octaveFontSizeInput.addEventListener('change', () => updateFontSize('octave', octaveFontSizeInput.value));
 
 themeNameInput.addEventListener('change', () => {
   const theme = getCurrentTheme();
@@ -579,47 +566,6 @@ importThemeFileInput.addEventListener('change', () => {
   reader.onerror = () => setErrorMessage(themeImportError, 'Could not read that file.');
   reader.readAsText(file);
 });
-
-// ---- Font family ----
-
-FONT_OPTIONS.forEach(font => {
-  const opt = document.createElement('option');
-  opt.value = font.id;
-  opt.textContent = font.label;
-  opt.style.fontFamily = font.family;
-  fontFamilySelect.appendChild(opt);
-});
-fontFamilySelect.value = currentFontId;
-applyFont(currentFontId);
-
-fontFamilySelect.addEventListener('change', () => {
-  currentFontId = fontFamilySelect.value;
-  applyFont(currentFontId);
-  saveFontId(currentFontId);
-});
-
-// ---- Font sizes ----
-
-chordFontSizeInput.value = String(currentFontSizes.chord);
-secondaryFontSizeInput.value = String(currentFontSizes.secondary);
-tertiaryFontSizeInput.value = String(currentFontSizes.tertiary);
-noteFontSizeInput.value = String(currentFontSizes.note);
-octaveFontSizeInput.value = String(currentFontSizes.octave);
-applyFontSizes(currentFontSizes);
-
-function updateFontSize(key: keyof FontSizes, value: string): void {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return;
-  currentFontSizes = { ...currentFontSizes, [key]: n };
-  applyFontSizes(currentFontSizes);
-  saveFontSizes(currentFontSizes);
-}
-
-chordFontSizeInput.addEventListener('change', () => updateFontSize('chord', chordFontSizeInput.value));
-secondaryFontSizeInput.addEventListener('change', () => updateFontSize('secondary', secondaryFontSizeInput.value));
-tertiaryFontSizeInput.addEventListener('change', () => updateFontSize('tertiary', tertiaryFontSizeInput.value));
-noteFontSizeInput.addEventListener('change', () => updateFontSize('note', noteFontSizeInput.value));
-octaveFontSizeInput.addEventListener('change', () => updateFontSize('octave', octaveFontSizeInput.value));
 
 // ---- Key/mode selection ----
 
