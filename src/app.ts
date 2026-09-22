@@ -245,7 +245,6 @@ const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
 const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
 const debugCheckbox = document.getElementById('debugCheckbox') as HTMLInputElement;
-const chordsSection = document.getElementById('chordsSection') as HTMLElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
@@ -255,7 +254,11 @@ const importChordsBtn = document.getElementById('importChordsBtn') as HTMLButton
 const importFileInput = document.getElementById('importFileInput') as HTMLInputElement;
 const chordImportError = document.getElementById('chordImportError') as HTMLElement;
 const menuButton = document.getElementById('menuButton') as HTMLElement;
+const settingsOverlay = document.getElementById('settingsOverlay') as HTMLElement;
 const settingsPanel = document.getElementById('settingsPanel') as HTMLElement;
+const settingsCloseBtn = document.getElementById('settingsCloseBtn') as HTMLButtonElement;
+const settingsNavChords = document.getElementById('settingsNavChords') as HTMLButtonElement;
+const settingsNavThemes = document.getElementById('settingsNavThemes') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const inputSelect = document.getElementById('inputSelect') as HTMLSelectElement;
 const inputRow = document.getElementById('inputRow') as HTMLElement;
@@ -267,7 +270,6 @@ const scaleTypeButtonsEl = document.getElementById('scaleTypeButtons') as HTMLEl
 const chordRootButtonsEl = document.getElementById('chordRootButtons') as HTMLElement;
 const chordTypeSelect = document.getElementById('chordTypeSelect') as HTMLSelectElement;
 const themeSelect = document.getElementById('themeSelect') as HTMLSelectElement;
-const themeEditorSection = document.getElementById('themeEditorSection') as HTMLElement;
 const themeNameInput = document.getElementById('themeNameInput') as HTMLInputElement;
 const themeBackgroundInput = document.getElementById('themeBackgroundInput') as HTMLInputElement;
 const themeFontInput = document.getElementById('themeFontInput') as HTMLInputElement;
@@ -350,6 +352,37 @@ function rebuildPiano(): void {
   centerOnMiddleC(pianoContainer, piano);
   render();
 }
+
+// ---- Settings modal (tabbed) ----
+
+type SettingsTab = 'theory' | 'display' | 'chords' | 'themes';
+const settingsTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.settings-tab-btn'));
+const settingsTabPanels = Array.from(document.querySelectorAll<HTMLElement>('.settings-tab-panel'));
+let activeSettingsTab: SettingsTab = 'theory';
+
+function setActiveSettingsTab(tab: SettingsTab): void {
+  activeSettingsTab = tab;
+  settingsTabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  settingsTabPanels.forEach(panel => {
+    panel.hidden = panel.dataset.tabPanel !== tab;
+  });
+}
+
+settingsTabButtons.forEach(btn => {
+  btn.addEventListener('click', () => setActiveSettingsTab(btn.dataset.tab as SettingsTab));
+});
+setActiveSettingsTab(activeSettingsTab);
+
+menuButton.addEventListener('click', e => {
+  e.stopPropagation();
+  setSettingsOpen(settingsOverlay, menuButton, settingsOverlay.hidden);
+});
+settingsPanel.addEventListener('click', e => e.stopPropagation());
+settingsCloseBtn.addEventListener('click', () => setSettingsOpen(settingsOverlay, menuButton, false));
+document.addEventListener('click', () => setSettingsOpen(settingsOverlay, menuButton, false));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') setSettingsOpen(settingsOverlay, menuButton, false);
+});
 
 // ---- Visible-keys (zoom) control ----
 
@@ -649,8 +682,11 @@ updateLevelButtons();
 // ---- Debug toggle (gates debug-only sections, e.g. the chord and theme editors) ----
 
 function updateDebugSectionsVisibility(): void {
-  chordsSection.hidden = !debugMode;
-  themeEditorSection.hidden = !debugMode;
+  settingsNavChords.hidden = !debugMode;
+  settingsNavThemes.hidden = !debugMode;
+  if (!debugMode && (activeSettingsTab === 'chords' || activeSettingsTab === 'themes')) {
+    setActiveSettingsTab('display');
+  }
 }
 
 debugCheckbox.checked = debugMode;
@@ -855,18 +891,6 @@ function setHighlighterOpen(open: boolean): void {
 highlighterToggle.addEventListener('click', () => setHighlighterOpen(!highlighterOpen));
 setHighlighterOpen(false);
 refreshHighlighterUI();
-
-// ---- Settings popup ----
-
-menuButton.addEventListener('click', e => {
-  e.stopPropagation();
-  setSettingsOpen(settingsPanel, menuButton, settingsPanel.hidden);
-});
-settingsPanel.addEventListener('click', e => e.stopPropagation());
-document.addEventListener('click', () => setSettingsOpen(settingsPanel, menuButton, false));
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') setSettingsOpen(settingsPanel, menuButton, false);
-});
 
 // ---- MIDI ----
 

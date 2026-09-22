@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { elementTop, launchApp, openSettings, pressKeys, releaseKeys } from './fixtures';
+import { elementTop, launchApp, openSettings, openSettingsTab, pressKeys, releaseKeys } from './fixtures';
 
 // C4 = 60. Chord display content ranges from one populated line (a bare
 // note or unmatched chord) up to three (chord name + roman numeral +
@@ -41,6 +41,7 @@ describe('chord display layout', () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
       await app.page.click('#debugCheckbox');
       await app.page.selectOption('#fontFamilySelect', 'real-book');
       await app.page.fill('#chordFontSizeInput', '60');

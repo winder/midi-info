@@ -954,7 +954,6 @@
   var modeSelect = document.getElementById("modeSelect");
   var modeLabelText = document.getElementById("modeLabelText");
   var debugCheckbox = document.getElementById("debugCheckbox");
-  var chordsSection = document.getElementById("chordsSection");
   var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
@@ -964,7 +963,11 @@
   var importFileInput = document.getElementById("importFileInput");
   var chordImportError = document.getElementById("chordImportError");
   var menuButton = document.getElementById("menuButton");
+  var settingsOverlay = document.getElementById("settingsOverlay");
   var settingsPanel = document.getElementById("settingsPanel");
+  var settingsCloseBtn = document.getElementById("settingsCloseBtn");
+  var settingsNavChords = document.getElementById("settingsNavChords");
+  var settingsNavThemes = document.getElementById("settingsNavThemes");
   var statusEl = document.getElementById("status");
   var inputSelect = document.getElementById("inputSelect");
   var inputRow = document.getElementById("inputRow");
@@ -976,7 +979,6 @@
   var chordRootButtonsEl = document.getElementById("chordRootButtons");
   var chordTypeSelect = document.getElementById("chordTypeSelect");
   var themeSelect = document.getElementById("themeSelect");
-  var themeEditorSection = document.getElementById("themeEditorSection");
   var themeNameInput = document.getElementById("themeNameInput");
   var themeBackgroundInput = document.getElementById("themeBackgroundInput");
   var themeFontInput = document.getElementById("themeFontInput");
@@ -1004,7 +1006,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"5bbf7a9"}`;
+  versionInfoEl.textContent = `Build ${"8d960aa"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -1052,6 +1054,30 @@
     centerOnMiddleC(pianoContainer, piano);
     render();
   }
+  var settingsTabButtons = Array.from(document.querySelectorAll(".settings-tab-btn"));
+  var settingsTabPanels = Array.from(document.querySelectorAll(".settings-tab-panel"));
+  var activeSettingsTab = "theory";
+  function setActiveSettingsTab(tab) {
+    activeSettingsTab = tab;
+    settingsTabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
+    settingsTabPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.tabPanel !== tab;
+    });
+  }
+  settingsTabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setActiveSettingsTab(btn.dataset.tab));
+  });
+  setActiveSettingsTab(activeSettingsTab);
+  menuButton.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setSettingsOpen(settingsOverlay, menuButton, settingsOverlay.hidden);
+  });
+  settingsPanel.addEventListener("click", (e) => e.stopPropagation());
+  settingsCloseBtn.addEventListener("click", () => setSettingsOpen(settingsOverlay, menuButton, false));
+  document.addEventListener("click", () => setSettingsOpen(settingsOverlay, menuButton, false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setSettingsOpen(settingsOverlay, menuButton, false);
+  });
   rangeInput.value = String(currentVisibleKeys);
   rangeInput.addEventListener("change", () => {
     const parsed = Math.min(Math.max(Math.round(Number(rangeInput.value)) || DEFAULT_VISIBLE_KEYS, 1), TOTAL_KEYS);
@@ -1296,8 +1322,11 @@
   });
   updateLevelButtons();
   function updateDebugSectionsVisibility() {
-    chordsSection.hidden = !debugMode;
-    themeEditorSection.hidden = !debugMode;
+    settingsNavChords.hidden = !debugMode;
+    settingsNavThemes.hidden = !debugMode;
+    if (!debugMode && (activeSettingsTab === "chords" || activeSettingsTab === "themes")) {
+      setActiveSettingsTab("display");
+    }
   }
   debugCheckbox.checked = debugMode;
   updateDebugSectionsVisibility();
@@ -1471,15 +1500,6 @@
   highlighterToggle.addEventListener("click", () => setHighlighterOpen(!highlighterOpen));
   setHighlighterOpen(false);
   refreshHighlighterUI();
-  menuButton.addEventListener("click", (e) => {
-    e.stopPropagation();
-    setSettingsOpen(settingsPanel, menuButton, settingsPanel.hidden);
-  });
-  settingsPanel.addEventListener("click", (e) => e.stopPropagation());
-  document.addEventListener("click", () => setSettingsOpen(settingsPanel, menuButton, false));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setSettingsOpen(settingsPanel, menuButton, false);
-  });
   initMIDI({
     onNoteOn: noteOn,
     onNoteOff: noteOff,

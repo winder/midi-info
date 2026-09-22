@@ -29,17 +29,23 @@ export async function launchApp(): Promise<App> {
   };
 }
 
-// Opens the gear/menu settings panel and waits for it to be visible.
+// Opens the gear/menu settings modal and waits for it to be visible.
 export async function openSettings(page: Page): Promise<void> {
   await page.click('#menuButton');
-  await page.waitForSelector('#settingsPanel:not([hidden])');
+  await page.waitForSelector('#settingsOverlay:not([hidden])');
 }
 
-// Closes the settings panel. It overlays the top of the page, so anything
-// under it (e.g. the Highlighter toggle) is unclickable while it is open.
+// Closes the settings modal. It overlays the whole page - including the
+// gear button that opened it - so it's closed via its own close button,
+// not by clicking the (now-covered) gear button again.
 export async function closeSettings(page: Page): Promise<void> {
-  await page.click('#menuButton');
-  await page.waitForSelector('#settingsPanel', { state: 'hidden' });
+  await page.click('#settingsCloseBtn');
+  await page.waitForSelector('#settingsOverlay', { state: 'hidden' });
+}
+
+// Switches to a settings modal tab. Requires the settings modal to be open.
+export async function openSettingsTab(page: Page, tab: 'theory' | 'display' | 'chords' | 'themes'): Promise<void> {
+  await page.click(`.settings-tab-btn[data-tab="${tab}"]`);
 }
 
 // Picks a settings level. Requires the settings panel to be open.

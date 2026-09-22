@@ -89,24 +89,35 @@
     font-size: 13px;
     padding: 4px 8px;
   }
-  #settingsPanel input[type="number"] {
-    font-size: 13px;
-    padding: 4px 8px;
-    width: 64px;
-  }
+  #settingsPanel input[type="number"],
   #settingsPanel input[type="text"] {
     font-size: 13px;
     padding: 4px 8px;
+    background: var(--bg-color);
+    color: var(--font-color);
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
+    border-radius: 4px;
+  }
+  #settingsPanel input[type="number"] {
+    width: 64px;
+  }
+  #settingsPanel input[type="text"] {
     width: 140px;
   }
   #settingsPanel input[type="color"] {
     width: 40px;
     height: 24px;
     padding: 2px;
-    border: 1px solid #ddd;
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
     border-radius: 4px;
-    background: #fff;
+    background: var(--bg-color);
     cursor: pointer;
+  }
+  #settingsPanel select {
+    background: var(--bg-color);
+    color: var(--font-color);
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
+    border-radius: 4px;
   }
   #menuButton {
     margin-left: auto;
@@ -123,43 +134,133 @@
   #menuButton:hover {
     background: #f5f5f5;
   }
+  #settingsOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 50;
+  }
+  #settingsOverlay[hidden] {
+    display: none;
+  }
+  /* Fixed footprint regardless of which tab is active or how much content
+     it holds, so switching tabs never resizes the window; each tab's own
+     content area (and the chord table within it) scrolls internally
+     instead. */
   #settingsPanel {
-    position: absolute;
-    top: 100%;
-    margin-top: 6px;
-    right: 16px;
-    width: 380px;
-    max-width: calc(100vw - 32px);
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-    padding: 14px 16px;
+    background: var(--bg-color);
+    color: var(--font-color);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    width: 760px;
+    height: 640px;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    z-index: 10;
+    overflow: hidden;
     font-size: 13px;
   }
-  #settingsPanel[hidden] {
+  #settingsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: color-mix(in srgb, var(--font-color) 8%, var(--bg-color));
+    border-bottom: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
+    flex-shrink: 0;
+  }
+  #settingsHeader h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--font-color);
+  }
+  #settingsCloseBtn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid color-mix(in srgb, var(--font-color) 35%, transparent);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--font-color);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  #settingsCloseBtn:hover {
+    background: color-mix(in srgb, var(--font-color) 12%, transparent);
+  }
+  #settingsBody {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  #settingsNav {
+    width: 160px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--font-color) 5%, var(--bg-color));
+    border-right: 1px solid color-mix(in srgb, var(--font-color) 12%, transparent);
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+    overflow-y: auto;
+  }
+  .settings-tab-btn {
+    text-align: left;
+    padding: 10px 18px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: var(--font-color);
+    cursor: pointer;
+  }
+  .settings-tab-btn:hover {
+    background: color-mix(in srgb, var(--font-color) 10%, transparent);
+  }
+  /* Inverted font/bg pair rather than --active-key-color: that pair is
+     guaranteed readable together (it's the theme's own text-on-background
+     contrast), whereas --active-key-color can land close in value to
+     --font-color for some themes (e.g. Neon's bright green on bright
+     green), making the label unreadable. */
+  .settings-tab-btn.active {
+    background: var(--font-color);
+    color: var(--bg-color);
+    font-weight: 600;
+  }
+  .settings-tab-btn[hidden] {
     display: none;
+  }
+  #settingsContent {
+    flex: 1;
+    padding: 18px 22px;
+    overflow-y: auto;
+  }
+  #settingsFooter {
+    padding: 8px 22px;
+    border-top: 1px solid color-mix(in srgb, var(--font-color) 12%, transparent);
+    flex-shrink: 0;
   }
   #settingsPanel label {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    max-width: 420px;
   }
   #settingsPanel h4 {
     margin: 6px 0 0;
     font-size: 12px;
-    color: #888;
+    color: color-mix(in srgb, var(--font-color) 65%, transparent);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .level-control {
     display: flex;
-    border: 1px solid #ddd;
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
     border-radius: 4px;
     overflow: hidden;
   }
@@ -168,32 +269,43 @@
     padding: 5px 0;
     font-size: 12px;
     border: none;
-    background: #fff;
+    background: var(--bg-color);
     cursor: pointer;
-    color: #555;
+    color: var(--font-color);
   }
   .level-btn + .level-btn {
-    border-left: 1px solid #ddd;
+    border-left: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
   }
   .level-btn:hover {
-    background: #f5f5f5;
+    background: color-mix(in srgb, var(--font-color) 10%, var(--bg-color));
   }
+  /* See .settings-tab-btn.active above for why this is the inverted
+     font/bg pair rather than --active-key-color. */
   .level-btn.active {
-    background: #4a76c4;
-    color: #fff;
+    background: var(--font-color);
+    color: var(--bg-color);
   }
-  #chordsSection, #themeEditorSection {
+  .settings-tab-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
-  #chordsSection[hidden], #themeEditorSection[hidden] {
+  .settings-tab-panel[hidden] {
     display: none;
+  }
+  .settings-tab-panel h3 {
+    margin: 0 0 2px;
+    font-size: 16px;
+  }
+  .settings-tab-panel .tab-desc {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: #888;
   }
   #chordTableWrap {
     max-height: 320px;
     overflow-y: auto;
-    border: 1px solid #eee;
+    border: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
     border-radius: 4px;
   }
   #chordTable {
@@ -204,13 +316,13 @@
   #chordTable th, #chordTable td {
     padding: 3px 5px;
     text-align: left;
-    border-bottom: 1px solid #f2f2f2;
+    border-bottom: 1px solid color-mix(in srgb, var(--font-color) 10%, transparent);
   }
   #chordTable th {
     position: sticky;
     top: 0;
-    background: #fafafa;
-    color: #888;
+    background: color-mix(in srgb, var(--font-color) 6%, var(--bg-color));
+    color: color-mix(in srgb, var(--font-color) 65%, transparent);
     font-weight: 500;
   }
   #chordTable td:first-child { width: 40%; }
@@ -219,7 +331,9 @@
     box-sizing: border-box;
     font-size: 12px;
     padding: 2px 4px;
-    border: 1px solid #ddd;
+    background: var(--bg-color);
+    color: var(--font-color);
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
     border-radius: 3px;
   }
   #chordTable .chord-delete-btn {
@@ -238,13 +352,14 @@
   .settings-actions button {
     font-size: 12px;
     padding: 5px 10px;
-    border: 1px solid #ddd;
+    border: 1px solid color-mix(in srgb, var(--font-color) 25%, transparent);
     border-radius: 4px;
-    background: #fff;
+    background: var(--bg-color);
+    color: var(--font-color);
     cursor: pointer;
   }
   .settings-actions button:hover {
-    background: #f5f5f5;
+    background: color-mix(in srgb, var(--font-color) 10%, var(--bg-color));
   }
   .settings-actions button:disabled {
     opacity: 0.5;
@@ -255,7 +370,7 @@
     font-size: 12px;
   }
   .version-info {
-    color: #bbb;
+    color: color-mix(in srgb, var(--font-color) 45%, transparent);
     font-size: 11px;
     text-align: right;
   }
@@ -481,81 +596,109 @@
     <strong>MIDI Piano</strong>
     <span id="status">Checking for Web MIDI support&hellip;</span>
     <label for="inputSelect" id="inputRow" style="display:none;"><select id="inputSelect"></select></label>
-    <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">&#9776;</button>
-    <div id="settingsPanel" hidden>
-      <div class="level-control" role="group" aria-label="Level">
-        <button type="button" class="level-btn" data-level="basic">Basic</button>
-        <button type="button" class="level-btn" data-level="intermediate">Intermediate</button>
-        <button type="button" class="level-btn" data-level="nerd">Nerd</button>
-      </div>
-
-      <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
-      <label for="keySelect">Key <select id="keySelect"></select></label>
-      <label for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
-      <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
-
-      <div id="themeSection">
-        <h4>Theme</h4>
-        <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
-        <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
-        <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
-        <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
-        <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
-        <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
-        <label for="themeSelect">Theme <select id="themeSelect"></select></label>
-        <div class="settings-actions">
-          <button id="exportThemeBtn" type="button">Export&hellip;</button>
-          <button id="importThemeBtn" type="button">Import&hellip;</button>
-          <input id="importThemeFileInput" type="file" accept="application/json" style="display:none;">
+    <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">&#9881;</button>
+    <div id="settingsOverlay" hidden>
+      <div id="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">
+        <div id="settingsHeader">
+          <h2>&#9881; Settings</h2>
+          <button id="settingsCloseBtn" type="button" aria-label="Close settings">&#10005;</button>
         </div>
-        <div id="themeImportError" class="import-error" hidden></div>
+        <div id="settingsBody">
+          <nav id="settingsNav">
+            <button type="button" id="settingsNavTheory" class="settings-tab-btn" data-tab="theory">Theory</button>
+            <button type="button" id="settingsNavDisplay" class="settings-tab-btn" data-tab="display">Display</button>
+            <button type="button" id="settingsNavChords" class="settings-tab-btn" data-tab="chords">Chords</button>
+            <button type="button" id="settingsNavThemes" class="settings-tab-btn" data-tab="themes">Themes</button>
+          </nav>
+          <div id="settingsContent">
 
-        <div id="themeEditorSection">
-          <label for="themeNameInput">Name <input type="text" id="themeNameInput"></label>
-          <label for="themeBackgroundInput">Background <input type="color" id="themeBackgroundInput"></label>
-          <label for="themeFontInput">Font <input type="color" id="themeFontInput"></label>
-          <label for="themeWhiteKeyInput">White keys <input type="color" id="themeWhiteKeyInput"></label>
-          <label for="themeBlackKeyInput">Black keys <input type="color" id="themeBlackKeyInput"></label>
-          <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
-          <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
-          <label for="themeGradientCheckbox">Gradient <input type="checkbox" id="themeGradientCheckbox"></label>
-          <label for="themeBackgroundGradientInput">&nbsp;&nbsp;Background gradient <input type="color" id="themeBackgroundGradientInput"></label>
-          <label for="themeWhiteKeyGradientInput">&nbsp;&nbsp;White key gradient <input type="color" id="themeWhiteKeyGradientInput"></label>
-          <label for="themeBlackKeyGradientInput">&nbsp;&nbsp;Black key gradient <input type="color" id="themeBlackKeyGradientInput"></label>
-          <label for="themeActiveKeyGradientInput">&nbsp;&nbsp;Active key gradient <input type="color" id="themeActiveKeyGradientInput"></label>
-          <label for="themeHighlightGradientInput">&nbsp;&nbsp;Highlight gradient <input type="color" id="themeHighlightGradientInput"></label>
-          <label for="themeGlowCheckbox">Glow <input type="checkbox" id="themeGlowCheckbox"></label>
-          <div class="settings-actions">
-            <button id="newThemeBtn" type="button">+ New theme</button>
-            <button id="themeResetBtn" type="button">Reset to defaults</button>
-            <button id="deleteThemeBtn" type="button">Delete theme</button>
+            <section id="settingsTabTheory" class="settings-tab-panel" data-tab-panel="theory">
+              <h3>Theory</h3>
+              <p class="tab-desc">Level, key and mode.</p>
+              <div class="level-control" role="group" aria-label="Level">
+                <button type="button" class="level-btn" data-level="basic">Basic</button>
+                <button type="button" class="level-btn" data-level="intermediate">Intermediate</button>
+                <button type="button" class="level-btn" data-level="nerd">Nerd</button>
+              </div>
+              <label for="keySelect">Key <select id="keySelect"></select></label>
+              <label for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
+            </section>
+
+            <section id="settingsTabDisplay" class="settings-tab-panel" data-tab-panel="display">
+              <h3>Display</h3>
+              <p class="tab-desc">Keyboard size, theme and fonts.</p>
+              <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
+              <label for="themeSelect">Theme <select id="themeSelect"></select></label>
+              <div class="settings-actions">
+                <button id="exportThemeBtn" type="button">Export&hellip;</button>
+                <button id="importThemeBtn" type="button">Import&hellip;</button>
+                <input id="importThemeFileInput" type="file" accept="application/json" style="display:none;">
+              </div>
+              <div id="themeImportError" class="import-error" hidden></div>
+              <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
+              <h4>Font sizes</h4>
+              <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
+              <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
+              <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
+              <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
+              <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
+              <h4>Advanced</h4>
+              <label for="debugCheckbox">Debug <input type="checkbox" id="debugCheckbox"></label>
+            </section>
+
+            <section id="chordsSection" class="settings-tab-panel" data-tab-panel="chords">
+              <h3>Chords</h3>
+              <p class="tab-desc">Manage the chord symbols and intervals the app detects.</p>
+              <div id="chordTableWrap">
+                <table id="chordTable">
+                  <thead>
+                    <tr><th>Symbol</th><th>Intervals</th><th></th></tr>
+                  </thead>
+                  <tbody id="chordTableBody"></tbody>
+                </table>
+              </div>
+              <div class="settings-actions">
+                <button id="addChordBtn" type="button">+ Add chord</button>
+                <button id="resetChordsBtn" type="button">Reset to defaults</button>
+              </div>
+              <div class="settings-actions">
+                <button id="exportChordsBtn" type="button">Export&hellip;</button>
+                <button id="importChordsBtn" type="button">Import&hellip;</button>
+                <input id="importFileInput" type="file" accept="application/json" style="display:none;">
+              </div>
+              <div id="chordImportError" class="import-error" hidden></div>
+            </section>
+
+            <section id="themeEditorSection" class="settings-tab-panel" data-tab-panel="themes">
+              <h3>Themes</h3>
+              <p class="tab-desc">Edit colors and effects for the selected theme.</p>
+              <label for="themeNameInput">Name <input type="text" id="themeNameInput"></label>
+              <label for="themeBackgroundInput">Background <input type="color" id="themeBackgroundInput"></label>
+              <label for="themeFontInput">Font <input type="color" id="themeFontInput"></label>
+              <label for="themeWhiteKeyInput">White keys <input type="color" id="themeWhiteKeyInput"></label>
+              <label for="themeBlackKeyInput">Black keys <input type="color" id="themeBlackKeyInput"></label>
+              <label for="themeActiveKeyInput">Active key <input type="color" id="themeActiveKeyInput"></label>
+              <label for="themeHighlightInput">Highlight <input type="color" id="themeHighlightInput"></label>
+              <label for="themeGradientCheckbox">Gradient <input type="checkbox" id="themeGradientCheckbox"></label>
+              <label for="themeBackgroundGradientInput">&nbsp;&nbsp;Background gradient <input type="color" id="themeBackgroundGradientInput"></label>
+              <label for="themeWhiteKeyGradientInput">&nbsp;&nbsp;White key gradient <input type="color" id="themeWhiteKeyGradientInput"></label>
+              <label for="themeBlackKeyGradientInput">&nbsp;&nbsp;Black key gradient <input type="color" id="themeBlackKeyGradientInput"></label>
+              <label for="themeActiveKeyGradientInput">&nbsp;&nbsp;Active key gradient <input type="color" id="themeActiveKeyGradientInput"></label>
+              <label for="themeHighlightGradientInput">&nbsp;&nbsp;Highlight gradient <input type="color" id="themeHighlightGradientInput"></label>
+              <label for="themeGlowCheckbox">Glow <input type="checkbox" id="themeGlowCheckbox"></label>
+              <div class="settings-actions">
+                <button id="newThemeBtn" type="button">+ New theme</button>
+                <button id="themeResetBtn" type="button">Reset to defaults</button>
+                <button id="deleteThemeBtn" type="button">Delete theme</button>
+              </div>
+            </section>
+
           </div>
         </div>
+        <div id="settingsFooter">
+          <div id="versionInfo" class="version-info"></div>
+        </div>
       </div>
-
-      <div id="chordsSection">
-        <h4>Chords</h4>
-        <div id="chordTableWrap">
-          <table id="chordTable">
-            <thead>
-              <tr><th>Symbol</th><th>Intervals</th><th></th></tr>
-            </thead>
-            <tbody id="chordTableBody"></tbody>
-          </table>
-        </div>
-        <div class="settings-actions">
-          <button id="addChordBtn" type="button">+ Add chord</button>
-          <button id="resetChordsBtn" type="button">Reset to defaults</button>
-        </div>
-        <div class="settings-actions">
-          <button id="exportChordsBtn" type="button">Export&hellip;</button>
-          <button id="importChordsBtn" type="button">Import&hellip;</button>
-          <input id="importFileInput" type="file" accept="application/json" style="display:none;">
-        </div>
-        <div id="chordImportError" class="import-error" hidden></div>
-      </div>
-
-      <div id="versionInfo" class="version-info"></div>
     </div>
   </div>
 
@@ -589,6 +732,6 @@
     </div>
   </div>
 
-<script src="app.js?v=5bbf7a9"></script>
+<script src="app.js?v=8d960aa"></script>
 </body>
 </html>

@@ -1,12 +1,13 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { launchApp, openSettings, pressKeys } from './fixtures';
+import { launchApp, openSettings, openSettingsTab, pressKeys } from './fixtures';
 
 describe('font size settings', () => {
   test('each area sizes independently and persists across reload', async () => {
     const app = await launchApp();
     try {
       await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
 
       const defaults = {
         chordFontSizeInput: '40',
@@ -39,6 +40,7 @@ describe('font size settings', () => {
 
       await app.page.reload();
       await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
       assert.equal(await app.page.$eval('#chordFontSizeInput', el => (el as HTMLInputElement).value), '60');
       assert.equal(await app.page.$eval('#octaveFontSizeInput', el => (el as HTMLInputElement).value), '18');
       assert.equal(await app.page.$eval('#secondaryFontSizeInput', el => (el as HTMLInputElement).value), '16');
