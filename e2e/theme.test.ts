@@ -169,4 +169,99 @@ describe('theme settings', () => {
       await app.close();
     }
   });
+
+  test('gradient and glow checkboxes toggle the effect classes and gradient color var', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await app.page.check('#debugCheckbox');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+
+      const classesBefore = await app.page.evaluate(() => document.documentElement.className);
+      assert.doesNotMatch(classesBefore, /gradient-enabled/);
+      assert.doesNotMatch(classesBefore, /glow-enabled/);
+
+      await app.page.fill('#themeGradientColorInput', '#00c8ff');
+      await app.page.dispatchEvent('#themeGradientColorInput', 'input');
+      await app.page.check('#themeGradientCheckbox');
+      await app.page.check('#themeGlowCheckbox');
+
+      const classesAfter = await app.page.evaluate(() => document.documentElement.className);
+      assert.match(classesAfter, /gradient-enabled/);
+      assert.match(classesAfter, /glow-enabled/);
+      const gradientColor = await app.page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--gradient-color').trim()
+      );
+      assert.equal(gradientColor, '#00c8ff');
+
+      await app.page.uncheck('#themeGradientCheckbox');
+      await app.page.uncheck('#themeGlowCheckbox');
+      const classesReverted = await app.page.evaluate(() => document.documentElement.className);
+      assert.doesNotMatch(classesReverted, /gradient-enabled/);
+      assert.doesNotMatch(classesReverted, /glow-enabled/);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('gradient and glow round-trip through export/import', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await app.page.check('#debugCheckbox');
+      await app.page.waitForSelector('#themeEditorSection:not([hidden])');
+      await app.page.fill('#themeGradientColorInput', '#abcdef');
+      await app.page.dispatchEvent('#themeGradientColorInput', 'input');
+      await app.page.check('#themeGradientCheckbox');
+      await app.page.check('#themeGlowCheckbox');
+
+      const downloadPromise = app.page.waitForEvent('download');
+      await app.page.click('#exportThemeBtn');
+      const download = await downloadPromise;
+      const filePath = await download.path();
+      assert.ok(filePath);
+      const fs = await import('node:fs/promises');
+      const contents = JSON.parse(await fs.readFile(filePath, 'utf8'));
+      assert.equal(contents.gradient, true);
+      assert.equal(contents.glow, true);
+      assert.equal(contents.gradientColor, '#abcdef');
+
+      // Clicking Export closes the settings panel (see e2e-testing skill notes).
+      await openSettings(app.page);
+      await app.page.selectOption('#themeSelect', 'Dark');
+      await app.page.waitForSelector('#themeGradientCheckbox:not(:checked)');
+
+      await app.page.setInputFiles('#importThemeFileInput', filePath);
+      await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Light');
+      assert.equal(await app.page.isChecked('#themeGradientCheckbox'), true);
+      assert.equal(await app.page.isChecked('#themeGlowCheckbox'), true);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('a theme imported without gradient/glow fields (pre-feature export) still parses', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      const fs = await import('node:fs/promises');
+      const os = await import('node:os');
+      const path = await import('node:path');
+      const importPath = path.join(os.tmpdir(), `theme-legacy-${Date.now()}.json`);
+      await fs.writeFile(importPath, JSON.stringify({
+        name: 'Legacy', background: '#111111', font: '#eeeeee',
+        whiteKey: '#dddddd', blackKey: '#222222', activeKey: '#00ff00', highlight: '#ff00ff',
+      }));
+
+      await app.page.setInputFiles('#importThemeFileInput', importPath);
+      await app.page.waitForFunction(() => (document.getElementById('themeSelect') as HTMLSelectElement).value === 'Legacy');
+      const classes = await app.page.evaluate(() => document.documentElement.className);
+      assert.doesNotMatch(classes, /gradient-enabled/);
+      assert.doesNotMatch(classes, /glow-enabled/);
+
+      await fs.unlink(importPath);
+    } finally {
+      await app.close();
+    }
+  });
 });

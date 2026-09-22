@@ -275,6 +275,9 @@ const themeWhiteKeyInput = document.getElementById('themeWhiteKeyInput') as HTML
 const themeBlackKeyInput = document.getElementById('themeBlackKeyInput') as HTMLInputElement;
 const themeActiveKeyInput = document.getElementById('themeActiveKeyInput') as HTMLInputElement;
 const themeHighlightInput = document.getElementById('themeHighlightInput') as HTMLInputElement;
+const themeGradientCheckbox = document.getElementById('themeGradientCheckbox') as HTMLInputElement;
+const themeGradientColorInput = document.getElementById('themeGradientColorInput') as HTMLInputElement;
+const themeGlowCheckbox = document.getElementById('themeGlowCheckbox') as HTMLInputElement;
 const newThemeBtn = document.getElementById('newThemeBtn') as HTMLButtonElement;
 const deleteThemeBtn = document.getElementById('deleteThemeBtn') as HTMLButtonElement;
 const themeResetBtn = document.getElementById('themeResetBtn') as HTMLButtonElement;
@@ -396,6 +399,9 @@ function syncThemeEditorInputs(): void {
   themeBlackKeyInput.value = theme.blackKey;
   themeActiveKeyInput.value = theme.activeKey;
   themeHighlightInput.value = theme.highlight;
+  themeGradientCheckbox.checked = theme.gradient;
+  themeGradientColorInput.value = theme.gradientColor;
+  themeGlowCheckbox.checked = theme.glow;
   const isBuiltIn = BUILT_IN_THEMES.some(b => b.name === theme.name);
   themeNameInput.disabled = isBuiltIn;
   deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
@@ -429,6 +435,9 @@ themeWhiteKeyInput.addEventListener('input', () => updateCurrentTheme({ whiteKey
 themeBlackKeyInput.addEventListener('input', () => updateCurrentTheme({ blackKey: themeBlackKeyInput.value }));
 themeActiveKeyInput.addEventListener('input', () => updateCurrentTheme({ activeKey: themeActiveKeyInput.value }));
 themeHighlightInput.addEventListener('input', () => updateCurrentTheme({ highlight: themeHighlightInput.value }));
+themeGradientCheckbox.addEventListener('change', () => updateCurrentTheme({ gradient: themeGradientCheckbox.checked }));
+themeGradientColorInput.addEventListener('input', () => updateCurrentTheme({ gradientColor: themeGradientColorInput.value }));
+themeGlowCheckbox.addEventListener('change', () => updateCurrentTheme({ glow: themeGlowCheckbox.checked }));
 
 themeNameInput.addEventListener('change', () => {
   const theme = getCurrentTheme();

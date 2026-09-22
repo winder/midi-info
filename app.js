@@ -391,6 +391,34 @@
     }
     return { keys, totalWhiteWidth };
   }
+  function buildGradientDefs(totalWidth) {
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    function addStop(gradient, offset, color) {
+      const stop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+      stop.setAttribute("offset", offset);
+      stop.setAttribute("style", `stop-color:${color}`);
+      gradient.appendChild(stop);
+    }
+    function makeGradient(id, startColor, endColor) {
+      const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+      gradient.setAttribute("id", id);
+      gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+      gradient.setAttribute("x1", "0");
+      gradient.setAttribute("y1", "0");
+      gradient.setAttribute("x2", String(totalWidth));
+      gradient.setAttribute("y2", "0");
+      addStop(gradient, "0", startColor);
+      addStop(gradient, "1", endColor);
+      defs.appendChild(gradient);
+    }
+    makeGradient("whiteKeyGradient", "var(--white-key-color)", "var(--gradient-color)");
+    makeGradient("blackKeyGradient", "var(--black-key-color)", "var(--gradient-color)");
+    makeGradient("activeKeyGradient", "var(--active-key-color)", "var(--gradient-color)");
+    makeGradient("highlightGradientWhite", "var(--highlight-color)", "var(--gradient-color)");
+    makeGradient("highlightGradientBlack", "color-mix(in srgb, var(--highlight-color) 55%, black)", "color-mix(in srgb, var(--gradient-color) 55%, black)");
+    makeGradient("textGradient", "var(--font-color)", "var(--gradient-color)");
+    return defs;
+  }
   function createPiano(svg2, minMidi, maxMidi, dims) {
     const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
     const svgWidth = totalWhiteWidth;
@@ -399,6 +427,7 @@
     svg2.setAttribute("width", String(svgWidth));
     svg2.setAttribute("height", String(svgHeight));
     svg2.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+    svg2.appendChild(buildGradientDefs(totalWhiteWidth));
     const rectByMidi = /* @__PURE__ */ new Map();
     const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const keyGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -592,7 +621,9 @@
     el.textContent = message || "";
     el.hidden = !message;
   }
-  var THEME_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
+  var COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight", "gradientColor"];
+  var REQUIRED_COLOR_KEYS = ["background", "font", "whiteKey", "blackKey", "activeKey", "highlight"];
+  var BOOLEAN_KEYS = ["gradient", "glow"];
   var BUILT_IN_THEMES = [
     {
       name: "Light",
@@ -601,7 +632,10 @@
       whiteKey: "#ffffff",
       blackKey: "#222222",
       activeKey: "#4a76c4",
-      highlight: "#ffd54f"
+      highlight: "#ffd54f",
+      gradientColor: "#ff7043",
+      gradient: false,
+      glow: false
     },
     {
       name: "Dark",
@@ -610,7 +644,10 @@
       whiteKey: "#2b2b2b",
       blackKey: "#0d0d0d",
       activeKey: "#6c9bf0",
-      highlight: "#ffb300"
+      highlight: "#ffb300",
+      gradientColor: "#9c6cff",
+      gradient: false,
+      glow: false
     },
     {
       name: "Cotton Candy",
@@ -619,7 +656,10 @@
       whiteKey: "#ffffff",
       blackKey: "#222222",
       activeKey: "#eebfa0",
-      highlight: "#49b0ca"
+      highlight: "#49b0ca",
+      gradientColor: "#ff6f91",
+      gradient: false,
+      glow: false
     }
   ];
   var DEFAULT_THEME = BUILT_IN_THEMES[0];
@@ -631,18 +671,26 @@
     root.setProperty("--black-key-color", theme.blackKey);
     root.setProperty("--active-key-color", theme.activeKey);
     root.setProperty("--highlight-color", theme.highlight);
+    root.setProperty("--gradient-color", theme.gradientColor);
+    document.documentElement.classList.toggle("gradient-enabled", theme.gradient);
+    document.documentElement.classList.toggle("glow-enabled", theme.glow);
   }
   function themeColorsEqual(a, b) {
-    return THEME_KEYS.every((key) => a[key] === b[key]);
+    return COLOR_KEYS.every((key) => a[key] === b[key]) && BOOLEAN_KEYS.every((key) => a[key] === b[key]);
   }
   function parseNamedTheme(raw) {
     if (typeof raw !== "object" || raw === null) return null;
     const t = raw;
     if (typeof t.name !== "string" || !t.name.trim()) return null;
     const theme = { name: t.name.trim() };
-    for (const key of THEME_KEYS) {
+    const dest = theme;
+    for (const key of REQUIRED_COLOR_KEYS) {
       if (typeof t[key] !== "string") return null;
-      theme[key] = t[key];
+      dest[key] = t[key];
+    }
+    theme.gradientColor = typeof t.gradientColor === "string" ? t.gradientColor : theme.activeKey;
+    for (const key of BOOLEAN_KEYS) {
+      dest[key] = typeof t[key] === "boolean" ? t[key] : false;
     }
     return theme;
   }
@@ -851,6 +899,9 @@
   var themeBlackKeyInput = document.getElementById("themeBlackKeyInput");
   var themeActiveKeyInput = document.getElementById("themeActiveKeyInput");
   var themeHighlightInput = document.getElementById("themeHighlightInput");
+  var themeGradientCheckbox = document.getElementById("themeGradientCheckbox");
+  var themeGradientColorInput = document.getElementById("themeGradientColorInput");
+  var themeGlowCheckbox = document.getElementById("themeGlowCheckbox");
   var newThemeBtn = document.getElementById("newThemeBtn");
   var deleteThemeBtn = document.getElementById("deleteThemeBtn");
   var themeResetBtn = document.getElementById("themeResetBtn");
@@ -864,7 +915,7 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"2a8840a"}`;
+  versionInfoEl.textContent = `Build ${"0a7646b"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
@@ -952,6 +1003,9 @@
     themeBlackKeyInput.value = theme.blackKey;
     themeActiveKeyInput.value = theme.activeKey;
     themeHighlightInput.value = theme.highlight;
+    themeGradientCheckbox.checked = theme.gradient;
+    themeGradientColorInput.value = theme.gradientColor;
+    themeGlowCheckbox.checked = theme.glow;
     const isBuiltIn = BUILT_IN_THEMES.some((b) => b.name === theme.name);
     themeNameInput.disabled = isBuiltIn;
     deleteThemeBtn.disabled = themes.length <= 1 || isBuiltIn;
@@ -980,6 +1034,9 @@
   themeBlackKeyInput.addEventListener("input", () => updateCurrentTheme({ blackKey: themeBlackKeyInput.value }));
   themeActiveKeyInput.addEventListener("input", () => updateCurrentTheme({ activeKey: themeActiveKeyInput.value }));
   themeHighlightInput.addEventListener("input", () => updateCurrentTheme({ highlight: themeHighlightInput.value }));
+  themeGradientCheckbox.addEventListener("change", () => updateCurrentTheme({ gradient: themeGradientCheckbox.checked }));
+  themeGradientColorInput.addEventListener("input", () => updateCurrentTheme({ gradientColor: themeGradientColorInput.value }));
+  themeGlowCheckbox.addEventListener("change", () => updateCurrentTheme({ glow: themeGlowCheckbox.checked }));
   themeNameInput.addEventListener("change", () => {
     const theme = getCurrentTheme();
     const nextName = themeNameInput.value.trim();

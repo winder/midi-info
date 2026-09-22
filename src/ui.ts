@@ -99,6 +99,45 @@ export interface Piano {
   dims: KeyDimensions;
 }
 
+// Builds the <linearGradient> defs the gradient theme effect draws on
+// (see index.html's `.gradient-enabled` rules). Every gradient uses
+// userSpaceOnUse coordinates spanning x=0..totalWidth - i.e. the full
+// keyboard - so a key's fill varies by its position on the keyboard as a
+// whole, not by its own position within a single key's width. Stop colors
+// reference the theme's CSS custom properties directly so the gradient
+// tracks live theme edits without rebuilding the SVG.
+function buildGradientDefs(totalWidth: number): SVGDefsElement {
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs') as SVGDefsElement;
+
+  function addStop(gradient: SVGElement, offset: string, color: string): void {
+    const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop.setAttribute('offset', offset);
+    stop.setAttribute('style', `stop-color:${color}`);
+    gradient.appendChild(stop);
+  }
+
+  function makeGradient(id: string, startColor: string, endColor: string): void {
+    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.setAttribute('id', id);
+    gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+    gradient.setAttribute('x1', '0');
+    gradient.setAttribute('y1', '0');
+    gradient.setAttribute('x2', String(totalWidth));
+    gradient.setAttribute('y2', '0');
+    addStop(gradient, '0', startColor);
+    addStop(gradient, '1', endColor);
+    defs.appendChild(gradient);
+  }
+
+  makeGradient('whiteKeyGradient', 'var(--white-key-color)', 'var(--gradient-color)');
+  makeGradient('blackKeyGradient', 'var(--black-key-color)', 'var(--gradient-color)');
+  makeGradient('activeKeyGradient', 'var(--active-key-color)', 'var(--gradient-color)');
+  makeGradient('highlightGradientWhite', 'var(--highlight-color)', 'var(--gradient-color)');
+  makeGradient('highlightGradientBlack', 'color-mix(in srgb, var(--highlight-color) 55%, black)', 'color-mix(in srgb, var(--gradient-color) 55%, black)');
+  makeGradient('textGradient', 'var(--font-color)', 'var(--gradient-color)');
+  return defs;
+}
+
 // Builds the piano SVG (white/black key rects + octave labels) inside the
 // given <svg> element and returns handles needed to render note state.
 // Replaces any previous contents of svg, so it's safe to call again (with a
@@ -112,6 +151,7 @@ export function createPiano(svg: SVGSVGElement, minMidi: number, maxMidi: number
   svg.setAttribute('width', String(svgWidth));
   svg.setAttribute('height', String(svgHeight));
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+  svg.appendChild(buildGradientDefs(totalWhiteWidth));
 
   const rectByMidi = new Map<number, SVGRectElement>();
   const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -388,13 +428,32 @@ export interface Theme {
   blackKey: string;
   activeKey: string;
   highlight: string;
+  // Second color used by the gradient effect below. Always present (even
+  // when gradient is off) so turning gradient on doesn't need a color
+  // picked first.
+  gradientColor: string;
+  // When true, every themed color (background, font, keys, highlight)
+  // renders as a gradient toward gradientColor instead of flat. For the
+  // keys specifically this is one continuous gradient across the whole
+  // keyboard's width (see the SVG defs in createPiano), not a per-key
+  // gradient repeated on each key.
+  gradient: boolean;
+  // When true, the currently active key(s) get a soft glow (CSS
+  // drop-shadow) in the theme's active-key color.
+  glow: boolean;
 }
 
 export interface NamedTheme extends Theme {
   name: string;
 }
 
-const THEME_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
+// String-valued color fields; used to populate/compare the color swatches.
+const COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight', 'gradientColor'];
+// Colors that must be present on any parsed theme; gradientColor is not
+// among these since old saved themes won't have it (see parseNamedTheme).
+const REQUIRED_COLOR_KEYS: (keyof Theme)[] = ['background', 'font', 'whiteKey', 'blackKey', 'activeKey', 'highlight'];
+// Boolean toggle fields, validated/defaulted separately from the colors.
+const BOOLEAN_KEYS: (keyof Theme)[] = ['gradient', 'glow'];
 
 // The themes users can pick from without turning on Debug. Debug mode adds
 // the ability to edit these (and any custom themes) in place.
@@ -407,6 +466,9 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#222222',
     activeKey: '#4a76c4',
     highlight: '#ffd54f',
+    gradientColor: '#ff7043',
+    gradient: false,
+    glow: false,
   },
   {
     name: 'Dark',
@@ -416,6 +478,9 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#0d0d0d',
     activeKey: '#6c9bf0',
     highlight: '#ffb300',
+    gradientColor: '#9c6cff',
+    gradient: false,
+    glow: false,
   },
   {
     name: 'Cotton Candy',
@@ -425,6 +490,9 @@ export const BUILT_IN_THEMES: NamedTheme[] = [
     blackKey: '#222222',
     activeKey: '#eebfa0',
     highlight: '#49b0ca',
+    gradientColor: '#ff6f91',
+    gradient: false,
+    glow: false,
   },
 ];
 
@@ -440,24 +508,38 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--black-key-color', theme.blackKey);
   root.setProperty('--active-key-color', theme.activeKey);
   root.setProperty('--highlight-color', theme.highlight);
+  root.setProperty('--gradient-color', theme.gradientColor);
+  document.documentElement.classList.toggle('gradient-enabled', theme.gradient);
+  document.documentElement.classList.toggle('glow-enabled', theme.glow);
 }
 
-// True if two themes have identical colors (name is ignored).
+// True if two themes have identical colors and effect toggles (name is
+// ignored).
 export function themeColorsEqual(a: Theme, b: Theme): boolean {
-  return THEME_KEYS.every(key => a[key] === b[key]);
+  return COLOR_KEYS.every(key => a[key] === b[key]) && BOOLEAN_KEYS.every(key => a[key] === b[key]);
 }
 
 // Validates and normalizes arbitrary parsed JSON (from a cookie or an
 // imported file) into a single named theme. Returns null if the shape
 // isn't a named theme at all.
+//
+// gradientColor/gradient/glow are optional on the input and default to a
+// copy of activeKey / false / false when absent, so a themes cookie saved
+// before this feature existed still parses instead of getting wiped back
+// to the built-in defaults (see loadThemes in app.ts).
 export function parseNamedTheme(raw: unknown): NamedTheme | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const t = raw as Record<string, unknown>;
   if (typeof t.name !== 'string' || !t.name.trim()) return null;
   const theme = { name: t.name.trim() } as NamedTheme;
-  for (const key of THEME_KEYS) {
+  const dest = theme as unknown as Record<string, unknown>;
+  for (const key of REQUIRED_COLOR_KEYS) {
     if (typeof t[key] !== 'string') return null;
-    theme[key] = t[key] as string;
+    dest[key] = t[key];
+  }
+  theme.gradientColor = typeof t.gradientColor === 'string' ? t.gradientColor : theme.activeKey;
+  for (const key of BOOLEAN_KEYS) {
+    dest[key] = typeof t[key] === 'boolean' ? t[key] : false;
   }
   return theme;
 }
