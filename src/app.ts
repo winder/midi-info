@@ -46,6 +46,7 @@ import {
   setSettingsOpen,
   themeEqual,
   trackMouseIsDown,
+  updateOffscreenIndicators,
 } from './ui';
 
 // ---- Cookie-backed chord table persistence ----
@@ -199,6 +200,8 @@ let chordTypeSymbol: string = HIGHLIGHT_CHORDS[0].symbol;
 const svg = document.getElementById('piano') as unknown as SVGSVGElement;
 const chordDisplayEl = document.getElementById('chordDisplay') as HTMLElement;
 const pianoContainer = document.getElementById('pianoContainer') as HTMLElement;
+const offscreenLeftEl = document.getElementById('offscreenLeft') as HTMLElement;
+const offscreenRightEl = document.getElementById('offscreenRight') as HTMLElement;
 const rangeInput = document.getElementById('rangeInput') as HTMLInputElement;
 const keySelect = document.getElementById('keySelect') as HTMLSelectElement;
 const modeSelect = document.getElementById('modeSelect') as HTMLSelectElement;
@@ -269,6 +272,7 @@ const isMouseDown = trackMouseIsDown();
 
 function render(): void {
   renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
+  updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
 
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
@@ -306,6 +310,10 @@ function setSustain(isDown: boolean): void {
 // All 88 keys always exist; visibleKeys is a zoom level. Key size is
 // recomputed from the container's current width so that exactly that many
 // keys fit on screen - the rest stay reachable via horizontal scroll.
+pianoContainer.addEventListener('scroll', () => {
+  updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+});
+
 function rebuildPiano(): void {
   const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
   const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);

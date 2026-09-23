@@ -1,4 +1,3 @@
-"use strict";
 (() => {
   // src/midi.ts
   var SUSTAIN_PEDAL_CONTROLLER = 64;
@@ -510,6 +509,24 @@
     const middleCX = middleCRect ? Number(middleCRect.getAttribute("x")) : 0;
     container.scrollLeft = Math.max(0, middleCX - container.clientWidth / 2);
   }
+  var OFFSCREEN_INDICATOR_H = 20;
+  function updateOffscreenIndicators(container, piano2, activeNotes2, leftEl, rightEl) {
+    const viewLeft = container.scrollLeft;
+    const viewRight = viewLeft + container.clientWidth;
+    let offLeft = false;
+    let offRight = false;
+    activeNotes2.forEach((midi) => {
+      const key = piano2.keys.find((k) => k.midi === midi);
+      if (!key) return;
+      if (key.x + key.width <= viewLeft) offLeft = true;
+      else if (key.x >= viewRight) offRight = true;
+    });
+    leftEl.hidden = !offLeft;
+    rightEl.hidden = !offRight;
+    const top = Math.max(piano2.dims.labelAreaH - 12 - 16 - OFFSCREEN_INDICATOR_H, 2);
+    leftEl.style.top = `${top}px`;
+    rightEl.style.top = `${top}px`;
+  }
   function renderKeyboard(piano2, activeNotes2, noteNames, highlightedNotes = /* @__PURE__ */ new Set(), showNoteLabels2 = true) {
     piano2.rectByMidi.forEach((rect, midi) => {
       const base = rect.classList.contains("black-key") ? "black-key" : "white-key";
@@ -946,6 +963,8 @@
   var svg = document.getElementById("piano");
   var chordDisplayEl = document.getElementById("chordDisplay");
   var pianoContainer = document.getElementById("pianoContainer");
+  var offscreenLeftEl = document.getElementById("offscreenLeft");
+  var offscreenRightEl = document.getElementById("offscreenRight");
   var rangeInput = document.getElementById("rangeInput");
   var keySelect = document.getElementById("keySelect");
   var modeSelect = document.getElementById("modeSelect");
@@ -1006,11 +1025,12 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"be3632d"}`;
+  versionInfoEl.textContent = `Build ${"d28bd02"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
+    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
     const pitchClasses = Array.from(new Set(activeMidiSorted.map((m) => m % 12)));
     renderChordDisplay(
@@ -1049,6 +1069,9 @@
       render();
     }
   }
+  pianoContainer.addEventListener("scroll", () => {
+    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+  });
   function rebuildPiano() {
     const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
     const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);

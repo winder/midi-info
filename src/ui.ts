@@ -273,6 +273,42 @@ export function centerOnMiddleC(container: HTMLElement, piano: Piano): void {
   container.scrollLeft = Math.max(0, middleCX - container.clientWidth / 2);
 }
 
+const OFFSCREEN_INDICATOR_H = 20; // keep in sync with .offscreen-indicator's font-size in index.html
+
+// All 88 keys always exist in the SVG, but visibleKeys zoom and manual
+// scrolling can put an active key outside container's current scroll
+// viewport. Shows a small arrow at the edge whose direction that key is
+// scrolled off in, so a played note that isn't on screen isn't just silent.
+// Only shown while that off-screen note is actually active - it's an
+// indicator for a note sounding right now, not a static "more keys over
+// here" hint. Positioned just above where the note-label text sits (see
+// renderKeyboard), scaled off piano.dims.labelAreaH the same way that text
+// is, so it stays clear of both the keys and any on-screen note label.
+export function updateOffscreenIndicators(
+  container: HTMLElement,
+  piano: Piano,
+  activeNotes: Set<number>,
+  leftEl: HTMLElement,
+  rightEl: HTMLElement
+): void {
+  const viewLeft = container.scrollLeft;
+  const viewRight = viewLeft + container.clientWidth;
+  let offLeft = false;
+  let offRight = false;
+  activeNotes.forEach(midi => {
+    const key = piano.keys.find(k => k.midi === midi);
+    if (!key) return;
+    if (key.x + key.width <= viewLeft) offLeft = true;
+    else if (key.x >= viewRight) offRight = true;
+  });
+  leftEl.hidden = !offLeft;
+  rightEl.hidden = !offRight;
+
+  const top = Math.max(piano.dims.labelAreaH - 12 - 16 - OFFSCREEN_INDICATOR_H, 2);
+  leftEl.style.top = `${top}px`;
+  rightEl.style.top = `${top}px`;
+}
+
 // Highlights the active keys and, when showNoteLabels is true, floats a
 // note-name label above each one. highlightedNotes marks keys lit up by
 // the Highlighter (scale/chord study aid), independent of - and

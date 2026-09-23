@@ -482,12 +482,33 @@
     color: color-mix(in srgb, var(--font-color) 55%, white);
     margin-top: 0;
   }
+  #pianoWrap {
+    position: relative;
+  }
   #pianoContainer {
     overflow-x: auto;
     padding: 0 16px 24px 16px;
   }
   svg#piano {
     display: block;
+  }
+  /* Its `top` is set inline by ui.ts's updateOffscreenIndicators(), just
+     above where the note-label text sits, since that position scales with
+     key size (dims.labelAreaH) and can't be pinned with a static CSS
+     value. */
+  .offscreen-indicator {
+    position: absolute;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--font-color);
+    pointer-events: none;
+    z-index: 5;
+  }
+  #offscreenLeft {
+    left: 6px;
+  }
+  #offscreenRight {
+    right: 6px;
   }
   .white-key {
     fill: var(--white-key-color);
@@ -806,8 +827,12 @@
       <div class="chord-alt"></div>
     </div>
 
-    <div id="pianoContainer">
-      <svg id="piano"></svg>
+    <div id="pianoWrap">
+      <div id="offscreenLeft" class="offscreen-indicator" hidden>&#9664;</div>
+      <div id="offscreenRight" class="offscreen-indicator" hidden>&#9654;</div>
+      <div id="pianoContainer">
+        <svg id="piano"></svg>
+      </div>
     </div>
 
     <div id="highlighterSection">
@@ -829,6 +854,6 @@
     </div>
   </div>
 
-<script src="app.js?v=be3632d"></script>
+<script src="app.js?v=d28bd02"></script>
 </body>
 </html>
