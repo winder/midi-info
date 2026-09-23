@@ -1,5 +1,5 @@
 // Google Analytics (GA4). Loads gtag.js at runtime so index.html stays free of
-// inline JS. Only the public GitHub Pages host reports; local dev, the Go binary
+// inline JS. Only the public GitHub Pages host reports; the local dev server
 // and the e2e harness never load the tag.
 
 // GA4 measurement ID (Admin > Data streams > Web, e.g. 'G-XXXXXXXXXX').

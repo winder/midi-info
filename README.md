@@ -4,8 +4,8 @@ Connects to a MIDI keyboard and shows what notes and chords you're playing on an
 
 ## Tech stack
 
-- Go (stdlib only) for a static file server
-- TypeScript (`src/`), bundled with esbuild into `app.js`
+- TypeScript (`src/`), bundled with esbuild
+- Static site, deployed to GitHub Pages
 - Web MIDI API in the browser
 
 ## Run locally
@@ -17,4 +17,4 @@ make run
 
 Then open http://localhost:8080 and allow MIDI access when prompted. Browser support for the Web MIDI API varies, so if it doesn't work try a different browser.
 
-Other Makefile targets: `make dev` (rebuild `app.js` on save), `make test` (unit tests), `make typecheck`.
+`make run` is esbuild's dev server: it rebundles on every request, so edits under `src/` show up on reload. Other Makefile targets: `make build` (production build into `dist/`), `make test` (unit tests), `make test-e2e` (browser tests), `make typecheck`.

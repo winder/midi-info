@@ -1,12 +1,13 @@
-// Minimal static file server for e2e tests. The app has no dev server -
-// index.html loads the built app.js directly - so tests serve the repo
-// root as-is and rely on `npm run build` having produced a fresh app.js.
+// Minimal static file server for e2e tests. Serves dist/, the output of
+// `npm run build` (index.html plus the app.js bundle), so tests exercise the
+// exact files GitHub Pages deploys. Nothing bundles src/*.ts on the fly:
+// rebuild before testing or the run sees a stale dist/.
 
 import { createServer, Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(import.meta.dirname, '..', 'dist');
 
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html',

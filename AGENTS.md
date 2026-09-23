@@ -12,18 +12,17 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/theory.test.ts` - unit tests. Only `theory.ts` is unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
-- `app.js` - esbuild bundle of `src/app.ts`, **committed to git** (see Build).
-- `main.go` - stdlib static server that embeds `index.html` and `app.js`.
+- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html` into `dist/` (gitignored).
 
 Commands live in `Makefile` and `package.json` scripts. Read those rather than trusting a doc to stay in sync.
 
 ## Build
 
-`npm run build` does three things: `tsc --noEmit`, esbuild `src/app.ts` into `app.js`, and rewrites the `app.js?v=<hash>` cache-buster in `index.html`. The hash is `git rev-parse --short HEAD`, so **a build stamps the current HEAD, and a commit that includes the build is therefore stamped one commit behind**. That is expected. CI rebuilds on deploy so the live site gets the right hash.
+`npm run build` runs `tsc --noEmit` then `build.mjs`, which writes `dist/app.js` and `dist/index.html`. The source `index.html` references a plain `app.js`; only the copy in `dist/` gets the `?v=<commit>` cache-buster. **Nothing built is committed.** `dist/` is gitignored, GitHub Pages builds fresh on deploy, and e2e rebuilds before every run.
 
-Google Analytics: `src/analytics.ts` reads the GA4 measurement ID from the `GA_MEASUREMENT_ID` env var at build time (another esbuild `--define`), and only reports from `winder.github.io`. Locally the var is unset, so the committed `app.js` has analytics off; `pages.yml` sets it from the GitHub Actions repository variable `GA_MEASUREMENT_ID`. Change the ID in the repo variable, not in code.
+`make run` (`npm run serve`) is esbuild's dev server on `localhost:8080`: it bundles `src/` in memory on each request and serves `index.html` from the repo root, writing nothing to disk. There is no watch step to run alongside it.
 
-`app.js` is committed because `//go:embed` in `main.go` needs it present at `go build` time, and `make run` builds and runs the Go server directly. **After any change under `src/`, run `make build` and commit the updated `app.js` and `index.html` alongside it**, or the local Go binary silently serves stale JS.
+Google Analytics: `src/analytics.ts` reads the GA4 measurement ID from the `GA_MEASUREMENT_ID` env var at build time (another esbuild `--define`), and only reports from `winder.github.io`. Locally the var is unset, so dev and e2e builds have analytics off; `pages.yml` sets it from the GitHub Actions repository variable `GA_MEASUREMENT_ID`. Change the ID in the repo variable, not in code.
 
 Test runner is Node's built-in `node:test` via `tsx`, not jest or vitest. Tests use `describe`/`test` from `node:test` and `node:assert/strict`.
 
@@ -33,13 +32,12 @@ Test runner is Node's built-in `node:test` via `tsx`, not jest or vitest. Tests 
 - `make typecheck` - `tsc --noEmit`. `tsconfig.json` covers both `src` and `e2e`.
 - `npm run test:e2e` - rebuilds, then runs every `e2e/*.test.ts` in headless Chromium.
 
-For any change a user would see, run it in the browser. The e2e harness is the way to do that: read `.claude/skills/e2e-testing/SKILL.md` for the one-off script pattern, how to promote a script into a saved regression test, and the harness gotchas. The two that bite most: `e2e/server.ts` serves whatever `app.js` is on disk, so rebuild before testing, and `downloadJSON()` clicks a detached `<a>`, which bubbles to the document click listener and closes the settings panel.
+For any change a user would see, run it in the browser. The e2e harness is the way to do that: read `.claude/skills/e2e-testing/SKILL.md` for the one-off script pattern, how to promote a script into a saved regression test, and the harness gotchas. The two that bite most: `e2e/server.ts` serves whatever is in `dist/`, so rebuild before testing, and `downloadJSON()` clicks a detached `<a>`, which bubbles to the document click listener and closes the settings panel.
 
 ## Deployment
 
-- **GitHub Pages**: `.github/workflows/pages.yml` runs on push to `master`, builds fresh, and deploys `index.html` + `app.js`.
-- **Go binary releases**: `git tag vX.Y.Z && git push origin vX.Y.Z` triggers `.github/workflows/release.yml`, which runs `npm ci && npm test && npm run build` and then goreleaser for linux/darwin/windows.
-- **Local dev**: `make run` serves `http://localhost:8080`. `make stop` kills whatever holds that port, which a prior session often does. `make dev` rebuilds `app.js` on save but does not serve.
+- **GitHub Pages** is the only deployment: `.github/workflows/pages.yml` runs on push to `master`, builds fresh, and uploads `dist/`. There are no binary releases or version tags.
+- **Local dev**: `make run` serves `http://localhost:8080` (see Build). `make stop` kills whatever holds that port, which a prior session often does.
 
 ## Git
 
@@ -69,6 +67,7 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 - TypeScript's Web MIDI types are incomplete: `MIDIInputMap` has no `.values()`. Use `.forEach` to collect inputs (see `midi.ts`).
 - An ID selector's `display` beats the browser's `[hidden] { display: none }`. Any element toggled via the `hidden` attribute whose ID also sets `display` needs an explicit `#id[hidden] { display: none }` rule. `index.html` already has these for the settings panel, chord/theme editor sections and highlighter body; add one for any new toggled section.
 - Shell aliases may add `-i` to `cp`/`mv`/`rm`. Use `-f` so nothing blocks on a prompt.
+- esbuild's dev server (`make run`) exits as soon as stdin closes. Fine in a terminal, but a script that backgrounds it must hold stdin open (`tail -f /dev/null | npm run serve &`) or it stops before the first request.
 
 ## Issue tracking: beads
 

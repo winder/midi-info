@@ -30,14 +30,9 @@ jobs:
         env:
           GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
 
-      - name: Assemble site
-        run: |
-          mkdir -p site
-          cp index.html app.js site/
-
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: dist
 
   deploy:
     needs: build

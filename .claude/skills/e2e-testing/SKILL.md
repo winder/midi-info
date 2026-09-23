@@ -5,9 +5,9 @@ description: Boot the midi-info app and drive it with Playwright, for a one-off 
 
 # Testing midi-info with Playwright
 
-This app has no dev server or framework: `index.html` loads the checked-in
-`app.js` bundle directly. `e2e/` already has the bootstrap solved -
-`e2e/server.ts` (serves the repo root on an ephemeral port) and
+The app is a static page: `index.html` plus an esbuild bundle. `e2e/` already
+has the bootstrap solved - `e2e/server.ts` (serves the built `dist/` on an
+ephemeral port) and
 `e2e/fixtures.ts` (`launchApp()`, `openSettings()`/`closeSettings()`,
 `setLevel()`, `pressKeys()`/`releaseKeys()` to play notes with no MIDI
 device, `chordDisplayMain()`, `openHighlighter()`, `highlightedMidis()`).
@@ -22,7 +22,7 @@ npm run test:e2e   # runs `npm run build` first, then every e2e/*.test.ts
 ```
 
 Always goes through a real rebuild first, so it never tests a stale
-`app.js`. If you only need the build step (e.g. before a one-off script),
+`dist/`. If you only need the build step (e.g. before a one-off script),
 run `npm run build` yourself.
 
 ## One-off manual check (not saved)
@@ -68,9 +68,9 @@ script into a real test rather than deleting it:
 
 ## Gotchas
 
-- **Rebuild before testing.** `e2e/server.ts` serves whatever `app.js` is
-  currently on disk - it does not bundle `src/*.ts` on the fly. A change
-  under `src/` is invisible to a running test until `npm run build` runs.
+- **Rebuild before testing.** `e2e/server.ts` serves whatever is in
+  `dist/` - it does not bundle `src/*.ts` on the fly. A change under `src/`
+  is invisible to a running test until `npm run build` runs.
   `npm run test:e2e` does this for you; a manual script must do it itself.
 - **Programmatic clicks on detached elements bypass panel-close logic.**
   `downloadJSON()` (in `src/ui.ts`) appends a temporary `<a>` straight to
