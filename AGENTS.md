@@ -21,6 +21,8 @@ Commands live in `Makefile` and `package.json` scripts. Read those rather than t
 
 `npm run build` does three things: `tsc --noEmit`, esbuild `src/app.ts` into `app.js`, and rewrites the `app.js?v=<hash>` cache-buster in `index.html`. The hash is `git rev-parse --short HEAD`, so **a build stamps the current HEAD, and a commit that includes the build is therefore stamped one commit behind**. That is expected. CI rebuilds on deploy so the live site gets the right hash.
 
+Google Analytics: `src/analytics.ts` reads the GA4 measurement ID from the `GA_MEASUREMENT_ID` env var at build time (another esbuild `--define`), and only reports from `winder.github.io`. Locally the var is unset, so the committed `app.js` has analytics off; `pages.yml` sets it from the GitHub Actions repository variable `GA_MEASUREMENT_ID`. Change the ID in the repo variable, not in code.
+
 `app.js` is committed because `//go:embed` in `main.go` needs it present at `go build` time, and `make run` builds and runs the Go server directly. **After any change under `src/`, run `make build` and commit the updated `app.js` and `index.html` alongside it**, or the local Go binary silently serves stale JS.
 
 Test runner is Node's built-in `node:test` via `tsx`, not jest or vitest. Tests use `describe`/`test` from `node:test` and `node:assert/strict`.

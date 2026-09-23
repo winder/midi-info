@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   // src/midi.ts
   var SUSTAIN_PEDAL_CONTROLLER = 64;
@@ -43,6 +44,26 @@
     }).catch((err) => {
       callbacks.onStatusChange("MIDI access denied or unavailable: " + err.message, "error");
     });
+  }
+
+  // src/analytics.ts
+  var GA_MEASUREMENT_ID = "";
+  var TRACKED_HOSTS = ["winder.github.io"];
+  function shouldTrack(hostname, measurementId = GA_MEASUREMENT_ID) {
+    return measurementId !== "" && TRACKED_HOSTS.includes(hostname);
+  }
+  function initAnalytics() {
+    if (!shouldTrack(window.location.hostname)) return;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function gtag(...args) {
+      window.dataLayer.push(args);
+    };
+    window.gtag("js", /* @__PURE__ */ new Date());
+    window.gtag("config", GA_MEASUREMENT_ID);
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_MEASUREMENT_ID)}`;
+    document.head.appendChild(script);
   }
 
   // src/theory.ts
@@ -1538,6 +1559,7 @@
   highlighterToggle.addEventListener("click", () => setHighlighterOpen(!highlighterOpen));
   setHighlighterOpen(false);
   refreshHighlighterUI();
+  initAnalytics();
   initMIDI({
     onNoteOn: noteOn,
     onNoteOff: noteOff,

@@ -3,6 +3,7 @@
 declare const __COMMIT_HASH__: string;
 
 import { initMIDI } from './midi';
+import { initAnalytics } from './analytics';
 import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
@@ -873,6 +874,10 @@ function setHighlighterOpen(open: boolean): void {
 highlighterToggle.addEventListener('click', () => setHighlighterOpen(!highlighterOpen));
 setHighlighterOpen(false);
 refreshHighlighterUI();
+
+// ---- Analytics ----
+
+initAnalytics();
 
 // ---- MIDI ----
 

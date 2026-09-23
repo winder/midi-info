@@ -27,6 +27,8 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
 
       - name: Assemble site
         run: |
