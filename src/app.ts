@@ -182,6 +182,7 @@ let showTertiaryLine: boolean = loadBoolSetting('showTertiaryLine', true);
 let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
 let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
 let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
+let showOffscreenArrows: boolean = loadBoolSetting('showOffscreenArrows', true);
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 let sustainOn = false;
@@ -212,6 +213,7 @@ const tertiaryLineCheckbox = document.getElementById('tertiaryLineCheckbox') as 
 const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') as HTMLInputElement;
 const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
 const noteLabelsCheckbox = document.getElementById('noteLabelsCheckbox') as HTMLInputElement;
+const offscreenArrowsCheckbox = document.getElementById('offscreenArrowsCheckbox') as HTMLInputElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
@@ -271,9 +273,20 @@ versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 let piano: Piano;
 const isMouseDown = trackMouseIsDown();
 
+// The off-screen arrows are a display option; when off, both stay hidden
+// regardless of what is playing or where the piano is scrolled.
+function refreshOffscreenIndicators(): void {
+  if (showOffscreenArrows) {
+    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+  } else {
+    offscreenLeftEl.hidden = true;
+    offscreenRightEl.hidden = true;
+  }
+}
+
 function render(): void {
   renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
-  updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+  refreshOffscreenIndicators();
 
   const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
@@ -311,9 +324,7 @@ function setSustain(isDown: boolean): void {
 // All 88 keys always exist; visibleKeys is a zoom level. Key size is
 // recomputed from the container's current width so that exactly that many
 // keys fit on screen - the rest stay reachable via horizontal scroll.
-pianoContainer.addEventListener('scroll', () => {
-  updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
-});
+pianoContainer.addEventListener('scroll', refreshOffscreenIndicators);
 
 function rebuildPiano(): void {
   const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
@@ -678,6 +689,13 @@ noteLabelsCheckbox.addEventListener('change', () => {
   showNoteLabels = noteLabelsCheckbox.checked;
   saveBoolSetting('showNoteLabels', showNoteLabels);
   render();
+});
+
+offscreenArrowsCheckbox.checked = showOffscreenArrows;
+offscreenArrowsCheckbox.addEventListener('change', () => {
+  showOffscreenArrows = offscreenArrowsCheckbox.checked;
+  saveBoolSetting('showOffscreenArrows', showOffscreenArrows);
+  refreshOffscreenIndicators();
 });
 
 // ---- Chord table editor ----

@@ -74,4 +74,39 @@ describe('offscreen indicator arrows', () => {
       await app.close();
     }
   });
+
+  test('the Display tab can turn the arrows off, and the choice survives a reload', async () => {
+    const app = await launchApp();
+    try {
+      const { page } = app;
+      await openSettings(page);
+      await openSettingsTab(page, 'display');
+      await page.fill('#rangeInput', '10');
+      await page.dispatchEvent('#rangeInput', 'change');
+
+      await pressKeys(page, [108]);
+      assert.deepEqual(await indicatorState(page), { left: false, right: true });
+
+      await page.locator('#offscreenArrowsCheckbox').uncheck();
+      assert.deepEqual(await indicatorState(page), { left: false, right: false }, 'unchecking hides an arrow that is currently showing');
+      await releaseKeys(page, [108]);
+
+      await pressKeys(page, [21]);
+      assert.deepEqual(await indicatorState(page), { left: false, right: false }, 'no arrow appears for a new off-screen note while disabled');
+      await releaseKeys(page, [21]);
+
+      await page.reload();
+      await pressKeys(page, [108]);
+      assert.deepEqual(await indicatorState(page), { left: false, right: false }, 'setting persists across reload');
+      await openSettings(page);
+      await openSettingsTab(page, 'display');
+      assert.equal(await page.locator('#offscreenArrowsCheckbox').isChecked(), false);
+
+      await page.locator('#offscreenArrowsCheckbox').check();
+      assert.deepEqual(await indicatorState(page), { left: false, right: true }, 're-enabling shows the arrow for the note still held');
+      await releaseKeys(page, [108]);
+    } finally {
+      await app.close();
+    }
+  });
 });

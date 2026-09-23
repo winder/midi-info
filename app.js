@@ -971,6 +971,7 @@
   var showRomanNumerals = loadBoolSetting("showRomanNumerals", true);
   var showOctaveLabels = loadBoolSetting("showOctaveLabels", true);
   var showNoteLabels = loadBoolSetting("showNoteLabels", true);
+  var showOffscreenArrows = loadBoolSetting("showOffscreenArrows", true);
   var activeNotes = /* @__PURE__ */ new Set();
   var hasPlayedNote = false;
   var sustainOn = false;
@@ -995,6 +996,7 @@
   var romanNumeralsCheckbox = document.getElementById("romanNumeralsCheckbox");
   var octaveLabelsCheckbox = document.getElementById("octaveLabelsCheckbox");
   var noteLabelsCheckbox = document.getElementById("noteLabelsCheckbox");
+  var offscreenArrowsCheckbox = document.getElementById("offscreenArrowsCheckbox");
   var levelButtons = Array.from(document.querySelectorAll(".level-btn"));
   var chordTableBody = document.getElementById("chordTableBody");
   var addChordBtn = document.getElementById("addChordBtn");
@@ -1046,12 +1048,20 @@
   var tertiaryFontSizeInput = document.getElementById("tertiaryFontSizeInput");
   var noteFontSizeInput = document.getElementById("noteFontSizeInput");
   var octaveFontSizeInput = document.getElementById("octaveFontSizeInput");
-  versionInfoEl.textContent = `Build ${"d28bd02"}`;
+  versionInfoEl.textContent = `Build ${"46c1cc9"}`;
   var piano;
   var isMouseDown = trackMouseIsDown();
+  function refreshOffscreenIndicators() {
+    if (showOffscreenArrows) {
+      updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+    } else {
+      offscreenLeftEl.hidden = true;
+      offscreenRightEl.hidden = true;
+    }
+  }
   function render() {
     renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
-    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+    refreshOffscreenIndicators();
     const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
     const pitchClasses = Array.from(new Set(activeMidiSorted.map((m) => m % 12)));
     renderChordDisplay(
@@ -1090,9 +1100,7 @@
       render();
     }
   }
-  pianoContainer.addEventListener("scroll", () => {
-    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
-  });
+  pianoContainer.addEventListener("scroll", refreshOffscreenIndicators);
   function rebuildPiano() {
     const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
     const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
@@ -1393,6 +1401,12 @@
     showNoteLabels = noteLabelsCheckbox.checked;
     saveBoolSetting("showNoteLabels", showNoteLabels);
     render();
+  });
+  offscreenArrowsCheckbox.checked = showOffscreenArrows;
+  offscreenArrowsCheckbox.addEventListener("change", () => {
+    showOffscreenArrows = offscreenArrowsCheckbox.checked;
+    saveBoolSetting("showOffscreenArrows", showOffscreenArrows);
+    refreshOffscreenIndicators();
   });
   function refreshChordTable() {
     renderChordTable(chordTableBody, chordFormulas, {
