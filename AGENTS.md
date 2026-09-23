@@ -9,7 +9,7 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/midi.ts` - Web MIDI wrapper (`initMIDI`).
 - `src/ui.ts` - SVG piano rendering, DOM helpers, themes and fonts. Functions take data in and own no state.
 - `src/app.ts` - orchestrator: all app state, cookie persistence, event wiring, init.
-- `src/theory.test.ts` - unit tests. Only `theory.ts` is unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
+- `src/theory.test.ts`, `src/analytics.test.ts` - unit tests. Only `theory.ts` and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
 - `build.mjs` - production build: bundles `src/app.ts` and copies `index.html` into `dist/` (gitignored).
@@ -22,7 +22,9 @@ Commands live in `Makefile` and `package.json` scripts. Read those rather than t
 
 `make run` (`npm run serve`) is esbuild's dev server on `localhost:8080`: it bundles `src/` in memory on each request and serves `index.html` from the repo root, writing nothing to disk. There is no watch step to run alongside it.
 
-Google Analytics: `src/analytics.ts` reads the GA4 measurement ID from the `GA_MEASUREMENT_ID` env var at build time (another esbuild `--define`), and only reports from `winder.github.io`. Locally the var is unset, so dev and e2e builds have analytics off; `pages.yml` sets it from the GitHub Actions repository variable `GA_MEASUREMENT_ID`. Change the ID in the repo variable, not in code.
+Google Analytics: `src/analytics.ts` reads the GA4 measurement ID from the `GA_MEASUREMENT_ID` env var at build time (another esbuild `--define`), and only reports from `winder.github.io`. Locally the var is unset, so the dev server has analytics off; `npm run test:e2e` builds with a dummy `G-E2ETEST` so `e2e/analytics.test.ts` can check what gets reported (see the e2e-testing skill), and `pages.yml` sets the real one from the GitHub Actions repository variable `GA_MEASUREMENT_ID`. Change the ID in the repo variable, not in code.
+
+Beyond page views the app sends a usage funnel (`midi_unsupported`, `midi_access`, `midi_device_connected`, `first_midi_note`, `first_mouse_note`) and a settings snapshot as GA4 user properties (`level`, `theme`, `visible_keys`, `display_off`, `chords_custom`); the header comment in `src/analytics.ts` is the list of record. Rules: never send a per-note or per-chord event (GA4 drops events past ~500 a session, and the tracker caps at 400); funnel steps go through `analytics().once()`. A `chord_detected` event was built and removed: knowing whether a MIDI device is connected and used is the goal, not what gets played. Event params and user properties are invisible in GA4 reports until registered under Admin > Custom definitions, so adding one means registering it too. Analytics only runs on the live host, so verify new events after a deploy with GA4 DebugView, or locally with the fake-host Playwright pattern in the e2e-testing skill.
 
 Test runner is Node's built-in `node:test` via `tsx`, not jest or vitest. Tests use `describe`/`test` from `node:test` and `node:assert/strict`.
 

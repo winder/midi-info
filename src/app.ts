@@ -3,7 +3,7 @@
 declare const __COMMIT_HASH__: string;
 
 import { initMIDI } from './midi';
-import { initAnalytics } from './analytics';
+import { Params, analytics, initAnalytics } from './analytics';
 import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
@@ -75,6 +75,7 @@ function loadLevel(): Level {
 
 function saveLevel(level: Level): void {
   setCookie('level', level, 365);
+  syncSettingsSnapshot();
 }
 
 // ---- Chord-display line toggles and octave labels ----
@@ -88,6 +89,7 @@ function loadBoolSetting(cookieName: string, defaultValue: boolean): boolean {
 
 function saveBoolSetting(cookieName: string, value: boolean): void {
   setCookie(cookieName, value ? '1' : '0', 365);
+  syncSettingsSnapshot();
 }
 
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
@@ -102,6 +104,7 @@ function loadVisibleKeys(): number {
 
 function saveVisibleKeys(n: number): void {
   setCookie('visibleKeys', String(n), 365);
+  syncSettingsSnapshot();
 }
 
 // ---- Theme (named color sets) ----
@@ -138,6 +141,7 @@ function loadThemeName(themes: NamedTheme[]): string {
 
 function saveThemeName(name: string): void {
   setCookie('themeName', name, 365);
+  syncSettingsSnapshot();
 }
 
 function cloneDefaultChordFormulas(): ChordFormula[] {
@@ -156,6 +160,7 @@ function loadChordFormulas(): ChordFormula[] {
 
 function saveChordFormulas(): void {
   setCookie('chordFormulas', JSON.stringify(chordFormulas), 365);
+  syncSettingsSnapshot();
 }
 
 function parseIntervals(text: string): number[] {
@@ -185,6 +190,9 @@ let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
 let showOffscreenArrows: boolean = loadBoolSetting('showOffscreenArrows', true);
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
+// Where a note came from. Each source gets its own once-only first-note
+// event, so clicking the on-screen keyboard first never hides later MIDI use.
+type NoteSource = 'midi' | 'mouse';
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
 const sustainedNotes = new Set<number>();
@@ -296,8 +304,9 @@ function render(): void {
   );
 }
 
-function noteOn(midi: number): void {
+function noteOn(midi: number, source: NoteSource): void {
   hasPlayedNote = true;
+  analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
   render();
@@ -330,7 +339,7 @@ function rebuildPiano(): void {
   const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
   const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
   piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims, showOctaveLabels);
-  attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi) : noteOff(midi)));
+  attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi, 'mouse') : noteOff(midi)));
   centerOnMiddleC(pianoContainer, piano);
   render();
 }
@@ -442,6 +451,7 @@ function syncThemeEditorInputs(): void {
 function selectTheme(name: string): void {
   currentThemeName = name;
   saveThemeName(name);
+  analytics().event('theme_selected', { theme: themeLabel() });
   applyTheme(getCurrentTheme());
   themeSelect.value = name;
   themeSelectThemes.value = name;
@@ -643,6 +653,7 @@ function updateLevelButtons(): void {
 function setLevel(level: Level): void {
   currentLevel = level;
   saveLevel(level);
+  analytics().event('level_changed', { level });
   updateLevelButtons();
   populateModeSelect();
   refreshHighlighterUI();
@@ -730,6 +741,7 @@ addChordBtn.addEventListener('click', () => {
 resetChordsBtn.addEventListener('click', () => {
   chordFormulas = cloneDefaultChordFormulas();
   deleteCookie('chordFormulas');
+  syncSettingsSnapshot();
   setErrorMessage(chordImportError, null);
   refreshChordTable();
   render();
@@ -895,23 +907,64 @@ refreshHighlighterUI();
 
 // ---- Analytics ----
 
-initAnalytics();
+// Built-in themes report by name (with "(modified)" when edited); a
+// user-created theme is just "custom" so user-typed names never leave the
+// browser.
+function themeLabel(): string {
+  const theme = getCurrentTheme();
+  if (!BUILT_IN_THEMES.some(b => b.name === theme.name)) return 'custom';
+  return isModifiedFromBuiltIn(theme) ? `${theme.name} (modified)` : theme.name;
+}
+
+// The persisted settings as GA4 user properties. Every display toggle
+// defaults on, so only the ones turned off are listed.
+function settingsSnapshot(): Params {
+  const off: string[] = [];
+  if (!showSecondaryLine) off.push('secondary');
+  if (!showTertiaryLine) off.push('tertiary');
+  if (!showRomanNumerals) off.push('roman');
+  if (!showOctaveLabels) off.push('octave');
+  if (!showNoteLabels) off.push('notes');
+  if (!showOffscreenArrows) off.push('arrows');
+  return {
+    level: currentLevel,
+    theme: themeLabel(),
+    visible_keys: currentVisibleKeys,
+    display_off: off.length ? off.join(',') : 'none',
+    chords_custom: getCookie('chordFormulas') !== null ? 'yes' : 'no',
+  };
+}
+
+// Called from every saveX() so the snapshot tracks the cookies. Before
+// initAnalytics() runs the tracker is a no-op, so early saves are harmless.
+function syncSettingsSnapshot(): void {
+  analytics().setUserProperties(settingsSnapshot());
+}
+
+initAnalytics(settingsSnapshot());
 
 // ---- MIDI ----
 
 initMIDI({
-  onNoteOn: noteOn,
+  onNoteOn: midi => noteOn(midi, 'midi'),
   onNoteOff: noteOff,
   onSustainChange: setSustain,
   onStatusChange(text, className) {
     statusEl.textContent = text;
     statusEl.className = className;
   },
+  onUnsupported() {
+    analytics().once('midi_unsupported');
+  },
+  onAccess(granted) {
+    analytics().once('midi_access', { result: granted ? 'granted' : 'denied' });
+  },
   onInputsChange(inputNames) {
     if (inputNames.length === 0) {
       inputRow.style.display = 'none';
       return;
     }
+    analytics().once('midi_device_connected', { device_count: inputNames.length });
     inputRow.style.display = '';
     inputSelect.innerHTML = '';
     inputNames.forEach(name => {

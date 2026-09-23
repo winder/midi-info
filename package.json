@@ -7,7 +7,7 @@
     "serve": "esbuild src/app.ts --bundle --outfile=app.js --servedir=. --serve=localhost:8080 --define:__COMMIT_HASH__=\\\"$(git rev-parse --short HEAD)\\\" --define:__GA_MEASUREMENT_ID__=\\\"\\\"",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/**/*.test.ts",
-    "test:e2e": "npm run build && node --import tsx --test e2e/*.test.ts"
+    "test:e2e": "GA_MEASUREMENT_ID=G-E2ETEST npm run build && node --import tsx --test e2e/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",

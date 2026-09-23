@@ -9,6 +9,10 @@ export interface MidiCallbacks {
   onSustainChange: (isDown: boolean) => void;
   onStatusChange: (text: string, className: string) => void;
   onInputsChange: (inputNames: string[]) => void;
+  // Browser has no Web MIDI API at all (Safari, Firefox).
+  onUnsupported: () => void;
+  // Outcome of the requestMIDIAccess() permission prompt.
+  onAccess: (granted: boolean) => void;
 }
 
 function handleMIDIMessage(callbacks: MidiCallbacks, event: MIDIMessageEvent) {
@@ -28,6 +32,7 @@ function handleMIDIMessage(callbacks: MidiCallbacks, event: MIDIMessageEvent) {
 export function initMIDI(callbacks: MidiCallbacks): void {
   if (!navigator.requestMIDIAccess) {
     callbacks.onStatusChange('Web MIDI API not supported in this browser. Try a different browser.', 'error');
+    callbacks.onUnsupported();
     return;
   }
 
@@ -53,9 +58,11 @@ export function initMIDI(callbacks: MidiCallbacks): void {
   }
 
   navigator.requestMIDIAccess().then(access => {
+    callbacks.onAccess(true);
     refreshInputList(access);
     access.onstatechange = () => refreshInputList(access);
   }).catch(err => {
+    callbacks.onAccess(false);
     callbacks.onStatusChange('MIDI access denied or unavailable: ' + err.message, 'error');
   });
 }

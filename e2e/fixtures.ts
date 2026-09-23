@@ -29,6 +29,46 @@ export async function launchApp(): Promise<App> {
   };
 }
 
+// Analytics only runs on the public GitHub Pages host, so to see what the
+// app would report, serve the same dist/ under that origin: every request to
+// winder.github.io is answered from the local server, and the gtag.js
+// download is stubbed so nothing reaches Google. Events then accumulate in
+// window.dataLayer, readable via dataLayerEvents(). Requires the dist/ bundle
+// to carry a measurement ID; `npm run test:e2e` builds with a dummy one.
+export const PRODUCTION_ORIGIN = 'https://winder.github.io';
+
+export async function launchAppAsProduction(): Promise<App> {
+  const server: StaticServer = await serveApp();
+  const browser: Browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 500, height: 900 } });
+  page.on('pageerror', err => console.error('[pageerror]', err.message));
+  await page.route(`${PRODUCTION_ORIGIN}/**`, async route => {
+    const { pathname, search } = new URL(route.request().url());
+    const localPath = pathname.replace(/^\/midi-info/, '');
+    const response = await route.fetch({ url: server.url + localPath + search });
+    await route.fulfill({ response });
+  });
+  await page.route('https://www.googletagmanager.com/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' })
+  );
+  await page.goto(`${PRODUCTION_ORIGIN}/midi-info/index.html`);
+  return {
+    page,
+    url: server.url,
+    async close() {
+      await browser.close();
+      await server.close();
+    },
+  };
+}
+
+// gtag calls recorded by the page so far, as [command, ...args] tuples,
+// e.g. ['event', 'first_mouse_note', {}]. Empty when analytics
+// is off (plain launchApp(), or a dist/ built without a measurement ID).
+export async function dataLayerCalls(page: Page): Promise<unknown[][]> {
+  return page.evaluate(() => (window as unknown as { dataLayer?: unknown[][] }).dataLayer ?? []);
+}
+
 // Opens the gear/menu settings modal and waits for it to be visible.
 export async function openSettings(page: Page): Promise<void> {
   await page.click('#menuButton');

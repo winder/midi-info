@@ -66,6 +66,25 @@ script into a real test rather than deleting it:
   `e2e/chords.test.ts` for playing notes and reading the chord display
   and highlighted keys.
 
+## Checking what analytics would report
+
+Analytics is host-gated: `shouldTrack()` in `src/analytics.ts` only turns
+the tracker on for `winder.github.io`, and the measurement ID is baked in
+at build time. So a plain `launchApp()` never records anything. To see
+events, use `launchAppAsProduction()` from `e2e/fixtures.ts`: it serves
+the same `dist/` under the production origin via `page.route`, stubs the
+gtag.js download so nothing reaches Google, and leaves every gtag call in
+`window.dataLayer`. Read them with `dataLayerCalls(page)`; each is a tuple
+like `['event', 'first_mouse_note', {}]` or
+`['set', 'user_properties', {...}]`.
+
+The bundle must carry an ID for this to work. `npm run test:e2e` builds
+with a dummy `GA_MEASUREMENT_ID=G-E2ETEST`; a manual script needs the same
+prefix on its `npm run build`, or the config call never happens and
+`dataLayerCalls` stays empty. `e2e/analytics.test.ts` is the worked
+example, and the event/user-property list of record is the header comment
+in `src/analytics.ts`.
+
 ## Gotchas
 
 - **Rebuild before testing.** `e2e/server.ts` serves whatever is in
