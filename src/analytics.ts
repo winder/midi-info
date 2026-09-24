@@ -119,6 +119,11 @@ export function initAnalytics(userProperties: Params = {}): void {
   window.gtag('js', new Date());
   window.gtag('config', GA_MEASUREMENT_ID, {
     user_properties: clampValues(userProperties, MAX_USER_PROPERTY_LENGTH),
+    // gtag's default 'auto' cookie domain probes from the top down and
+    // first tries github.io, a public-suffix domain every browser rejects.
+    // Firefox logs each attempt as a console error. Naming the host skips
+    // the probing; the cookie ends up on the same domain either way.
+    cookie_domain: window.location.hostname,
   });
   tracker = createTracker(window.gtag);
 
