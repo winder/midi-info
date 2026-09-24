@@ -392,7 +392,8 @@ export function renderChordDisplay(
   hasPlayedNote: boolean,
   showSecondaryLine: boolean,
   showTertiaryLine: boolean,
-  showRomanNumerals: boolean
+  showRomanNumerals: boolean,
+  showNoChord: boolean
 ): void {
   el.innerHTML = '';
   const main = document.createElement('div');
@@ -442,7 +443,7 @@ export function renderChordDisplay(
     }
     main.textContent = text;
     if (showRomanNumerals) roman.textContent = romanNumeralLabel(primary, tonicPc, mode);
-  } else {
+  } else if (showNoChord) {
     main.textContent = noteNames[bassPc] + ' n.c.';
   }
 

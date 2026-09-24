@@ -235,6 +235,7 @@ let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
 let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
 let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
 let showOffscreenArrows: boolean = loadBoolSetting('showOffscreenArrows', true);
+let showNoChord: boolean = loadBoolSetting('showNoChord', true);
 let chordSmoothing: SmoothingLevel = loadSmoothing();
 let customDelays: SmoothingDelays = loadCustomDelays();
 let holdLastChord: boolean = loadBoolSetting('holdLastChord', false);
@@ -270,6 +271,7 @@ const modeLabelText = document.getElementById('modeLabelText') as HTMLElement;
 const secondaryLineCheckbox = document.getElementById('secondaryLineCheckbox') as HTMLInputElement;
 const tertiaryLineCheckbox = document.getElementById('tertiaryLineCheckbox') as HTMLInputElement;
 const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') as HTMLInputElement;
+const noChordCheckbox = document.getElementById('noChordCheckbox') as HTMLInputElement;
 const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
 const noteLabelsCheckbox = document.getElementById('noteLabelsCheckbox') as HTMLInputElement;
 const offscreenArrowsCheckbox = document.getElementById('offscreenArrowsCheckbox') as HTMLInputElement;
@@ -378,7 +380,7 @@ function renderChord(): void {
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
   renderChordDisplay(
     chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode,
-    hasPlayedNote, showSecondaryLine, showTertiaryLine, showRomanNumerals
+    hasPlayedNote, showSecondaryLine, showTertiaryLine, showRomanNumerals, showNoChord
   );
 }
 
@@ -762,6 +764,13 @@ tertiaryLineCheckbox.addEventListener('change', () => {
   render();
 });
 
+noChordCheckbox.checked = showNoChord;
+noChordCheckbox.addEventListener('change', () => {
+  showNoChord = noChordCheckbox.checked;
+  saveBoolSetting('showNoChord', showNoChord);
+  render();
+});
+
 romanNumeralsCheckbox.checked = showRomanNumerals;
 romanNumeralsCheckbox.addEventListener('change', () => {
   showRomanNumerals = romanNumeralsCheckbox.checked;
@@ -1067,6 +1076,7 @@ function settingsSnapshot(): Params {
   if (!showOctaveLabels) off.push('octave');
   if (!showNoteLabels) off.push('notes');
   if (!showOffscreenArrows) off.push('arrows');
+  if (!showNoChord) off.push('nc');
   return {
     level: currentLevel,
     theme: themeLabel(),
