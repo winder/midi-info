@@ -5,6 +5,18 @@ declare const __COMMIT_HASH__: string;
 import { initMIDI } from './midi';
 import { Params, analytics, initAnalytics } from './analytics';
 import {
+  DEFAULT_HOLD_MS,
+  DEFAULT_SMOOTHING,
+  NoteSettler,
+  SMOOTHING_DELAYS,
+  SmoothingDelays,
+  SmoothingLevel,
+  holdDurationValue,
+  isSmoothingLevel,
+  parseDelayMs,
+  parseHoldMs,
+} from './settle';
+import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
   HIGHLIGHT_CHORDS,
@@ -90,6 +102,41 @@ function loadBoolSetting(cookieName: string, defaultValue: boolean): boolean {
 function saveBoolSetting(cookieName: string, value: boolean): void {
   setCookie(cookieName, value ? '1' : '0', 365);
   syncSettingsSnapshot();
+}
+
+// ---- Chord smoothing (see settle.ts) ----
+
+function loadSmoothing(): SmoothingLevel {
+  const raw = getCookie('chordSmoothing');
+  return isSmoothingLevel(raw) ? raw : DEFAULT_SMOOTHING;
+}
+
+function saveSmoothing(level: SmoothingLevel): void {
+  setCookie('chordSmoothing', level, 365);
+  syncSettingsSnapshot();
+}
+
+// The directly entered delays behind the "Advanced" choice. Kept even while
+// a preset is selected, so switching back restores them. Unset or bad values
+// start from the Light preset.
+function loadCustomDelays(): SmoothingDelays {
+  return {
+    attackMs: parseDelayMs(getCookie('chordSmoothingAttackMs')) ?? SMOOTHING_DELAYS.light.attackMs,
+    releaseMs: parseDelayMs(getCookie('chordSmoothingReleaseMs')) ?? SMOOTHING_DELAYS.light.releaseMs,
+  };
+}
+
+function saveCustomDelays(delays: SmoothingDelays): void {
+  setCookie('chordSmoothingAttackMs', String(delays.attackMs), 365);
+  setCookie('chordSmoothingReleaseMs', String(delays.releaseMs), 365);
+}
+
+function loadHoldDuration(): number {
+  return parseHoldMs(getCookie('holdDuration')) ?? DEFAULT_HOLD_MS;
+}
+
+function saveHoldDuration(ms: number): void {
+  setCookie('holdDuration', holdDurationValue(ms), 365);
 }
 
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
@@ -188,6 +235,10 @@ let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
 let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
 let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
 let showOffscreenArrows: boolean = loadBoolSetting('showOffscreenArrows', true);
+let chordSmoothing: SmoothingLevel = loadSmoothing();
+let customDelays: SmoothingDelays = loadCustomDelays();
+let holdLastChord: boolean = loadBoolSetting('holdLastChord', false);
+let holdDurationMs: number = loadHoldDuration();
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 // Where a note came from. Each source gets its own once-only first-note
@@ -222,6 +273,13 @@ const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') a
 const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
 const noteLabelsCheckbox = document.getElementById('noteLabelsCheckbox') as HTMLInputElement;
 const offscreenArrowsCheckbox = document.getElementById('offscreenArrowsCheckbox') as HTMLInputElement;
+const chordSmoothingSelect = document.getElementById('chordSmoothingSelect') as HTMLSelectElement;
+const holdLastChordCheckbox = document.getElementById('holdLastChordCheckbox') as HTMLInputElement;
+const holdDurationRow = document.getElementById('holdDurationRow') as HTMLElement;
+const holdDurationInput = document.getElementById('holdDurationInput') as HTMLInputElement;
+const smoothingAdvancedEl = document.getElementById('smoothingAdvanced') as HTMLElement;
+const smoothingAttackInput = document.getElementById('smoothingAttackInput') as HTMLInputElement;
+const smoothingReleaseInput = document.getElementById('smoothingReleaseInput') as HTMLInputElement;
 const levelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.level-btn'));
 const chordTableBody = document.getElementById('chordTableBody') as HTMLElement;
 const addChordBtn = document.getElementById('addChordBtn') as HTMLButtonElement;
@@ -292,11 +350,31 @@ function refreshOffscreenIndicators(): void {
   }
 }
 
+// The keyboard follows activeNotes immediately; the chord readout follows
+// the settler's debounced copy so it skips the in-between sets real playing
+// produces.
+function smoothingDelays(): SmoothingDelays {
+  return chordSmoothing === 'custom' ? customDelays : SMOOTHING_DELAYS[chordSmoothing];
+}
+
+function holdMs(): number {
+  return holdLastChord ? holdDurationMs : 0;
+}
+
+const noteSettler = new NoteSettler(smoothingDelays(), holdMs(), renderChord);
+
 function render(): void {
+  renderKeys();
+  renderChord();
+}
+
+function renderKeys(): void {
   renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
   refreshOffscreenIndicators();
+}
 
-  const activeMidiSorted = Array.from(activeNotes).sort((a, b) => a - b);
+function renderChord(): void {
+  const activeMidiSorted = noteSettler.notes;
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
   renderChordDisplay(
     chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode,
@@ -309,7 +387,8 @@ function noteOn(midi: number, source: NoteSource): void {
   analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
-  render();
+  renderKeys();
+  noteSettler.update(activeNotes, 'on');
 }
 
 function noteOff(midi: number): void {
@@ -318,7 +397,8 @@ function noteOff(midi: number): void {
     return;
   }
   activeNotes.delete(midi);
-  render();
+  renderKeys();
+  noteSettler.update(activeNotes, 'off');
 }
 
 function setSustain(isDown: boolean): void {
@@ -326,7 +406,8 @@ function setSustain(isDown: boolean): void {
   if (!isDown) {
     sustainedNotes.forEach(midi => activeNotes.delete(midi));
     sustainedNotes.clear();
-    render();
+    renderKeys();
+    noteSettler.update(activeNotes, 'off');
   }
 }
 
@@ -701,6 +782,66 @@ noteLabelsCheckbox.addEventListener('change', () => {
   saveBoolSetting('showNoteLabels', showNoteLabels);
   render();
 });
+
+// ---- Chord smoothing and hold ----
+
+function reconfigureSettler(): void {
+  noteSettler.configure(smoothingDelays(), holdMs(), activeNotes);
+}
+
+function syncSmoothingInputs(): void {
+  chordSmoothingSelect.value = chordSmoothing;
+  smoothingAdvancedEl.hidden = chordSmoothing !== 'custom';
+  smoothingAttackInput.value = String(customDelays.attackMs);
+  smoothingReleaseInput.value = String(customDelays.releaseMs);
+  holdLastChordCheckbox.checked = holdLastChord;
+  holdDurationRow.hidden = !holdLastChord;
+  holdDurationInput.value = holdDurationMs === Infinity ? '' : String(holdDurationMs);
+}
+
+chordSmoothingSelect.addEventListener('change', () => {
+  const value = chordSmoothingSelect.value;
+  if (!isSmoothingLevel(value)) return;
+  chordSmoothing = value;
+  saveSmoothing(chordSmoothing);
+  syncSmoothingInputs();
+  reconfigureSettler();
+});
+
+// A bad entry snaps back to the last good value rather than saving.
+function bindDelayInput(input: HTMLInputElement, key: keyof SmoothingDelays): void {
+  input.addEventListener('change', () => {
+    const ms = parseDelayMs(input.value);
+    if (ms !== null) {
+      customDelays = { ...customDelays, [key]: ms };
+      saveCustomDelays(customDelays);
+      reconfigureSettler();
+    }
+    syncSmoothingInputs();
+  });
+}
+bindDelayInput(smoothingAttackInput, 'attackMs');
+bindDelayInput(smoothingReleaseInput, 'releaseMs');
+
+holdLastChordCheckbox.addEventListener('change', () => {
+  holdLastChord = holdLastChordCheckbox.checked;
+  saveBoolSetting('holdLastChord', holdLastChord);
+  syncSmoothingInputs();
+  reconfigureSettler();
+});
+
+// Blank holds until the next note; a bad entry snaps back like the delays.
+holdDurationInput.addEventListener('change', () => {
+  const ms = parseHoldMs(holdDurationInput.value);
+  if (ms !== null) {
+    holdDurationMs = ms;
+    saveHoldDuration(holdDurationMs);
+    reconfigureSettler();
+  }
+  syncSmoothingInputs();
+});
+
+syncSmoothingInputs();
 
 offscreenArrowsCheckbox.checked = showOffscreenArrows;
 offscreenArrowsCheckbox.addEventListener('change', () => {

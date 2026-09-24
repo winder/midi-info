@@ -377,6 +377,48 @@
   #themeFontGroup h4 {
     margin: 0;
   }
+  /* Controls revealed under the setting they refine (the Advanced
+     smoothing delays, the hold duration), indented with a rule. */
+  .settings-subgroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-left: 14px;
+    border-left: 2px solid color-mix(in srgb, var(--font-color) 15%, transparent);
+  }
+  #smoothingAdvanced[hidden], #holdDurationRow[hidden] {
+    display: none;
+  }
+  /* 420px row width minus the 14px indent and 2px rule, so the inputs line
+     up with the controls above and below. */
+  #settingsPanel .settings-subgroup label {
+    max-width: 404px;
+  }
+  /* Wide enough for its "forever" placeholder. */
+  #settingsPanel #holdDurationInput {
+    width: 80px;
+  }
+  /* Display tab: the on/off toggles in one bordered card (the
+     #themeColorGroup look), with the chord-display and keyboard columns
+     side by side when the panel is wide enough and stacked when it isn't.
+     The theme, visible keys and smoothing controls stay outside it. */
+  #displayToggles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 28px;
+    align-items: start;
+    border: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .display-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #settingsPanel .display-group h4 {
+    margin: 0;
+  }
   /* Percentage column widths (matching #chordTable's approach) so the
      label/Primary/Gradient columns stay aligned at any panel width
      instead of a fixed pixel template overflowing on a narrow window. */
@@ -703,17 +745,39 @@
 
             <section id="settingsTabDisplay" class="settings-tab-panel" data-tab-panel="display">
               <h3>Display</h3>
-              <p class="tab-desc">Keyboard size and theme.</p>
-              <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
+              <p class="tab-desc">Theme, keyboard size, chord smoothing and display toggles.</p>
               <label for="themeSelect">Theme <select id="themeSelect"></select></label>
-              <h4>Chord display</h4>
-              <label for="secondaryLineCheckbox">Secondary line <input type="checkbox" id="secondaryLineCheckbox"></label>
-              <label for="tertiaryLineCheckbox">Tertiary line <input type="checkbox" id="tertiaryLineCheckbox"></label>
-              <label for="romanNumeralsCheckbox">Roman numeral detection <input type="checkbox" id="romanNumeralsCheckbox"></label>
-              <h4>Keyboard</h4>
-              <label for="octaveLabelsCheckbox">Octave labels <input type="checkbox" id="octaveLabelsCheckbox"></label>
-              <label for="noteLabelsCheckbox">Note labels <input type="checkbox" id="noteLabelsCheckbox"></label>
-              <label for="offscreenArrowsCheckbox">Off-screen note arrows <input type="checkbox" id="offscreenArrowsCheckbox"></label>
+              <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
+              <label for="chordSmoothingSelect" title="Wait for notes to settle before naming the chord, so rolled, staggered or overlapping notes don't flash in-between chords">Chord smoothing
+                <select id="chordSmoothingSelect">
+                  <option value="off">Off</option>
+                  <option value="light">Light</option>
+                  <option value="heavy">Heavy</option>
+                  <option value="custom">Advanced</option>
+                </select>
+              </label>
+              <div id="smoothingAdvanced" class="settings-subgroup" hidden>
+                <label for="smoothingAttackInput" title="How long the notes must stay unchanged after a key goes down before the chord updates">Note-on delay (ms) <input type="number" id="smoothingAttackInput" min="0" max="2000" step="1"></label>
+                <label for="smoothingReleaseInput" title="How long the notes must stay unchanged after a key comes up before the chord updates">Note-off delay (ms) <input type="number" id="smoothingReleaseInput" min="0" max="2000" step="1"></label>
+              </div>
+              <label for="holdLastChordCheckbox" title="Keep showing the last chord after every key is released">Hold last chord <input type="checkbox" id="holdLastChordCheckbox"></label>
+              <div id="holdDurationRow" class="settings-subgroup" hidden>
+                <label for="holdDurationInput" title="How long the chord stays after every key is released. Leave blank to hold it until the next note">Hold duration (ms) <input type="number" id="holdDurationInput" min="0" max="60000" step="100" placeholder="forever"></label>
+              </div>
+              <div id="displayToggles">
+                <div id="chordDisplayGroup" class="display-group">
+                  <h4>Chord display</h4>
+                  <label for="secondaryLineCheckbox">Secondary line <input type="checkbox" id="secondaryLineCheckbox"></label>
+                  <label for="tertiaryLineCheckbox">Tertiary line <input type="checkbox" id="tertiaryLineCheckbox"></label>
+                  <label for="romanNumeralsCheckbox">Roman numeral detection <input type="checkbox" id="romanNumeralsCheckbox"></label>
+                </div>
+                <div id="keyboardDisplayGroup" class="display-group">
+                  <h4>Keyboard</h4>
+                  <label for="octaveLabelsCheckbox">Octave labels <input type="checkbox" id="octaveLabelsCheckbox"></label>
+                  <label for="noteLabelsCheckbox">Note labels <input type="checkbox" id="noteLabelsCheckbox"></label>
+                  <label for="offscreenArrowsCheckbox">Off-screen note arrows <input type="checkbox" id="offscreenArrowsCheckbox"></label>
+                </div>
+              </div>
             </section>
 
             <section id="chordsSection" class="settings-tab-panel" data-tab-panel="chords">

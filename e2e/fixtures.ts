@@ -11,13 +11,24 @@ export interface App {
   close(): Promise<void>;
 }
 
+export interface LaunchOptions {
+  // Chord-readout smoothing (src/settle.ts). Defaults to 'off' here so a
+  // test can read the chord display right after pressKeys(); the app's own
+  // default is 'light'. Pass null to leave the cookie unset.
+  chordSmoothing?: 'off' | 'light' | 'heavy' | 'custom' | null;
+}
+
 // Boots a static server for the repo and opens the app in a fresh page.
 // Always close() what you open, even on test failure (try/finally).
-export async function launchApp(): Promise<App> {
+export async function launchApp(options: LaunchOptions = {}): Promise<App> {
+  const { chordSmoothing = 'off' } = options;
   const server: StaticServer = await serveApp();
   const browser: Browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 500, height: 900 } });
   page.on('pageerror', err => console.error('[pageerror]', err.message));
+  if (chordSmoothing !== null) {
+    await page.context().addCookies([{ name: 'chordSmoothing', value: chordSmoothing, url: server.url }]);
+  }
   await page.goto(server.url + '/index.html');
   return {
     page,
@@ -37,11 +48,15 @@ export async function launchApp(): Promise<App> {
 // to carry a measurement ID; `npm run test:e2e` builds with a dummy one.
 export const PRODUCTION_ORIGIN = 'https://winder.github.io';
 
-export async function launchAppAsProduction(): Promise<App> {
+export async function launchAppAsProduction(options: LaunchOptions = {}): Promise<App> {
+  const { chordSmoothing = 'off' } = options;
   const server: StaticServer = await serveApp();
   const browser: Browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 500, height: 900 } });
   page.on('pageerror', err => console.error('[pageerror]', err.message));
+  if (chordSmoothing !== null) {
+    await page.context().addCookies([{ name: 'chordSmoothing', value: chordSmoothing, url: PRODUCTION_ORIGIN }]);
+  }
   await page.route(`${PRODUCTION_ORIGIN}/**`, async route => {
     const { pathname, search } = new URL(route.request().url());
     const localPath = pathname.replace(/^\/midi-info/, '');
