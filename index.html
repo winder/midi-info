@@ -735,20 +735,20 @@
               <h3>Theory</h3>
               <p class="tab-desc">Level, key and mode.</p>
               <div class="level-control" role="group" aria-label="Level">
-                <button type="button" class="level-btn" data-level="basic">Basic</button>
-                <button type="button" class="level-btn" data-level="intermediate">Intermediate</button>
-                <button type="button" class="level-btn" data-level="nerd">Nerd</button>
+                <button title="Keeps it simple: the key is just Major or Minor, and the highlighter offers only the most common scales and chords." type="button" class="level-btn" data-level="basic">Basic</button>
+                <button title="Lets you set the key to any of the seven modes (Dorian, Mixolydian...), and adds more scales and chords to the highlighter." type="button" class="level-btn" data-level="intermediate">Intermediate</button>
+                <button title="Everything: all seven modes, and every scale and chord in the highlighter." type="button" class="level-btn" data-level="nerd">Nerd</button>
               </div>
-              <label for="keySelect">Key <select id="keySelect"></select></label>
-              <label for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
+              <label title="The key you&#x27;re playing in. Sets how notes are spelled (e.g. F# vs Gb) and what the Roman numerals are measured from." for="keySelect">Key <select id="keySelect"></select></label>
+              <label title="Major or minor (or, above Basic, any of the seven modes). Changes the note spelling and which chords count as diatonic for the Roman numerals." for="modeSelect"><span id="modeLabelText">Mode</span> <select id="modeSelect"></select></label>
             </section>
 
             <section id="settingsTabDisplay" class="settings-tab-panel" data-tab-panel="display">
               <h3>Display</h3>
               <p class="tab-desc">Theme, keyboard size, chord smoothing and display toggles.</p>
-              <label for="themeSelect">Theme <select id="themeSelect"></select></label>
-              <label for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
-              <label for="chordSmoothingSelect" title="Wait for notes to settle before naming the chord, so rolled, staggered or overlapping notes don't flash in-between chords">Chord smoothing
+              <label title="The color set used for the page and keyboard. Edit or create themes on the Themes tab." for="themeSelect">Theme <select id="themeSelect"></select></label>
+              <label title="How many keys fit across the screen (1-88). This is a zoom level: all 88 keys are always there, and the rest scroll sideways." for="rangeInput">Visible keys <input type="number" id="rangeInput" min="1" max="88" step="1"></label>
+              <label for="chordSmoothingSelect" title="Wait for the held notes to settle before naming the chord, so rolled chords, uneven releases and overlapping chord changes don&#x27;t flash in-between names. The keyboard itself always updates instantly. Light and Heavy are presets; Advanced lets you set the delays yourself.">Chord smoothing
                 <select id="chordSmoothingSelect">
                   <option value="off">Off</option>
                   <option value="light">Light</option>
@@ -757,26 +757,26 @@
                 </select>
               </label>
               <div id="smoothingAdvanced" class="settings-subgroup" hidden>
-                <label for="smoothingAttackInput" title="How long the notes must stay unchanged after a key goes down before the chord updates">Note-on delay (ms) <input type="number" id="smoothingAttackInput" min="0" max="2000" step="1"></label>
-                <label for="smoothingReleaseInput" title="How long the notes must stay unchanged after a key comes up before the chord updates">Note-off delay (ms) <input type="number" id="smoothingReleaseInput" min="0" max="2000" step="1"></label>
+                <label for="smoothingAttackInput" title="How long (0-2000 ms) the notes must stay unchanged after a key goes down before the chord name updates. Keep it short: it absorbs a rolled or uneven attack.">Note-on delay (ms) <input type="number" id="smoothingAttackInput" min="0" max="2000" step="1"></label>
+                <label for="smoothingReleaseInput" title="How long (0-2000 ms) the notes must stay unchanged after a key comes up before the chord name updates. Longer skips over uneven releases and chord changes, but a deliberately lifted note takes this long to show.">Note-off delay (ms) <input type="number" id="smoothingReleaseInput" min="0" max="2000" step="1"></label>
               </div>
-              <label for="holdLastChordCheckbox" title="Keep showing the last chord after every key is released">Hold last chord <input type="checkbox" id="holdLastChordCheckbox"></label>
+              <label for="holdLastChordCheckbox" title="Keep showing the last chord after every key is released, instead of clearing the display.">Hold last chord <input type="checkbox" id="holdLastChordCheckbox"></label>
               <div id="holdDurationRow" class="settings-subgroup" hidden>
-                <label for="holdDurationInput" title="How long the chord stays after every key is released. Leave blank to hold it until the next note">Hold duration (ms) <input type="number" id="holdDurationInput" min="0" max="60000" step="100" placeholder="forever"></label>
+                <label for="holdDurationInput" title="How long (0-60000 ms) the chord stays after every key is released. Leave blank to hold it until you play the next note.">Hold duration (ms) <input type="number" id="holdDurationInput" min="0" max="60000" step="100" placeholder="forever"></label>
               </div>
               <div id="displayToggles">
                 <div id="chordDisplayGroup" class="display-group">
                   <h4>Chord display</h4>
-                  <label for="secondaryLineCheckbox">Secondary line <input type="checkbox" id="secondaryLineCheckbox"></label>
-                  <label for="tertiaryLineCheckbox">Tertiary line <input type="checkbox" id="tertiaryLineCheckbox"></label>
-                  <label for="romanNumeralsCheckbox">Roman numeral detection <input type="checkbox" id="romanNumeralsCheckbox"></label>
-                  <label for="noChordCheckbox" title="Show &quot;n.c.&quot; (no chord) when the notes match no chord; off leaves the chord line blank">No-chord label (n.c.) <input type="checkbox" id="noChordCheckbox"></label>
+                  <label title="Show the line under the chord name, which holds the Roman numeral for the chord in the current key." for="secondaryLineCheckbox">Secondary line <input type="checkbox" id="secondaryLineCheckbox"></label>
+                  <label title="Show the bottom line, which lists other names the same notes could have (e.g. C6 / A-7), or the two note names of an interval." for="tertiaryLineCheckbox">Tertiary line <input type="checkbox" id="tertiaryLineCheckbox"></label>
+                  <label title="Work out each chord&#x27;s Roman numeral (I, ii, V7...) relative to the key and mode. Off leaves the secondary line blank." for="romanNumeralsCheckbox">Roman numeral detection <input type="checkbox" id="romanNumeralsCheckbox"></label>
+                  <label for="noChordCheckbox" title="When the held notes don&#x27;t match any chord in the Chords tab, show the bass note followed by &quot;n.c.&quot; (no chord). Off leaves the chord line blank instead.">No-chord label (n.c.) <input type="checkbox" id="noChordCheckbox"></label>
                 </div>
                 <div id="keyboardDisplayGroup" class="display-group">
                   <h4>Keyboard</h4>
-                  <label for="octaveLabelsCheckbox">Octave labels <input type="checkbox" id="octaveLabelsCheckbox"></label>
-                  <label for="noteLabelsCheckbox">Note labels <input type="checkbox" id="noteLabelsCheckbox"></label>
-                  <label for="offscreenArrowsCheckbox">Off-screen note arrows <input type="checkbox" id="offscreenArrowsCheckbox"></label>
+                  <label title="Label each C on the keyboard with its octave (C1, C2, ...) so you can tell where you are." for="octaveLabelsCheckbox">Octave labels <input type="checkbox" id="octaveLabelsCheckbox"></label>
+                  <label title="Show the note name above each key while it&#x27;s held." for="noteLabelsCheckbox">Note labels <input type="checkbox" id="noteLabelsCheckbox"></label>
+                  <label title="Show an arrow at the edge of the keyboard when a held note is scrolled out of view." for="offscreenArrowsCheckbox">Off-screen note arrows <input type="checkbox" id="offscreenArrowsCheckbox"></label>
                 </div>
               </div>
             </section>
@@ -787,18 +787,18 @@
               <div id="chordTableWrap">
                 <table id="chordTable">
                   <thead>
-                    <tr><th>Symbol</th><th>Intervals</th><th></th></tr>
+                    <tr><th title="The name shown for the chord, e.g. -7 or Δ7. It&#x27;s written after the root note.">Symbol</th><th title="Semitones above the root, e.g. 0 4 7 for a major triad. A chord matches only when the held notes are exactly these intervals (the plain 5th may be left out).">Intervals</th><th></th></tr>
                   </thead>
                   <tbody id="chordTableBody"></tbody>
                 </table>
               </div>
               <div class="settings-actions">
-                <button id="addChordBtn" type="button">+ Add chord</button>
-                <button id="resetChordsBtn" type="button">Reset to defaults</button>
+                <button title="Add an empty row to the chord table." id="addChordBtn" type="button">+ Add chord</button>
+                <button title="Throw away your chord edits and go back to the built-in chord table." id="resetChordsBtn" type="button">Reset to defaults</button>
               </div>
               <div class="settings-actions">
-                <button id="exportChordsBtn" type="button">Export&hellip;</button>
-                <button id="importChordsBtn" type="button">Import&hellip;</button>
+                <button title="Download the chord table as a JSON file, to back it up or share it." id="exportChordsBtn" type="button">Export&hellip;</button>
+                <button title="Load a chord table from a JSON file made with Export. It replaces the current table; a malformed file is rejected and nothing changes." id="importChordsBtn" type="button">Import&hellip;</button>
                 <input id="importFileInput" type="file" accept="application/json" style="display:none;">
               </div>
               <div id="chordImportError" class="import-error" hidden></div>
@@ -808,50 +808,50 @@
               <h3>Themes</h3>
               <p class="tab-desc">Edit colors and effects for the selected theme.</p>
               <div class="theme-toolbar">
-                <label for="themeSelectThemes">Theme <select id="themeSelectThemes"></select></label>
+                <label title="The theme being edited here. Selecting one also makes it the active theme." for="themeSelectThemes">Theme <select id="themeSelectThemes"></select></label>
                 <div class="settings-actions">
-                  <button id="newThemeBtn" type="button">+ New theme</button>
-                  <button id="themeResetBtn" type="button">Reset to defaults</button>
-                  <button id="deleteThemeBtn" type="button">Delete theme</button>
+                  <button title="Make a new theme, starting as a copy of the selected one." id="newThemeBtn" type="button">+ New theme</button>
+                  <button title="Undo your edits to a built-in theme. Only available for built-in themes." id="themeResetBtn" type="button">Reset to defaults</button>
+                  <button title="Delete the selected theme. Built-in themes can&#x27;t be deleted." id="deleteThemeBtn" type="button">Delete theme</button>
                 </div>
               </div>
-              <label for="themeNameInput">Name <input type="text" id="themeNameInput"></label>
-              <label class="theme-checkbox" for="themeGlowCheckbox"><input type="checkbox" id="themeGlowCheckbox"> Enable Glow</label>
-              <label class="theme-checkbox" for="themeGradientCheckbox"><input type="checkbox" id="themeGradientCheckbox"> Enable Gradients</label>
+              <label title="The theme&#x27;s name. Built-in themes can&#x27;t be renamed." for="themeNameInput">Name <input type="text" id="themeNameInput"></label>
+              <label title="Make held keys glow with the active key color." class="theme-checkbox" for="themeGlowCheckbox"><input type="checkbox" id="themeGlowCheckbox"> Enable Glow</label>
+              <label title="Blend each color into its Gradient color instead of filling it flat." class="theme-checkbox" for="themeGradientCheckbox"><input type="checkbox" id="themeGradientCheckbox"> Enable Gradients</label>
 
               <div id="themeColorGroup">
                 <h4>Colors</h4>
                 <table id="themeColorTable">
                   <thead>
-                    <tr><th></th><th>Primary</th><th>Gradient</th></tr>
+                    <tr><th></th><th title="The main color for each part.">Primary</th><th title="The second color each part blends into when gradients are on.">Gradient</th></tr>
                   </thead>
                   <tbody>
-                    <tr>
+                    <tr title="Text color for the chord display and the keyboard labels.">
                       <td>Font Color</td>
                       <td><input type="color" id="themeFontInput"></td>
                       <td></td>
                     </tr>
-                    <tr>
+                    <tr title="The page background.">
                       <td>Background</td>
                       <td><input type="color" id="themeBackgroundInput"></td>
                       <td><input type="color" id="themeBackgroundGradientInput"></td>
                     </tr>
-                    <tr>
+                    <tr title="Color of the white keys when not held.">
                       <td>White keys</td>
                       <td><input type="color" id="themeWhiteKeyInput"></td>
                       <td><input type="color" id="themeWhiteKeyGradientInput"></td>
                     </tr>
-                    <tr>
+                    <tr title="Color of the black keys when not held.">
                       <td>Black keys</td>
                       <td><input type="color" id="themeBlackKeyInput"></td>
                       <td><input type="color" id="themeBlackKeyGradientInput"></td>
                     </tr>
-                    <tr>
+                    <tr title="Color of a key while it&#x27;s held.">
                       <td>Active key</td>
                       <td><input type="color" id="themeActiveKeyInput"></td>
                       <td><input type="color" id="themeActiveKeyGradientInput"></td>
                     </tr>
-                    <tr>
+                    <tr title="Color of keys marked by the Chord/Scale Display highlighter below the keyboard.">
                       <td>Highlight</td>
                       <td><input type="color" id="themeHighlightInput"></td>
                       <td><input type="color" id="themeHighlightGradientInput"></td>
@@ -862,17 +862,17 @@
 
               <div id="themeFontGroup">
                 <h4>Font</h4>
-                <label for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
-                <label for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
-                <label for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
-                <label for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
-                <label for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
-                <label for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
+                <label title="The typeface used for the chord display and keyboard labels." for="fontFamilySelect">Font family <select id="fontFamilySelect"></select></label>
+                <label title="Size of the main chord name, in pixels." for="chordFontSizeInput">Chord <input type="number" id="chordFontSizeInput" min="8" max="120" step="1"></label>
+                <label title="Size of the Roman numeral (secondary) line, in pixels." for="secondaryFontSizeInput">Roman Numeral/Secondary <input type="number" id="secondaryFontSizeInput" min="8" max="120" step="1"></label>
+                <label title="Size of the tertiary line of alternate names, in pixels." for="tertiaryFontSizeInput">Tertiary <input type="number" id="tertiaryFontSizeInput" min="8" max="120" step="1"></label>
+                <label title="Size of the note names shown above held keys, in pixels." for="noteFontSizeInput">Note Label <input type="number" id="noteFontSizeInput" min="8" max="120" step="1"></label>
+                <label title="Size of the octave labels on the C keys, in pixels." for="octaveFontSizeInput">Octave <input type="number" id="octaveFontSizeInput" min="8" max="120" step="1"></label>
               </div>
 
               <div class="settings-actions">
-                <button id="exportThemeBtn" type="button">Export&hellip;</button>
-                <button id="importThemeBtn" type="button">Import&hellip;</button>
+                <button title="Download the selected theme as a JSON file, to back it up or share it." id="exportThemeBtn" type="button">Export&hellip;</button>
+                <button title="Load a theme from a JSON file made with Export. A theme with the same name is replaced; otherwise it&#x27;s added." id="importThemeBtn" type="button">Import&hellip;</button>
                 <input id="importThemeFileInput" type="file" accept="application/json" style="display:none;">
               </div>
               <div id="themeImportError" class="import-error" hidden></div>
