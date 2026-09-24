@@ -14,6 +14,7 @@ const CONTENT_TYPES: Record<string, string> = {
   '.js': 'text/javascript',
   '.json': 'application/json',
   '.css': 'text/css',
+  '.ico': 'image/x-icon',
 };
 
 export interface StaticServer {

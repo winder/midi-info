@@ -12,7 +12,8 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/theory.test.ts`, `src/analytics.test.ts` - unit tests. Only `theory.ts` and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
-- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html` into `dist/` (gitignored).
+- `favicon.ico` - site icon, referenced from `index.html` and copied into `dist/` by the build.
+- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html` and `favicon.ico` into `dist/` (gitignored).
 
 Commands live in `Makefile` and `package.json` scripts. Read those rather than trusting a doc to stay in sync.
 
