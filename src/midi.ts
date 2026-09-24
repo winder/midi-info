@@ -4,7 +4,8 @@
 const SUSTAIN_PEDAL_CONTROLLER = 64;
 
 export interface MidiCallbacks {
-  onNoteOn: (midi: number) => void;
+  // velocity is the raw 1-127 key velocity.
+  onNoteOn: (midi: number, velocity: number) => void;
   onNoteOff: (midi: number) => void;
   onSustainChange: (isDown: boolean) => void;
   onStatusChange: (text: string, className: string) => void;
@@ -21,7 +22,7 @@ function handleMIDIMessage(callbacks: MidiCallbacks, event: MIDIMessageEvent) {
   const [status, data1, data2] = data;
   const command = status & 0xf0;
   if (command === 0x90 && data2 > 0) {
-    callbacks.onNoteOn(data1);
+    callbacks.onNoteOn(data1, data2);
   } else if (command === 0x80 || (command === 0x90 && data2 === 0)) {
     callbacks.onNoteOff(data1);
   } else if (command === 0xb0 && data1 === SUSTAIN_PEDAL_CONTROLLER) {

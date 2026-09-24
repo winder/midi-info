@@ -103,7 +103,7 @@ export async function closeSettings(page: Page): Promise<void> {
 }
 
 // Switches to a settings modal tab. Requires the settings modal to be open.
-export async function openSettingsTab(page: Page, tab: 'theory' | 'display' | 'chords' | 'themes'): Promise<void> {
+export async function openSettingsTab(page: Page, tab: 'theory' | 'display' | 'sound' | 'chords' | 'themes'): Promise<void> {
   await page.click(`.settings-tab-btn[data-tab="${tab}"]`);
 }
 

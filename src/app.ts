@@ -17,6 +17,15 @@ import {
   parseHoldMs,
 } from './settle';
 import {
+  DEFAULT_SOUND,
+  MOUSE_VELOCITY,
+  SoundKnob,
+  SoundSettings,
+  Synth,
+  isWaveform,
+  parseSoundKnob,
+} from './sound';
+import {
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
   HIGHLIGHT_CHORDS,
@@ -139,6 +148,33 @@ function saveHoldDuration(ms: number): void {
   setCookie('holdDuration', holdDurationValue(ms), 365);
 }
 
+// ---- Sound (see sound.ts) ----
+
+const SOUND_KNOBS: SoundKnob[] = ['volume', 'brightness', 'attackMs', 'releaseMs', 'velocity'];
+
+// One cookie per setting: soundEnabled, soundWaveform, and sound<Knob> for
+// each knob (soundVolume, soundAttackMs, ...).
+function soundKnobCookie(knob: SoundKnob): string {
+  return 'sound' + knob.charAt(0).toUpperCase() + knob.slice(1);
+}
+
+function loadSoundSettings(): SoundSettings {
+  const settings: SoundSettings = { ...DEFAULT_SOUND };
+  settings.enabled = loadBoolSetting('soundEnabled', DEFAULT_SOUND.enabled);
+  const waveform = getCookie('soundWaveform');
+  if (isWaveform(waveform)) settings.waveform = waveform;
+  SOUND_KNOBS.forEach(knob => {
+    settings[knob] = parseSoundKnob(knob, getCookie(soundKnobCookie(knob))) ?? DEFAULT_SOUND[knob];
+  });
+  return settings;
+}
+
+function saveSoundSettings(settings: SoundSettings): void {
+  setCookie('soundEnabled', settings.enabled ? '1' : '0', 365);
+  setCookie('soundWaveform', settings.waveform, 365);
+  SOUND_KNOBS.forEach(knob => setCookie(soundKnobCookie(knob), String(settings[knob]), 365));
+}
+
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
 
 const DEFAULT_VISIBLE_KEYS = 52;
@@ -240,6 +276,7 @@ let chordSmoothing: SmoothingLevel = loadSmoothing();
 let customDelays: SmoothingDelays = loadCustomDelays();
 let holdLastChord: boolean = loadBoolSetting('holdLastChord', false);
 let holdDurationMs: number = loadHoldDuration();
+let soundSettings: SoundSettings = loadSoundSettings();
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 // Where a note came from. Each source gets its own once-only first-note
@@ -333,6 +370,12 @@ const secondaryFontSizeInput = document.getElementById('secondaryFontSizeInput')
 const tertiaryFontSizeInput = document.getElementById('tertiaryFontSizeInput') as HTMLInputElement;
 const noteFontSizeInput = document.getElementById('noteFontSizeInput') as HTMLInputElement;
 const octaveFontSizeInput = document.getElementById('octaveFontSizeInput') as HTMLInputElement;
+const soundEnabledCheckbox = document.getElementById('soundEnabledCheckbox') as HTMLInputElement;
+const soundControlsEl = document.getElementById('soundControls') as HTMLFieldSetElement;
+const soundWaveformSelect = document.getElementById('soundWaveformSelect') as HTMLSelectElement;
+const soundTestBtn = document.getElementById('soundTestBtn') as HTMLButtonElement;
+const soundResetBtn = document.getElementById('soundResetBtn') as HTMLButtonElement;
+const soundUnlockBtn = document.getElementById('soundUnlockBtn') as HTMLButtonElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -365,6 +408,14 @@ function holdMs(): number {
 
 const noteSettler = new NoteSettler(smoothingDelays(), holdMs(), renderChord);
 
+// The top-bar unlock button shows while sound is on but the browser hasn't
+// let it start yet (see Synth.isRunning).
+function refreshSoundUnlock(): void {
+  soundUnlockBtn.hidden = !soundSettings.enabled || synth.isRunning;
+}
+
+const synth = new Synth(soundSettings, refreshSoundUnlock);
+
 function render(): void {
   renderKeys();
   renderChord();
@@ -384,11 +435,12 @@ function renderChord(): void {
   );
 }
 
-function noteOn(midi: number, source: NoteSource): void {
+function noteOn(midi: number, source: NoteSource, velocity: number = MOUSE_VELOCITY): void {
   hasPlayedNote = true;
   analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
+  synth.noteOn(midi, velocity);
   renderKeys();
   noteSettler.update(activeNotes, 'on');
 }
@@ -399,6 +451,7 @@ function noteOff(midi: number): void {
     return;
   }
   activeNotes.delete(midi);
+  synth.noteOff(midi);
   renderKeys();
   noteSettler.update(activeNotes, 'off');
 }
@@ -406,7 +459,10 @@ function noteOff(midi: number): void {
 function setSustain(isDown: boolean): void {
   sustainOn = isDown;
   if (!isDown) {
-    sustainedNotes.forEach(midi => activeNotes.delete(midi));
+    sustainedNotes.forEach(midi => {
+      activeNotes.delete(midi);
+      synth.noteOff(midi);
+    });
     sustainedNotes.clear();
     renderKeys();
     noteSettler.update(activeNotes, 'off');
@@ -429,7 +485,7 @@ function rebuildPiano(): void {
 
 // ---- Settings modal (tabbed) ----
 
-type SettingsTab = 'theory' | 'display' | 'chords' | 'themes';
+type SettingsTab = 'theory' | 'display' | 'sound' | 'chords' | 'themes';
 const settingsTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.settings-tab-btn'));
 const settingsTabPanels = Array.from(document.querySelectorAll<HTMLElement>('.settings-tab-panel'));
 let activeSettingsTab: SettingsTab = 'theory';
@@ -859,6 +915,88 @@ offscreenArrowsCheckbox.addEventListener('change', () => {
   refreshOffscreenIndicators();
 });
 
+// ---- Sound ----
+
+// Knob sliders are found by convention: #sound<Knob>Input with its readout
+// in #sound<Knob>Value.
+const soundKnobInputs = new Map(SOUND_KNOBS.map(knob => {
+  const id = soundKnobCookie(knob);
+  return [knob, {
+    input: document.getElementById(id + 'Input') as HTMLInputElement,
+    value: document.getElementById(id + 'Value') as HTMLOutputElement,
+  }];
+}));
+
+function soundKnobText(knob: SoundKnob, n: number): string {
+  return knob === 'attackMs' || knob === 'releaseMs' ? `${n} ms` : `${n}%`;
+}
+
+function syncSoundInputs(): void {
+  soundEnabledCheckbox.checked = soundSettings.enabled;
+  soundControlsEl.disabled = !soundSettings.enabled;
+  soundWaveformSelect.value = soundSettings.waveform;
+  soundKnobInputs.forEach(({ input, value }, knob) => {
+    input.value = String(soundSettings[knob]);
+    value.value = soundKnobText(knob, soundSettings[knob]);
+  });
+  refreshSoundUnlock();
+}
+
+function updateSoundSettings(partial: Partial<SoundSettings>): void {
+  soundSettings = { ...soundSettings, ...partial };
+  saveSoundSettings(soundSettings);
+  synth.configure(soundSettings);
+  syncSoundInputs();
+}
+
+soundEnabledCheckbox.addEventListener('change', () => {
+  updateSoundSettings({ enabled: soundEnabledCheckbox.checked });
+  // This change is a user gesture, the moment the browser allows audio to start.
+  synth.resume();
+});
+
+soundWaveformSelect.addEventListener('change', () => {
+  const value = soundWaveformSelect.value;
+  if (isWaveform(value)) updateSoundSettings({ waveform: value });
+});
+
+// Sliders apply live while dragging, so each knob can be tuned by ear.
+soundKnobInputs.forEach(({ input }, knob) => {
+  input.addEventListener('input', () => {
+    const n = parseSoundKnob(knob, input.value);
+    if (n !== null) updateSoundSettings({ [knob]: n });
+  });
+});
+
+// A C major triad, held briefly, so the knobs can be tried without a
+// keyboard. Plays through the synth only; the keyboard and chord display
+// don't react.
+const TEST_CHORD = [60, 64, 67];
+soundTestBtn.addEventListener('click', () => {
+  synth.resume();
+  TEST_CHORD.forEach(midi => synth.noteOn(midi, MOUSE_VELOCITY));
+  setTimeout(() => TEST_CHORD.forEach(midi => {
+    if (!activeNotes.has(midi)) synth.noteOff(midi);
+  }), 700);
+});
+
+soundResetBtn.addEventListener('click', () => {
+  updateSoundSettings({ ...DEFAULT_SOUND, enabled: soundSettings.enabled });
+});
+
+soundUnlockBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  synth.resume();
+});
+
+// Browsers only start audio after a click or key press on the page, and
+// MIDI input doesn't count. Any gesture will do, so sound saved as on from
+// an earlier visit starts at the first interaction.
+document.addEventListener('pointerdown', () => synth.resume(), true);
+document.addEventListener('keydown', () => synth.resume(), true);
+
+syncSoundInputs();
+
 // ---- Chord table editor ----
 
 function refreshChordTable(): void {
@@ -1097,7 +1235,7 @@ initAnalytics(settingsSnapshot());
 // ---- MIDI ----
 
 initMIDI({
-  onNoteOn: midi => noteOn(midi, 'midi'),
+  onNoteOn: (midi, velocity) => noteOn(midi, 'midi', velocity),
   onNoteOff: noteOff,
   onSustainChange: setSustain,
   onStatusChange(text, className) {

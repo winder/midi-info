@@ -8,9 +8,10 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/theory.ts` - pure music theory, no DOM: key/mode spelling, chord formulas, `detectChords`, `romanNumeralLabel`, highlight scales/chords, `parseChordFormulas`.
 - `src/midi.ts` - Web MIDI wrapper (`initMIDI`).
 - `src/settle.ts` - `NoteSettler`, the chord-readout debouncer (the Smoothing setting). Pure, timer-based, no DOM.
+- `src/sound.ts` - Web Audio `Synth` (one oscillator per held note, shared lowpass/volume/limiter) and the pure Sound-tab settings helpers. Off by default; browsers keep audio suspended until a click or key press (MIDI doesn't count), hence the top-bar unlock button.
 - `src/ui.ts` - SVG piano rendering, DOM helpers, themes and fonts. Functions take data in and own no state.
 - `src/app.ts` - orchestrator: all app state, cookie persistence, event wiring, init.
-- `src/theory.test.ts`, `src/settle.test.ts`, `src/analytics.test.ts` - unit tests. Only `theory.ts`, `settle.ts` and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
+- `src/theory.test.ts`, `src/settle.test.ts`, `src/sound.test.ts`, `src/analytics.test.ts` - unit tests. Only `theory.ts`, `settle.ts`, the pure helpers in `sound.ts` and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
 - `favicon.ico` - site icon, referenced from `index.html` and copied into `dist/` by the build.
@@ -64,7 +65,7 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 ### Settings and persistence
 
 - **Settings levels** `basic` / `intermediate` / `nerd` progressively disclose content. Gating is data-driven: modes, highlight scales and highlight chords carry a `minLevel` and `app.ts` filters them with `levelAtLeast`. Give new theory content a `minLevel` rather than adding UI branches. The chord and theme editors are separate tabs, always enabled, independent of level.
-- **Everything persists in cookies**, one per setting (`level`, `visibleKeys`, `themes`, `themeName`, `chordFormulas`, `chordSmoothing` plus its Advanced `chordSmoothingAttackMs`/`chordSmoothingReleaseMs`, `holdDuration`, and the display toggles). Follow the `loadX`/`saveX` pair pattern at the top of `app.ts` for a new setting.
+- **Everything persists in cookies**, one per setting (`level`, `visibleKeys`, `themes`, `themeName`, `chordFormulas`, `chordSmoothing` plus its Advanced `chordSmoothingAttackMs`/`chordSmoothingReleaseMs`, `holdDuration`, the display toggles, and `soundEnabled`/`soundWaveform`/`sound<Knob>`). Follow the `loadX`/`saveX` pair pattern at the top of `app.ts` for a new setting.
 - **Themes are named color sets** in `BUILT_IN_THEMES` (`ui.ts`). Built-ins are always merged back into the saved list, cannot be deleted or renamed, and show as modified in the picker when edited. Any loader for persisted JSON goes through a strict `parse*` function that returns `null` on bad input, mirroring `parseChordFormulas`.
 - **Visible keys is a zoom level**, not a range: all 88 keys always exist and the count only sets key width so that many fit the container. The rest scroll.
 
