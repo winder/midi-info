@@ -109,8 +109,12 @@ export function initAnalytics(userProperties: Params = {}): void {
   if (!shouldTrack(window.location.hostname)) return;
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer.push(args);
+  // Must push the real `arguments` object, exactly like Google's snippet:
+  // gtag.js only processes dataLayer entries that are Arguments objects and
+  // silently ignores plain arrays, so a rest-parameter version loads the tag
+  // but never sends a single hit.
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments);
   };
   window.gtag('js', new Date());
   window.gtag('config', GA_MEASUREMENT_ID, {

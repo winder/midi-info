@@ -66,7 +66,11 @@ export async function launchAppAsProduction(): Promise<App> {
 // e.g. ['event', 'first_mouse_note', {}]. Empty when analytics
 // is off (plain launchApp(), or a dist/ built without a measurement ID).
 export async function dataLayerCalls(page: Page): Promise<unknown[][]> {
-  return page.evaluate(() => (window as unknown as { dataLayer?: unknown[][] }).dataLayer ?? []);
+  // Entries are Arguments objects (see initAnalytics), which don't
+  // serialize as arrays, so convert before handing them to node.
+  return page.evaluate(() =>
+    ((window as unknown as { dataLayer?: ArrayLike<unknown>[] }).dataLayer ?? []).map(a => Array.from(a))
+  );
 }
 
 // Opens the gear/menu settings modal and waits for it to be visible.
