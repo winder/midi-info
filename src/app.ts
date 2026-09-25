@@ -294,6 +294,10 @@ let scaleRootIndex: number | null = null;
 let scaleTypeName: string = HIGHLIGHT_SCALES[0].name;
 let chordRootIndex: number | null = null;
 let chordTypeSymbol: string = HIGHLIGHT_CHORDS[0].symbol;
+// A picked chord's keys hide once you start playing with it auto-played
+// (see soundOn), so they don't compete with the auto keys. The selection
+// itself stays; picking a chord again shows them.
+let chordHighlightHidden = false;
 
 // ---- DOM references ----
 
@@ -445,6 +449,7 @@ function chordVoiceKey(pressed: number, midi: number): VoiceKey {
 function soundOn(midi: number, velocity: number): void {
   soundOff(midi);
   const chord = soundSettings.enabled && highlightMode === 'chord' ? HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol) : undefined;
+  if (chord) chordHighlightHidden = true;
   const voicing = chord ? buildChordVoicing(midi % 12, chord.voicing, midi) : [midi];
   soundingVoicings.set(midi, voicing);
   voicing.forEach(m => synth.noteOn(m, velocity, chordVoiceKey(midi, m)));
@@ -470,7 +475,8 @@ function render(): void {
 }
 
 function renderKeys(): void {
-  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels, autoNotes());
+  const highlighted = highlightMode === 'chord' && chordHighlightHidden ? new Set<number>() : computeHighlightedNotes();
+  renderKeyboard(piano, activeNotes, currentNoteNames, highlighted, showNoteLabels, autoNotes());
   refreshOffscreenIndicators();
 }
 
@@ -1181,6 +1187,7 @@ function previewHighlightedChord(): void {
 }
 
 function selectChordRoot(index: number): void {
+  chordHighlightHidden = false;
   highlightMode = highlightMode === 'chord' && chordRootIndex === index ? null : 'chord';
   chordRootIndex = index;
   refreshHighlighterUI();
@@ -1189,6 +1196,7 @@ function selectChordRoot(index: number): void {
 }
 
 function selectChordType(symbol: string): void {
+  chordHighlightHidden = false;
   chordTypeSymbol = symbol;
   if (chordRootIndex !== null) highlightMode = 'chord';
   refreshHighlighterUI();

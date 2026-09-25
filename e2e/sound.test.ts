@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Page } from 'playwright';
-import { launchApp, openSettings, openSettingsTab, closeSettings, openHighlighter, pressKeys, releaseKeys, chordDisplayMain } from './fixtures';
+import { launchApp, openSettings, openSettingsTab, closeSettings, openHighlighter, pressKeys, releaseKeys, chordDisplayMain, highlightedMidis } from './fixtures';
 
 // Headless audio can't be listened to, so the page records what the synth
 // asks Web Audio for instead: every oscillator start (frequency, waveform)
@@ -72,11 +72,13 @@ describe('sound', () => {
       await releaseKeys(app.page, [60]);
       assert.deepEqual((await oscLog(app.page)).starts, []);
 
-      // With sound off, a highlighted chord doesn't auto-play or light keys.
+      // With sound off, a highlighted chord doesn't auto-play or light keys,
+      // and its highlight stays up as a guide while you play.
       await openHighlighter(app.page);
       await app.page.click('#chordRootButtons .root-btn:text-is("C")');
       await pressKeys(app.page, [62]);
       assert.deepEqual(await midisWithClass(app.page, 'auto'), []);
+      assert.deepEqual(await highlightedMidis(app.page), [60, 64, 67]);
       await releaseKeys(app.page, [62]);
 
       await openSettings(app.page);
@@ -183,6 +185,30 @@ describe('sound', () => {
       await releaseKeys(app.page, [62]);
       assert.equal((await oscLog(app.page)).stops - before.stops, 3);
       assert.deepEqual(await midisWithClass(app.page, 'auto'), []);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('playing after picking a chord hides its highlight until the next pick', async () => {
+    const app = await launchApp();
+    try {
+      await enableSound(app.page);
+      await openHighlighter(app.page);
+      await app.page.click('#chordRootButtons .root-btn:text-is("C")');
+      assert.deepEqual(await highlightedMidis(app.page), [60, 64, 67]);
+
+      await pressKeys(app.page, [62]);
+      assert.deepEqual(await highlightedMidis(app.page), []);
+      await releaseKeys(app.page, [62]);
+      assert.deepEqual(await highlightedMidis(app.page), []);
+      // Still selected: the next key auto-plays the chord.
+      await pressKeys(app.page, [65]);
+      assert.deepEqual(await midisWithClass(app.page, 'auto'), [69, 72]);
+      await releaseKeys(app.page, [65]);
+
+      await app.page.selectOption('#chordTypeSelect', '-');
+      assert.deepEqual(await highlightedMidis(app.page), [60, 63, 67]);
     } finally {
       await app.close();
     }
