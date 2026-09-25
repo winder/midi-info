@@ -440,23 +440,31 @@
   #settingsPanel .display-group h4 {
     margin: 0;
   }
-  /* Sound tab: the knobs share one bordered card (the #displayToggles
-     look), greyed out while sound is off. A fieldset so one `disabled`
-     covers every control in it. */
+  /* Sound tab: everything below Play sound sits in one fieldset so a
+     single `disabled` greys it all out while sound is off. Laid out like
+     the Themes tab: picker toolbar, name, then the knobs in a bordered
+     card (the #themeFontGroup look). */
   #soundControls {
     display: flex;
     flex-direction: column;
     gap: 10px;
     margin: 0;
-    border: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
-    border-radius: 6px;
-    padding: 12px 14px;
+    border: none;
+    padding: 0;
     min-width: 0;
   }
   #soundControls:disabled {
     opacity: 0.5;
   }
-  #settingsPanel #soundControls h4 {
+  #soundKnobGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--font-color) 15%, transparent);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  #settingsPanel #soundKnobGroup h4 {
     margin: 0;
   }
   .sound-knob {
@@ -847,23 +855,33 @@
               <p class="tab-desc">Play notes through your speakers. Leave it off if your keyboard makes its own sound.</p>
               <label for="soundEnabledCheckbox" title="Make a sound for each note you play, from a MIDI keyboard or by clicking the keys. The sustain pedal holds notes too.">Play sound <input type="checkbox" id="soundEnabledCheckbox"></label>
               <fieldset id="soundControls">
-                <h4>Knobs</h4>
-                <label for="soundVolumeInput" title="Overall loudness.">Volume <span class="sound-knob"><input type="range" id="soundVolumeInput" min="0" max="100" step="1"><output id="soundVolumeValue" for="soundVolumeInput"></output></span></label>
-                <label for="soundWaveformSelect" title="The basic character of the sound. Sine is pure and soft, Triangle a little brighter, Square hollow like a clarinet, Sawtooth buzzy like brass or strings.">Tone
-                  <select id="soundWaveformSelect">
-                    <option value="sine">Sine</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="square">Square</option>
-                    <option value="sawtooth">Sawtooth</option>
-                  </select>
-                </label>
-                <label for="soundBrightnessInput" title="How much of the high end gets through. Lower is darker and more muffled; higher is sharper. Most noticeable on Square and Sawtooth.">Brightness <span class="sound-knob"><input type="range" id="soundBrightnessInput" min="0" max="100" step="1"><output id="soundBrightnessValue" for="soundBrightnessInput"></output></span></label>
-                <label for="soundAttackMsInput" title="How long (0-2000 ms) a note takes to fade in after the key goes down. Near 0 is percussive; longer swells in like a pad.">Attack <span class="sound-knob"><input type="range" id="soundAttackMsInput" min="0" max="2000" step="5"><output id="soundAttackMsValue" for="soundAttackMsInput"></output></span></label>
-                <label for="soundReleaseMsInput" title="How long (0-5000 ms) a note takes to fade out after the key (or sustain pedal) comes up.">Release <span class="sound-knob"><input type="range" id="soundReleaseMsInput" min="0" max="5000" step="10"><output id="soundReleaseMsValue" for="soundReleaseMsInput"></output></span></label>
-                <label for="soundVelocityInput" title="How much playing harder makes a note louder. 0% plays every note at the same level; 100% follows your touch fully. Clicked keys count as a firm press.">Velocity sensitivity <span class="sound-knob"><input type="range" id="soundVelocityInput" min="0" max="100" step="1"><output id="soundVelocityValue" for="soundVelocityInput"></output></span></label>
-                <div class="settings-actions">
-                  <button title="Play a short C major chord with the current settings." id="soundTestBtn" type="button">&#9654; Test chord</button>
-                  <button title="Put every knob back to its default. Doesn&#x27;t turn sound off." id="soundResetBtn" type="button">Reset to defaults</button>
+                <div class="theme-toolbar">
+                  <label title="The sound being played and edited here. The built-in sounds can be tweaked and reset; make your own with New sound." for="soundPresetSelect">Sound <select id="soundPresetSelect"></select></label>
+                  <div class="settings-actions">
+                    <button title="Make a new sound, starting as a copy of the selected one." id="soundNewBtn" type="button">+ New sound</button>
+                    <button title="Undo your edits to a built-in sound. Only available for built-in sounds." id="soundResetBtn" type="button">Reset to defaults</button>
+                    <button title="Delete the selected sound. Built-in sounds can&#x27;t be deleted." id="soundDeleteBtn" type="button">Delete sound</button>
+                  </div>
+                </div>
+                <label title="The sound&#x27;s name. Built-in sounds can&#x27;t be renamed." for="soundNameInput">Name <input type="text" id="soundNameInput"></label>
+                <div id="soundKnobGroup">
+                  <h4>Knobs</h4>
+                  <label for="soundVolumeInput" title="Overall loudness.">Volume <span class="sound-knob"><input type="range" id="soundVolumeInput" min="0" max="100" step="1"><output id="soundVolumeValue" for="soundVolumeInput"></output></span></label>
+                  <label for="soundWaveformSelect" title="The basic character of the sound. Sine is pure and soft, Triangle a little brighter, Square hollow like a clarinet, Sawtooth buzzy like brass or strings.">Tone
+                    <select id="soundWaveformSelect">
+                      <option value="sine">Sine</option>
+                      <option value="triangle">Triangle</option>
+                      <option value="square">Square</option>
+                      <option value="sawtooth">Sawtooth</option>
+                    </select>
+                  </label>
+                  <label for="soundBrightnessInput" title="How much of the high end gets through. Lower is darker and more muffled; higher is sharper. Most noticeable on Square and Sawtooth.">Brightness <span class="sound-knob"><input type="range" id="soundBrightnessInput" min="0" max="100" step="1"><output id="soundBrightnessValue" for="soundBrightnessInput"></output></span></label>
+                  <label for="soundAttackMsInput" title="How long (0-2000 ms) a note takes to fade in after the key goes down. Near 0 is percussive; longer swells in like a pad.">Attack <span class="sound-knob"><input type="range" id="soundAttackMsInput" min="0" max="2000" step="5"><output id="soundAttackMsValue" for="soundAttackMsInput"></output></span></label>
+                  <label for="soundReleaseMsInput" title="How long (0-5000 ms) a note takes to fade out after the key (or sustain pedal) comes up.">Release <span class="sound-knob"><input type="range" id="soundReleaseMsInput" min="0" max="5000" step="10"><output id="soundReleaseMsValue" for="soundReleaseMsInput"></output></span></label>
+                  <label for="soundVelocityInput" title="How much playing harder makes a note louder. 0% plays every note at the same level; 100% follows your touch fully. Clicked keys count as a firm press.">Velocity sensitivity <span class="sound-knob"><input type="range" id="soundVelocityInput" min="0" max="100" step="1"><output id="soundVelocityValue" for="soundVelocityInput"></output></span></label>
+                  <div class="settings-actions">
+                    <button title="Play a short C major chord with the current settings." id="soundTestBtn" type="button">&#9654; Test chord</button>
+                  </div>
                 </div>
               </fieldset>
             </section>

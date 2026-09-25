@@ -17,14 +17,19 @@ import {
   parseHoldMs,
 } from './settle';
 import {
-  DEFAULT_SOUND,
+  BUILT_IN_SOUNDS,
+  DEFAULT_SOUND_ENABLED,
   MOUSE_VELOCITY,
+  NamedSound,
+  SOUND_KNOBS,
   SoundKnob,
   SoundSettings,
   Synth,
   VoiceKey,
   isWaveform,
+  parseNamedSounds,
   parseSoundKnob,
+  soundEqual,
 } from './sound';
 import {
   ChordFormula,
@@ -149,31 +154,38 @@ function saveHoldDuration(ms: number): void {
   setCookie('holdDuration', holdDurationValue(ms), 365);
 }
 
-// ---- Sound (see sound.ts) ----
+// ---- Sound (named sounds, like themes; see sound.ts) ----
 
-const SOUND_KNOBS: SoundKnob[] = ['volume', 'brightness', 'attackMs', 'releaseMs', 'velocity'];
-
-// One cookie per setting: soundEnabled, soundWaveform, and sound<Knob> for
-// each knob (soundVolume, soundAttackMs, ...).
-function soundKnobCookie(knob: SoundKnob): string {
-  return 'sound' + knob.charAt(0).toUpperCase() + knob.slice(1);
+function cloneBuiltInSounds(): NamedSound[] {
+  return BUILT_IN_SOUNDS.map(t => ({ ...t }));
 }
 
-function loadSoundSettings(): SoundSettings {
-  const settings: SoundSettings = { ...DEFAULT_SOUND };
-  settings.enabled = loadBoolSetting('soundEnabled', DEFAULT_SOUND.enabled);
-  const waveform = getCookie('soundWaveform');
-  if (isWaveform(waveform)) settings.waveform = waveform;
-  SOUND_KNOBS.forEach(knob => {
-    settings[knob] = parseSoundKnob(knob, getCookie(soundKnobCookie(knob))) ?? DEFAULT_SOUND[knob];
-  });
-  return settings;
+// Same merge as loadThemes: built-ins missing from the cookie are new
+// since it was saved (they can't be deleted), so append them.
+function loadSounds(): NamedSound[] {
+  const raw = getCookie('soundPresets');
+  if (!raw) return cloneBuiltInSounds();
+  try {
+    const saved = parseNamedSounds(JSON.parse(raw));
+    if (!saved) return cloneBuiltInSounds();
+    const missing = BUILT_IN_SOUNDS.filter(b => !saved.some(t => t.name === b.name));
+    return missing.length ? [...saved, ...missing.map(t => ({ ...t }))] : saved;
+  } catch (e) {
+    return cloneBuiltInSounds();
+  }
 }
 
-function saveSoundSettings(settings: SoundSettings): void {
-  setCookie('soundEnabled', settings.enabled ? '1' : '0', 365);
-  setCookie('soundWaveform', settings.waveform, 365);
-  SOUND_KNOBS.forEach(knob => setCookie(soundKnobCookie(knob), String(settings[knob]), 365));
+function saveSounds(): void {
+  setCookie('soundPresets', JSON.stringify(sounds), 365);
+}
+
+function loadSoundName(sounds: NamedSound[]): string {
+  const raw = getCookie('soundPresetName');
+  return raw !== null && sounds.some(t => t.name === raw) ? raw : sounds[0].name;
+}
+
+function saveSoundName(name: string): void {
+  setCookie('soundPresetName', name, 365);
 }
 
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
@@ -277,7 +289,12 @@ let chordSmoothing: SmoothingLevel = loadSmoothing();
 let customDelays: SmoothingDelays = loadCustomDelays();
 let holdLastChord: boolean = loadBoolSetting('holdLastChord', false);
 let holdDurationMs: number = loadHoldDuration();
-let soundSettings: SoundSettings = loadSoundSettings();
+let sounds: NamedSound[] = loadSounds();
+let currentSoundName: string = loadSoundName(sounds);
+let soundEnabled: boolean = loadBoolSetting('soundEnabled', DEFAULT_SOUND_ENABLED);
+// The selected sound plus the on/off switch, as the synth plays it. Rebuilt
+// by applySound() after any change to either.
+let soundSettings: SoundSettings = { ...(sounds.find(t => t.name === currentSoundName) ?? sounds[0]), enabled: soundEnabled };
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 // Where a note came from. Each source gets its own once-only first-note
@@ -380,6 +397,10 @@ const soundControlsEl = document.getElementById('soundControls') as HTMLFieldSet
 const soundWaveformSelect = document.getElementById('soundWaveformSelect') as HTMLSelectElement;
 const soundTestBtn = document.getElementById('soundTestBtn') as HTMLButtonElement;
 const soundResetBtn = document.getElementById('soundResetBtn') as HTMLButtonElement;
+const soundPresetSelect = document.getElementById('soundPresetSelect') as HTMLSelectElement;
+const soundNameInput = document.getElementById('soundNameInput') as HTMLInputElement;
+const soundNewBtn = document.getElementById('soundNewBtn') as HTMLButtonElement;
+const soundDeleteBtn = document.getElementById('soundDeleteBtn') as HTMLButtonElement;
 const soundUnlockBtn = document.getElementById('soundUnlockBtn') as HTMLButtonElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
@@ -420,6 +441,10 @@ function refreshSoundUnlock(): void {
 }
 
 const synth = new Synth(soundSettings, refreshSoundUnlock);
+
+// Only the visible tab plays: every open tab gets the MIDI notes.
+synth.setMuted(document.hidden);
+document.addEventListener('visibilitychange', () => synth.setMuted(document.hidden));
 
 // While sound is on and the highlighter shows a chord, each key played
 // sounds that chord type rooted on the key instead of the lone note. The
@@ -974,7 +999,7 @@ offscreenArrowsCheckbox.addEventListener('change', () => {
 // Knob sliders are found by convention: #sound<Knob>Input with its readout
 // in #sound<Knob>Value.
 const soundKnobInputs = new Map(SOUND_KNOBS.map(knob => {
-  const id = soundKnobCookie(knob);
+  const id = 'sound' + knob.charAt(0).toUpperCase() + knob.slice(1);
   return [knob, {
     input: document.getElementById(id + 'Input') as HTMLInputElement,
     value: document.getElementById(id + 'Value') as HTMLOutputElement,
@@ -985,49 +1010,131 @@ function soundKnobText(knob: SoundKnob, n: number): string {
   return knob === 'attackMs' || knob === 'releaseMs' ? `${n} ms` : `${n}%`;
 }
 
-function syncSoundInputs(): void {
-  soundEnabledCheckbox.checked = soundSettings.enabled;
-  soundControlsEl.disabled = !soundSettings.enabled;
-  soundWaveformSelect.value = soundSettings.waveform;
-  soundKnobInputs.forEach(({ input, value }, knob) => {
-    input.value = String(soundSettings[knob]);
-    value.value = soundKnobText(knob, soundSettings[knob]);
+function getCurrentSound(): NamedSound {
+  return sounds.find(t => t.name === currentSoundName) ?? sounds[0];
+}
+
+function isBuiltInSound(name: string): boolean {
+  return BUILT_IN_SOUNDS.some(b => b.name === name);
+}
+
+function isSoundModifiedFromBuiltIn(sound: NamedSound): boolean {
+  const builtIn = BUILT_IN_SOUNDS.find(b => b.name === sound.name);
+  return builtIn !== undefined && !soundEqual(sound, builtIn);
+}
+
+function populateSoundSelect(): void {
+  soundPresetSelect.innerHTML = '';
+  sounds.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.name;
+    opt.textContent = isSoundModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
+    soundPresetSelect.appendChild(opt);
   });
+  soundPresetSelect.value = currentSoundName;
+}
+
+function syncSoundInputs(): void {
+  const sound = getCurrentSound();
+  soundEnabledCheckbox.checked = soundEnabled;
+  soundControlsEl.disabled = !soundEnabled;
+  soundPresetSelect.value = currentSoundName;
+  soundNameInput.value = sound.name;
+  soundWaveformSelect.value = sound.waveform;
+  soundKnobInputs.forEach(({ input, value }, knob) => {
+    input.value = String(sound[knob]);
+    value.value = soundKnobText(knob, sound[knob]);
+  });
+  const builtIn = isBuiltInSound(sound.name);
+  soundNameInput.disabled = builtIn;
+  soundDeleteBtn.disabled = sounds.length <= 1 || builtIn;
+  soundResetBtn.disabled = !builtIn;
   refreshSoundUnlock();
 }
 
-function updateSoundSettings(partial: Partial<SoundSettings>): void {
-  soundSettings = { ...soundSettings, ...partial };
-  saveSoundSettings(soundSettings);
+// Push the current sound and on/off state to the synth and the inputs.
+function applySound(): void {
+  soundSettings = { ...getCurrentSound(), enabled: soundEnabled };
   synth.configure(soundSettings);
   syncSoundInputs();
 }
 
+function selectSound(name: string): void {
+  currentSoundName = name;
+  saveSoundName(name);
+  populateSoundSelect();
+  applySound();
+}
+
+function updateCurrentSound(partial: Partial<NamedSound>): void {
+  Object.assign(getCurrentSound(), partial);
+  saveSounds();
+  populateSoundSelect();
+  applySound();
+}
+
 soundEnabledCheckbox.addEventListener('change', () => {
-  updateSoundSettings({ enabled: soundEnabledCheckbox.checked });
+  soundEnabled = soundEnabledCheckbox.checked;
+  saveBoolSetting('soundEnabled', soundEnabled);
+  applySound();
   // This change is a user gesture, the moment the browser allows audio to start.
   synth.resume();
 });
 
+soundPresetSelect.addEventListener('change', () => selectSound(soundPresetSelect.value));
+
 soundWaveformSelect.addEventListener('change', () => {
   const value = soundWaveformSelect.value;
-  if (isWaveform(value)) updateSoundSettings({ waveform: value });
+  if (isWaveform(value)) updateCurrentSound({ waveform: value });
 });
 
 // Sliders apply live while dragging, so each knob can be tuned by ear.
 soundKnobInputs.forEach(({ input }, knob) => {
   input.addEventListener('input', () => {
     const n = parseSoundKnob(knob, input.value);
-    if (n !== null) updateSoundSettings({ [knob]: n });
+    if (n !== null) updateCurrentSound({ [knob]: n });
   });
+});
+
+soundNameInput.addEventListener('change', () => {
+  const sound = getCurrentSound();
+  const nextName = soundNameInput.value.trim();
+  if (isBuiltInSound(sound.name) || !nextName || sounds.some(t => t !== sound && t.name === nextName)) {
+    soundNameInput.value = sound.name;
+    return;
+  }
+  sound.name = nextName;
+  saveSounds();
+  selectSound(nextName);
+});
+
+soundNewBtn.addEventListener('click', () => {
+  let name = 'New sound';
+  let n = 2;
+  while (sounds.some(t => t.name === name)) {
+    name = `New sound ${n++}`;
+  }
+  sounds.push({ ...getCurrentSound(), name });
+  saveSounds();
+  selectSound(name);
+});
+
+soundDeleteBtn.addEventListener('click', () => {
+  if (sounds.length <= 1 || isBuiltInSound(currentSoundName)) return;
+  const index = sounds.findIndex(t => t.name === currentSoundName);
+  if (index === -1) return;
+  sounds.splice(index, 1);
+  saveSounds();
+  selectSound(sounds[Math.max(0, index - 1)].name);
+});
+
+soundResetBtn.addEventListener('click', () => {
+  const builtIn = BUILT_IN_SOUNDS.find(b => b.name === currentSoundName);
+  if (builtIn) updateCurrentSound({ ...builtIn });
 });
 
 // A C major triad, so the knobs can be tried without a keyboard.
 soundTestBtn.addEventListener('click', () => previewChord([60, 64, 67]));
-
-soundResetBtn.addEventListener('click', () => {
-  updateSoundSettings({ ...DEFAULT_SOUND, enabled: soundSettings.enabled });
-});
 
 soundUnlockBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -1040,6 +1147,7 @@ soundUnlockBtn.addEventListener('click', e => {
 document.addEventListener('pointerdown', () => synth.resume(), true);
 document.addEventListener('keydown', () => synth.resume(), true);
 
+populateSoundSelect();
 syncSoundInputs();
 
 // ---- Chord table editor ----

@@ -20,22 +20,37 @@ export const SOUND_KNOB_MAX: Record<SoundKnob, number> = {
   velocity: 100,
 };
 
-export interface SoundSettings extends Record<SoundKnob, number> {
-  enabled: boolean;
+export const SOUND_KNOBS: SoundKnob[] = ['volume', 'brightness', 'attackMs', 'releaseMs', 'velocity'];
+
+// A named sound: the tone and every knob. The Sound tab edits these the way
+// the Themes tab edits color sets (built-ins, custom copies, a modified flag).
+export interface NamedSound extends Record<SoundKnob, number> {
+  name: string;
   waveform: Waveform;
 }
 
+// What the synth plays with: the selected sound plus the on/off switch,
+// which belongs to no sound.
+export interface SoundSettings extends NamedSound {
+  enabled: boolean;
+}
+
+// Built-in sounds, always present: they can be edited (and reset) but not
+// renamed or deleted. The first is the default. Without a decay stage the
+// synth sustains every note at full level, so each preset leans on tone,
+// brightness and envelope for its character.
+export const BUILT_IN_SOUNDS: NamedSound[] = [
+  { name: 'Classic', waveform: 'triangle', volume: 70, brightness: 60, attackMs: 5, releaseMs: 300, velocity: 50 },
+  { name: 'Flute', waveform: 'sine', volume: 75, brightness: 45, attackMs: 80, releaseMs: 250, velocity: 40 },
+  { name: 'Organ', waveform: 'square', volume: 55, brightness: 40, attackMs: 10, releaseMs: 60, velocity: 0 },
+  { name: 'Brass', waveform: 'sawtooth', volume: 60, brightness: 55, attackMs: 60, releaseMs: 200, velocity: 70 },
+  { name: 'Pad', waveform: 'sawtooth', volume: 60, brightness: 30, attackMs: 700, releaseMs: 1800, velocity: 20 },
+  { name: 'Chiptune', waveform: 'square', volume: 50, brightness: 100, attackMs: 0, releaseMs: 30, velocity: 0 },
+];
+
 // Off by default: most MIDI keyboards make their own sound, and doubling it
 // through the speakers (with browser latency) is worse than silence.
-export const DEFAULT_SOUND: SoundSettings = {
-  enabled: false,
-  waveform: 'triangle',
-  volume: 70,
-  brightness: 60,
-  attackMs: 5,
-  releaseMs: 300,
-  velocity: 50,
-};
+export const DEFAULT_SOUND_ENABLED = false;
 
 // Notes from the on-screen keyboard have no velocity; treat them as a
 // fairly firm press.
@@ -50,6 +65,38 @@ export function parseSoundKnob(knob: SoundKnob, value: unknown): number | null {
   if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) return null;
   const n = Number(value);
   return n <= SOUND_KNOB_MAX[knob] ? n : null;
+}
+
+export function soundEqual(a: NamedSound, b: NamedSound): boolean {
+  return a.waveform === b.waveform && SOUND_KNOBS.every(knob => a[knob] === b[knob]);
+}
+
+// Validates arbitrary parsed JSON (the soundPresets cookie) into one named
+// sound. Strict, like parseChordFormulas: every knob must be a whole number
+// in range, else null.
+export function parseNamedSound(raw: unknown): NamedSound | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const t = raw as Record<string, unknown>;
+  if (typeof t.name !== 'string' || !t.name.trim() || !isWaveform(t.waveform)) return null;
+  const sound = { name: t.name.trim(), waveform: t.waveform } as NamedSound;
+  for (const knob of SOUND_KNOBS) {
+    const n = t[knob];
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > SOUND_KNOB_MAX[knob]) return null;
+    sound[knob] = n;
+  }
+  return sound;
+}
+
+// A list of named sounds; null if it's empty or any entry is malformed.
+export function parseNamedSounds(raw: unknown): NamedSound[] | null {
+  if (!Array.isArray(raw)) return null;
+  const result: NamedSound[] = [];
+  for (const item of raw) {
+    const sound = parseNamedSound(item);
+    if (!sound) return null;
+    result.push(sound);
+  }
+  return result.length ? result : null;
 }
 
 // Equal temperament, A4 (MIDI 69) = 440 Hz.
@@ -111,6 +158,7 @@ export class Synth {
   // different key lets the same pitch sound twice, e.g. a tone shared by
   // two overlapping chords, each released on its own.
   private voices = new Map<VoiceKey, Voice>();
+  private muted = false;
 
   // onStateChange fires whenever the audio context starts, suspends or is
   // first created, so the UI can offer to unlock sound (see isRunning).
@@ -138,6 +186,14 @@ export class Synth {
     });
   }
 
+  // While muted, notes are ignored; muting also cuts whatever is sounding.
+  // The app mutes while its tab is hidden: every open tab receives MIDI, so
+  // otherwise each one would play along, each with its own sound.
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (muted) this.allOff();
+  }
+
   // Create the audio graph if needed and ask the browser to start it. Call
   // from a user gesture (a click or key press) for it to succeed.
   resume(): void {
@@ -147,7 +203,7 @@ export class Synth {
   }
 
   noteOn(midi: number, velocity: number, key: VoiceKey = midi): void {
-    if (!this.settings.enabled) return;
+    if (!this.settings.enabled || this.muted) return;
     const ctx = this.ensureContext();
     if (!ctx || !this.filter) return;
     this.release(key, MIN_RAMP_S);

@@ -56,6 +56,16 @@ function fillForClasses(page: Page, classes: string): Promise<string> {
   }, classes);
 }
 
+// Pretends the tab went to the background (or came back), the way a tab
+// switch or minimized window does.
+async function setTabHidden(page: Page, hidden: boolean): Promise<void> {
+  await page.evaluate(h => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: h });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: h ? 'hidden' : 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, hidden);
+}
+
 async function enableSound(page: Page): Promise<void> {
   await openSettings(page);
   await openSettingsTab(page, 'sound');
@@ -209,6 +219,85 @@ describe('sound', () => {
 
       await app.page.selectOption('#chordTypeSelect', '-');
       assert.deepEqual(await highlightedMidis(app.page), [60, 63, 67]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('sounds work like themes: built-ins, modified flag, new/rename/delete', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    const optionTexts = () => page.$$eval('#soundPresetSelect option', os => os.map(o => o.textContent));
+    try {
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      await page.check('#soundEnabledCheckbox');
+      assert.deepEqual(await optionTexts(), ['Classic', 'Flute', 'Organ', 'Brass', 'Pad', 'Chiptune']);
+
+      // A built-in: loads its knobs, can't be renamed or deleted.
+      await page.selectOption('#soundPresetSelect', 'Organ');
+      assert.equal(await page.inputValue('#soundWaveformSelect'), 'square');
+      assert.equal(await page.inputValue('#soundReleaseMsInput'), '60');
+      assert.equal(await page.isDisabled('#soundNameInput'), true);
+      assert.equal(await page.isDisabled('#soundDeleteBtn'), true);
+      assert.equal(await page.isDisabled('#soundResetBtn'), false);
+
+      // Editing it flags it modified; Reset puts it back.
+      await page.fill('#soundBrightnessInput', '90');
+      assert.equal((await optionTexts())[2], 'Organ (modified)');
+      await page.click('#soundResetBtn');
+      assert.equal((await optionTexts())[2], 'Organ');
+      assert.equal(await page.inputValue('#soundBrightnessInput'), '40');
+
+      // New copies the selected sound; a custom one can be renamed and deleted.
+      await page.click('#soundNewBtn');
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'New sound');
+      assert.equal(await page.inputValue('#soundWaveformSelect'), 'square');
+      assert.equal(await page.isDisabled('#soundNameInput'), false);
+      assert.equal(await page.isDisabled('#soundDeleteBtn'), false);
+      assert.equal(await page.isDisabled('#soundResetBtn'), true);
+      await page.fill('#soundNameInput', 'Mine');
+      await page.press('#soundNameInput', 'Enter');
+      await page.fill('#soundAttackMsInput', '400');
+
+      // Taking a built-in's name is refused.
+      await page.fill('#soundNameInput', 'Pad');
+      await page.press('#soundNameInput', 'Enter');
+      assert.equal(await page.inputValue('#soundNameInput'), 'Mine');
+
+      // The list and selection survive a reload.
+      await page.reload();
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'Mine');
+      assert.equal(await page.inputValue('#soundAttackMsInput'), '400');
+
+      await page.click('#soundDeleteBtn');
+      assert.deepEqual(await optionTexts(), ['Classic', 'Flute', 'Organ', 'Brass', 'Pad', 'Chiptune']);
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'Chiptune');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('only the visible tab plays: hiding it cuts held notes and mutes new ones', async () => {
+    const app = await launchApp();
+    try {
+      await spyOnOscillators(app.page);
+      await enableSound(app.page);
+
+      await pressKeys(app.page, [60]);
+      assert.equal((await oscLog(app.page)).starts.length, 1);
+      await setTabHidden(app.page, true);
+      assert.equal((await oscLog(app.page)).stops, 1);
+
+      await pressKeys(app.page, [64]);
+      assert.equal((await oscLog(app.page)).starts.length, 1);
+      await releaseKeys(app.page, [60, 64]);
+
+      await setTabHidden(app.page, false);
+      await pressKeys(app.page, [67]);
+      assert.deepEqual(await startedFreqs(app.page, 1), [392]);
     } finally {
       await app.close();
     }
