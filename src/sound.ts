@@ -2,71 +2,92 @@
 // settings helpers behind the Sound tab. Everything above the Synth class is
 // DOM- and audio-free so it can be unit-tested in node.
 //
-// Signal path: one oscillator + envelope gain (attack/decay/sustain/release)
-// per held note, all summed into a shared lowpass filter (Brightness) and a
-// master gain (Volume). From there a dry path and a convolution reverb
-// (Reverb sets the mix) meet in a compressor used as a limiter, so a big
-// chord never clips.
+// Signal path: per held note, one oscillator (or a detuned, stereo-spread
+// stack of them with Unison) into an envelope gain (attack/decay/sustain/
+// release). All notes sum into a shared lowpass filter (Brightness) and a
+// master gain (the global Volume). From there a dry path and a convolution
+// reverb meet in a compressor used as a limiter, so a big chord never clips.
 
 export type Waveform = 'sine' | 'triangle' | 'square' | 'sawtooth';
 export const WAVEFORMS: Waveform[] = ['sine', 'triangle', 'square', 'sawtooth'];
 
-// The numeric settings, each an integer from 0 to SOUND_KNOB_MAX[knob].
+// A sound's numeric settings, each an integer within SOUND_KNOB_RANGE.
 export type SoundKnob =
-  'volume' | 'brightness' | 'attackMs' | 'decayMs' | 'sustain' | 'releaseMs' | 'velocity' | 'reverb';
+  'brightness' | 'attackMs' | 'decayMs' | 'sustain' | 'releaseMs' | 'velocity' |
+  'unisonVoices' | 'unisonDetune' | 'reverb' | 'reverbLengthMs';
 
-export const SOUND_KNOB_MAX: Record<SoundKnob, number> = {
-  volume: 100,
-  brightness: 100,
-  attackMs: 2000,
-  decayMs: 5000,
-  sustain: 100,
-  releaseMs: 5000,
-  velocity: 100,
-  reverb: 100,
+export const SOUND_KNOB_RANGE: Record<SoundKnob, [min: number, max: number]> = {
+  brightness: [0, 100],
+  attackMs: [0, 2000],
+  decayMs: [0, 5000],
+  sustain: [0, 100],
+  releaseMs: [0, 5000],
+  velocity: [0, 100],
+  unisonVoices: [2, 7],
+  unisonDetune: [0, 50],
+  reverb: [0, 100],
+  reverbLengthMs: [500, 6000],
 };
 
-export const SOUND_KNOBS: SoundKnob[] =
-  ['volume', 'brightness', 'attackMs', 'decayMs', 'sustain', 'releaseMs', 'velocity', 'reverb'];
+export const SOUND_KNOBS = Object.keys(SOUND_KNOB_RANGE) as SoundKnob[];
 
-// Knobs added after sounds were first saved, with the values that leave a
-// sound exactly as it played before they existed: no decay, full sustain,
-// no reverb. parseNamedSound fills them in when a saved sound lacks them.
-const ADDED_KNOB_DEFAULTS: Partial<Record<SoundKnob, number>> = { decayMs: 0, sustain: 100, reverb: 0 };
+// A sound's on/off effects. Each one's options (e.g. unisonVoices) are kept
+// while it's off, so switching it back on restores them.
+export type SoundToggle = 'unison' | 'reverbEnabled';
+export const SOUND_TOGGLES: SoundToggle[] = ['unison', 'reverbEnabled'];
 
-// A named sound: the tone and every knob. The Sound tab edits these the way
-// the Themes tab edits color sets (built-ins, custom copies, a modified flag).
-export interface NamedSound extends Record<SoundKnob, number> {
+// A named sound: the tone, every knob and every effect toggle. The Sound tab
+// edits these the way the Themes tab edits color sets (built-ins, custom
+// copies, a modified flag). Volume is deliberately not part of a sound: it's
+// a global setting, so switching sounds never changes how loud things are.
+export interface NamedSound extends Record<SoundKnob, number>, Record<SoundToggle, boolean> {
   name: string;
   waveform: Waveform;
 }
 
-// What the synth plays with: the selected sound plus the on/off switch,
-// which belongs to no sound.
+// What the synth plays with: the selected sound plus the global settings.
 export interface SoundSettings extends NamedSound {
   enabled: boolean;
+  volume: number;
 }
+
+// Settings added after sounds were first saved, with values that leave a
+// sound exactly as it played before they existed. parseNamedSound fills
+// them in when a saved sound lacks them. reverbEnabled isn't listed: it
+// defaults to whether the saved sound had any reverb (see parseNamedSound).
+const ADDED_KNOB_DEFAULTS: Partial<Record<SoundKnob, number>> = {
+  decayMs: 0, sustain: 100, reverb: 0, unisonVoices: 3, unisonDetune: 12, reverbLengthMs: 2200,
+};
+const ADDED_KEYS = [...Object.keys(ADDED_KNOB_DEFAULTS), ...SOUND_TOGGLES];
 
 // Built-in sounds, always present: they can be edited (and reset) but not
 // renamed or deleted. The first is the default.
 //   Classic  - electric-piano-ish: quick attack, rings down to a low sustain.
 //   Flute    - soft sine that eases in and holds, a little air from reverb.
-//   Organ    - no decay at all (an organ doesn't fade), snappy on and off.
-//   Brass    - bright sawtooth that swells, dips slightly, and holds.
-//   Pad      - slow, dark, sustained, with a long wash of reverb.
+//   Organ    - no decay (an organ doesn't fade), a gentle 2-voice chorus.
+//   Brass    - sawtooth section: 3 detuned voices that swell, dip and hold.
+//   Pad      - slow, dark and wide: 5 voices and a long reverb.
 //   Chiptune - instant and dry, with a short blip of decay.
 export const BUILT_IN_SOUNDS: NamedSound[] = [
-  { name: 'Classic', waveform: 'triangle', volume: 70, brightness: 60, attackMs: 5, decayMs: 1500, sustain: 35, releaseMs: 300, velocity: 60, reverb: 20 },
-  { name: 'Flute', waveform: 'sine', volume: 75, brightness: 45, attackMs: 80, decayMs: 300, sustain: 85, releaseMs: 250, velocity: 40, reverb: 30 },
-  { name: 'Organ', waveform: 'square', volume: 55, brightness: 40, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 60, velocity: 0, reverb: 25 },
-  { name: 'Brass', waveform: 'sawtooth', volume: 60, brightness: 55, attackMs: 60, decayMs: 400, sustain: 70, releaseMs: 200, velocity: 70, reverb: 20 },
-  { name: 'Pad', waveform: 'sawtooth', volume: 60, brightness: 30, attackMs: 700, decayMs: 2000, sustain: 80, releaseMs: 1800, velocity: 20, reverb: 60 },
-  { name: 'Chiptune', waveform: 'square', volume: 50, brightness: 100, attackMs: 0, decayMs: 150, sustain: 60, releaseMs: 30, velocity: 0, reverb: 0 },
+  { name: 'Classic', waveform: 'triangle', brightness: 60, attackMs: 5, decayMs: 1500, sustain: 35, releaseMs: 300, velocity: 60,
+    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: true, reverb: 20, reverbLengthMs: 1800 },
+  { name: 'Flute', waveform: 'sine', brightness: 45, attackMs: 80, decayMs: 300, sustain: 85, releaseMs: 250, velocity: 40,
+    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: true, reverb: 30, reverbLengthMs: 2200 },
+  { name: 'Organ', waveform: 'square', brightness: 40, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 60, velocity: 0,
+    unison: true, unisonVoices: 2, unisonDetune: 6, reverbEnabled: true, reverb: 25, reverbLengthMs: 1500 },
+  { name: 'Brass', waveform: 'sawtooth', brightness: 55, attackMs: 60, decayMs: 400, sustain: 70, releaseMs: 200, velocity: 70,
+    unison: true, unisonVoices: 3, unisonDetune: 10, reverbEnabled: true, reverb: 20, reverbLengthMs: 1600 },
+  { name: 'Pad', waveform: 'sawtooth', brightness: 30, attackMs: 700, decayMs: 2000, sustain: 80, releaseMs: 1800, velocity: 20,
+    unison: true, unisonVoices: 5, unisonDetune: 18, reverbEnabled: true, reverb: 60, reverbLengthMs: 4000 },
+  { name: 'Chiptune', waveform: 'square', brightness: 100, attackMs: 0, decayMs: 150, sustain: 60, releaseMs: 30, velocity: 0,
+    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: false, reverb: 20, reverbLengthMs: 1500 },
 ];
 
 // Off by default: most MIDI keyboards make their own sound, and doubling it
 // through the speakers (with browser latency) is worse than silence.
 export const DEFAULT_SOUND_ENABLED = false;
+export const DEFAULT_VOLUME = 70;
+export const MAX_VOLUME = 100;
 
 // Notes from the on-screen keyboard have no velocity; treat them as a
 // fairly firm press.
@@ -76,21 +97,33 @@ export function isWaveform(value: unknown): value is Waveform {
   return typeof value === 'string' && (WAVEFORMS as string[]).includes(value);
 }
 
-// A knob value as typed or stored: an integer within 0..max, else null.
-export function parseSoundKnob(knob: SoundKnob, value: unknown): number | null {
+// An integer as typed or stored, within min..max, else null.
+function parseIntInRange(value: unknown, min: number, max: number): number | null {
   if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) return null;
   const n = Number(value);
-  return n <= SOUND_KNOB_MAX[knob] ? n : null;
+  return n >= min && n <= max ? n : null;
+}
+
+export function parseSoundKnob(knob: SoundKnob, value: unknown): number | null {
+  return parseIntInRange(value, ...SOUND_KNOB_RANGE[knob]);
+}
+
+export function parseVolume(value: unknown): number | null {
+  return parseIntInRange(value, 0, MAX_VOLUME);
 }
 
 export function soundEqual(a: NamedSound, b: NamedSound): boolean {
-  return a.waveform === b.waveform && SOUND_KNOBS.every(knob => a[knob] === b[knob]);
+  return a.waveform === b.waveform &&
+    SOUND_KNOBS.every(knob => a[knob] === b[knob]) &&
+    SOUND_TOGGLES.every(toggle => a[toggle] === b[toggle]);
 }
 
 // Validates arbitrary parsed JSON (the soundPresets cookie) into one named
 // sound. Strict, like parseChordFormulas: every knob must be a whole number
-// in range, else null. The one leniency is a knob added later
-// (ADDED_KNOB_DEFAULTS), which may be absent so older saves still load.
+// in range and every toggle a boolean, else null. The one leniency is a
+// setting added later (ADDED_KNOB_DEFAULTS, the toggles), which may be
+// absent so older saves still load. Unknown fields (like the old per-sound
+// volume) are ignored.
 export function parseNamedSound(raw: unknown): NamedSound | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const t = raw as Record<string, unknown>;
@@ -98,15 +131,22 @@ export function parseNamedSound(raw: unknown): NamedSound | null {
   const sound = { name: t.name.trim(), waveform: t.waveform } as NamedSound;
   for (const knob of SOUND_KNOBS) {
     const n = t[knob] === undefined ? ADDED_KNOB_DEFAULTS[knob] : t[knob];
-    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > SOUND_KNOB_MAX[knob]) return null;
+    const [min, max] = SOUND_KNOB_RANGE[knob];
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < min || n > max) return null;
     sound[knob] = n;
+  }
+  const toggleDefaults: Record<SoundToggle, boolean> = { unison: false, reverbEnabled: sound.reverb > 0 };
+  for (const toggle of SOUND_TOGGLES) {
+    const b = t[toggle] === undefined ? toggleDefaults[toggle] : t[toggle];
+    if (typeof b !== 'boolean') return null;
+    sound[toggle] = b;
   }
   return sound;
 }
 
 // The saved list of named sounds; null if it's empty or any entry is
-// malformed. A built-in saved before the added knobs existed is replaced
-// by its current version: the built-ins were retuned around those knobs,
+// malformed. A built-in saved before the latest added settings is replaced
+// by its current version: the built-ins get retuned around new settings,
 // and keeping the old copy would leave it stuck showing "(modified)".
 export function parseNamedSounds(raw: unknown): NamedSound[] | null {
   if (!Array.isArray(raw)) return null;
@@ -115,10 +155,25 @@ export function parseNamedSounds(raw: unknown): NamedSound[] | null {
     const sound = parseNamedSound(item);
     if (!sound) return null;
     const builtIn = BUILT_IN_SOUNDS.find(b => b.name === sound.name);
-    const predatesAddedKnobs = Object.keys(ADDED_KNOB_DEFAULTS).some(knob => !(knob in (item as object)));
-    result.push(builtIn && predatesAddedKnobs ? { ...builtIn } : sound);
+    const predatesAddedSettings = ADDED_KEYS.some(key => !(key in (item as object)));
+    result.push(builtIn && predatesAddedSettings ? { ...builtIn } : sound);
   }
   return result.length ? result : null;
+}
+
+// Unison: the detune in cents of each stacked oscillator, spread evenly
+// across -detune..+detune. A single voice sits in tune.
+export function unisonDetunes(voices: number, detune: number): number[] {
+  if (voices <= 1) return [0];
+  return Array.from({ length: voices }, (_, i) => -detune + (2 * detune * i) / (voices - 1));
+}
+
+// ...and where each sits in the stereo field, spread the same way, so a
+// unison note sounds wide rather than just thick.
+const UNISON_PAN_WIDTH = 0.7;
+
+export function unisonPans(voices: number): number[] {
+  return unisonDetunes(voices, UNISON_PAN_WIDTH);
 }
 
 // Equal temperament, A4 (MIDI 69) = 440 Hz.
@@ -162,8 +217,10 @@ const WAVEFORM_LEVEL: Record<Waveform, number> = {
 const VOICE_LEVEL = 0.3;
 
 // Reverb 0..100 to the dry and wet levels. The dry path only dips a little
-// so turning reverb up adds room rather than pushing the note away.
-export function reverbMix(reverb: number): { dry: number; wet: number } {
+// so turning reverb up adds room rather than pushing the note away. Off is
+// fully dry.
+export function reverbMix(reverb: number, enabled = true): { dry: number; wet: number } {
+  if (!enabled) return { dry: 1, wet: 0 };
   const r = reverb / 100;
   return { dry: 1 - 0.4 * r, wet: 0.9 * r };
 }
@@ -198,7 +255,7 @@ const MIN_RAMP_S = 0.005;
 export type VoiceKey = number | string;
 
 interface Voice {
-  osc: OscillatorNode;
+  oscs: OscillatorNode[];
   env: GainNode;
   shape: EnvelopeShape;
 }
@@ -209,6 +266,8 @@ export class Synth {
   private master: GainNode | null = null;
   private dry: GainNode | null = null;
   private wet: GainNode | null = null;
+  private convolver: ConvolverNode | null = null;
+  private impulseLengthMs = 0;
   // Keyed by the caller's voice key, which defaults to the MIDI note. A
   // different key lets the same pitch sound twice, e.g. a tone shared by
   // two overlapping chords, each released on its own.
@@ -236,11 +295,18 @@ export class Synth {
     const now = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(volumeToGain(settings.volume), now, 0.02);
     this.filter.frequency.setTargetAtTime(brightnessToCutoff(settings.brightness), now, 0.02);
-    const mix = reverbMix(settings.reverb);
+    const mix = reverbMix(settings.reverb, settings.reverbEnabled);
     this.dry?.gain.setTargetAtTime(mix.dry, now, 0.02);
     this.wet?.gain.setTargetAtTime(mix.wet, now, 0.02);
+    this.updateImpulse();
+    // Tone and detune follow live on held notes; a change in the number of
+    // unison voices only applies from the next note.
     this.voices.forEach(voice => {
-      voice.osc.type = settings.waveform;
+      const detunes = unisonDetunes(voice.oscs.length, settings.unisonDetune);
+      voice.oscs.forEach((osc, i) => {
+        osc.type = settings.waveform;
+        if (voice.oscs.length > 1) osc.detune.setTargetAtTime(detunes[i], now, 0.02);
+      });
     });
   }
 
@@ -267,12 +333,32 @@ export class Synth {
     this.release(key, MIN_RAMP_S);
 
     const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    osc.type = this.settings.waveform;
-    osc.frequency.value = midiToFrequency(midi);
     const env = ctx.createGain();
+    const count = this.settings.unison ? this.settings.unisonVoices : 1;
+    const detunes = unisonDetunes(count, this.settings.unisonDetune);
+    const pans = unisonPans(count);
+    const oscs = detunes.map((cents, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = this.settings.waveform;
+      osc.frequency.value = midiToFrequency(midi);
+      osc.detune.value = cents;
+      if (count > 1) {
+        // A panner at centre sends ~71% to each side, where an unpanned
+        // mono note goes full level to both: make up the 3 dB.
+        const pan = ctx.createStereoPanner();
+        pan.pan.value = pans[i];
+        const makeup = ctx.createGain();
+        makeup.gain.value = Math.SQRT2;
+        osc.connect(pan).connect(makeup).connect(env);
+      } else {
+        osc.connect(env);
+      }
+      return osc;
+    });
+    // Detuned copies drift in and out of phase, so they add up by power,
+    // not amplitude: scale by 1/sqrt(n) to keep unison about as loud.
     const peak = VOICE_LEVEL * WAVEFORM_LEVEL[this.settings.waveform] *
-      velocityGain(velocity, this.settings.velocity);
+      velocityGain(velocity, this.settings.velocity) / Math.sqrt(count);
     // Attack up to the peak, then decay toward the sustain level. The decay
     // is exponential (a time constant of a third of Decay gets ~95% of the
     // way there), which is how real instruments ring down.
@@ -292,9 +378,13 @@ export class Synth {
         env.gain.setValueAtTime(shape.sustainLevel, shape.attackEnd);
       }
     }
-    osc.connect(env).connect(this.filter);
-    osc.start(now);
-    this.voices.set(key, { osc, env, shape });
+    env.connect(this.filter);
+    // Unison copies start at random points in their cycle, as on a
+    // hardware synth; started in step they'd sweep through a phasey swoosh
+    // on every note, and sum louder or softer depending on the detune.
+    const period = 1 / midiToFrequency(midi);
+    oscs.forEach(osc => osc.start(count > 1 ? now + Math.random() * period : now));
+    this.voices.set(key, { oscs, env, shape });
   }
 
   noteOff(key: VoiceKey): void {
@@ -318,8 +408,8 @@ export class Synth {
     gain.cancelScheduledValues(now);
     gain.setValueAtTime(envelopeLevelAt(voice.shape, now), now);
     gain.linearRampToValueAtTime(0, end);
-    voice.osc.stop(end + 0.02);
-    voice.osc.onended = () => voice.env.disconnect();
+    voice.oscs.forEach(osc => osc.stop(end + 0.02));
+    voice.oscs[0].onended = () => voice.env.disconnect();
   }
 
   private ensureContext(): AudioContext | null {
@@ -338,13 +428,12 @@ export class Synth {
     limiter.ratio.value = 12;
     limiter.attack.value = 0.003;
     limiter.release.value = 0.1;
-    const mix = reverbMix(this.settings.reverb);
+    const mix = reverbMix(this.settings.reverb, this.settings.reverbEnabled);
     const dry = ctx.createGain();
     dry.gain.value = mix.dry;
     const wet = ctx.createGain();
     wet.gain.value = mix.wet;
     const reverb = ctx.createConvolver();
-    reverb.buffer = makeImpulse(ctx);
     filter.connect(master);
     master.connect(dry).connect(limiter);
     master.connect(reverb).connect(wet).connect(limiter);
@@ -354,20 +443,29 @@ export class Synth {
     this.master = master;
     this.dry = dry;
     this.wet = wet;
+    this.convolver = reverb;
+    this.updateImpulse();
     ctx.addEventListener('statechange', () => this.onStateChange());
     this.onStateChange();
     return ctx;
   }
+
+  // Regenerate the reverb's room when Length changes. Only when it changes:
+  // a fresh impulse is a few hundred thousand random samples.
+  private updateImpulse(): void {
+    if (!this.ctx || !this.convolver || this.impulseLengthMs === this.settings.reverbLengthMs) return;
+    this.impulseLengthMs = this.settings.reverbLengthMs;
+    this.convolver.buffer = makeImpulse(this.ctx, this.impulseLengthMs / 1000);
+  }
 }
 
-// A synthetic room: stereo noise under an exponential fade, independent per
-// channel so the tail is wide. Generated once per audio context, so there's
-// no impulse-response file to fetch.
-const REVERB_SECONDS = 2.2;
+// A synthetic room: stereo noise under a fade, independent per channel so
+// the tail is wide. Generated in code (per Length), so there's no
+// impulse-response file to fetch.
 const REVERB_PREDELAY_S = 0.012;
 
-function makeImpulse(ctx: BaseAudioContext): AudioBuffer {
-  const length = Math.floor(ctx.sampleRate * REVERB_SECONDS);
+function makeImpulse(ctx: BaseAudioContext, seconds: number): AudioBuffer {
+  const length = Math.floor(ctx.sampleRate * seconds);
   const predelay = Math.floor(ctx.sampleRate * REVERB_PREDELAY_S);
   const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {

@@ -407,7 +407,8 @@
     padding-left: 14px;
     border-left: 2px solid color-mix(in srgb, var(--font-color) 15%, transparent);
   }
-  #smoothingAdvanced[hidden], #holdDurationRow[hidden] {
+  #smoothingAdvanced[hidden], #holdDurationRow[hidden],
+  #soundUnisonOptions[hidden], #soundReverbOptions[hidden] {
     display: none;
   }
   /* 420px row width minus the 14px indent and 2px rule, so the inputs line
@@ -855,6 +856,7 @@
               <p class="tab-desc">Play notes through your speakers. Leave it off if your keyboard makes its own sound.</p>
               <label for="soundEnabledCheckbox" title="Make a sound for each note you play, from a MIDI keyboard or by clicking the keys. The sustain pedal holds notes too.">Play sound <input type="checkbox" id="soundEnabledCheckbox"></label>
               <fieldset id="soundControls">
+                <label for="soundVolumeInput" title="Overall loudness. Applies to every sound: switching sounds doesn&#x27;t change it.">Volume <span class="sound-knob"><input type="range" id="soundVolumeInput" min="0" max="100" step="1"><output id="soundVolumeValue" for="soundVolumeInput"></output></span></label>
                 <div class="theme-toolbar">
                   <label title="The sound being played and edited here. The built-in sounds can be tweaked and reset; make your own with New sound." for="soundPresetSelect">Sound <select id="soundPresetSelect"></select></label>
                   <div class="settings-actions">
@@ -866,7 +868,6 @@
                 <label title="The sound&#x27;s name. Built-in sounds can&#x27;t be renamed." for="soundNameInput">Name <input type="text" id="soundNameInput"></label>
                 <div id="soundKnobGroup">
                   <h4>Knobs</h4>
-                  <label for="soundVolumeInput" title="Overall loudness.">Volume <span class="sound-knob"><input type="range" id="soundVolumeInput" min="0" max="100" step="1"><output id="soundVolumeValue" for="soundVolumeInput"></output></span></label>
                   <label for="soundWaveformSelect" title="The basic character of the sound. Sine is pure and soft, Triangle a little brighter, Square hollow like a clarinet, Sawtooth buzzy like brass or strings.">Tone
                     <select id="soundWaveformSelect">
                       <option value="sine">Sine</option>
@@ -881,7 +882,17 @@
                   <label for="soundSustainInput" title="The level a held note settles at after Decay, as a share of its peak. 100% holds at full level like an organ; 0% fades away completely like a piano.">Sustain <span class="sound-knob"><input type="range" id="soundSustainInput" min="0" max="100" step="1"><output id="soundSustainValue" for="soundSustainInput"></output></span></label>
                   <label for="soundReleaseMsInput" title="How long (0-5000 ms) a note takes to fade out after the key (or sustain pedal) comes up.">Release <span class="sound-knob"><input type="range" id="soundReleaseMsInput" min="0" max="5000" step="10"><output id="soundReleaseMsValue" for="soundReleaseMsInput"></output></span></label>
                   <label for="soundVelocityInput" title="How much playing harder makes a note louder. 0% plays every note at the same level; 100% follows your touch fully. Clicked keys count as a firm press.">Velocity sensitivity <span class="sound-knob"><input type="range" id="soundVelocityInput" min="0" max="100" step="1"><output id="soundVelocityValue" for="soundVelocityInput"></output></span></label>
-                  <label for="soundReverbInput" title="How much room echo to add. 0% is dry and close; higher sounds like a bigger, more distant space.">Reverb <span class="sound-knob"><input type="range" id="soundReverbInput" min="0" max="100" step="1"><output id="soundReverbValue" for="soundReverbInput"></output></span></label>
+                  <h4>Effects</h4>
+                  <label for="soundUnisonCheckbox" title="Stack several slightly detuned copies of each note, spread left to right. Thickens and widens the sound, like a section instead of a soloist.">Unison <input type="checkbox" id="soundUnisonCheckbox"></label>
+                  <div id="soundUnisonOptions" class="settings-subgroup" hidden>
+                    <label for="soundUnisonVoicesInput" title="How many copies of each note play (2-7). More is thicker and wider.">Voices <span class="sound-knob"><input type="range" id="soundUnisonVoicesInput" min="2" max="7" step="1"><output id="soundUnisonVoicesValue" for="soundUnisonVoicesInput"></output></span></label>
+                    <label for="soundUnisonDetuneInput" title="How far apart the copies are tuned, in cents (hundredths of a semitone), from the lowest to the highest. A little is a gentle chorus; a lot is a wobbly, detuned supersaw.">Detune <span class="sound-knob"><input type="range" id="soundUnisonDetuneInput" min="0" max="50" step="1"><output id="soundUnisonDetuneValue" for="soundUnisonDetuneInput"></output></span></label>
+                  </div>
+                  <label for="soundReverbCheckbox" title="Add room echo, so notes sound like they&#x27;re in a space instead of right in your ear.">Reverb <input type="checkbox" id="soundReverbCheckbox"></label>
+                  <div id="soundReverbOptions" class="settings-subgroup" hidden>
+                    <label for="soundReverbInput" title="How much echo to mix in. Low is a hint of room; high sounds far away.">Mix <span class="sound-knob"><input type="range" id="soundReverbInput" min="0" max="100" step="1"><output id="soundReverbValue" for="soundReverbInput"></output></span></label>
+                    <label for="soundReverbLengthMsInput" title="How long the echo takes to die away (500-6000 ms): short is a small room, long is a hall.">Length <span class="sound-knob"><input type="range" id="soundReverbLengthMsInput" min="500" max="6000" step="100"><output id="soundReverbLengthMsValue" for="soundReverbLengthMsInput"></output></span></label>
+                  </div>
                   <div class="settings-actions">
                     <button title="Play a short C major chord with the current settings." id="soundTestBtn" type="button">&#9654; Test chord</button>
                   </div>

@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BUILT_IN_SOUNDS,
-  SOUND_KNOB_MAX,
+  SOUND_KNOB_RANGE,
   brightnessToCutoff,
   envelopeLevelAt,
   isWaveform,
@@ -10,27 +10,39 @@ import {
   parseNamedSound,
   parseNamedSounds,
   parseSoundKnob,
+  parseVolume,
   reverbMix,
   soundEqual,
+  unisonDetunes,
+  unisonPans,
   velocityGain,
   volumeToGain,
 } from './sound';
 
-describe('parseSoundKnob', () => {
-  test('accepts whole numbers within the knob range', () => {
-    assert.equal(parseSoundKnob('volume', '0'), 0);
-    assert.equal(parseSoundKnob('volume', ' 70 '), 70);
-    assert.equal(parseSoundKnob('releaseMs', String(SOUND_KNOB_MAX.releaseMs)), SOUND_KNOB_MAX.releaseMs);
+describe('parseSoundKnob and parseVolume', () => {
+  test('accept whole numbers within range', () => {
+    assert.equal(parseSoundKnob('sustain', '0'), 0);
+    assert.equal(parseSoundKnob('sustain', ' 70 '), 70);
+    assert.equal(parseSoundKnob('releaseMs', String(SOUND_KNOB_RANGE.releaseMs[1])), SOUND_KNOB_RANGE.releaseMs[1]);
+    assert.equal(parseVolume('0'), 0);
+    assert.equal(parseVolume('100'), 100);
   });
 
-  test('rejects out-of-range, fractional, negative and non-string input', () => {
-    assert.equal(parseSoundKnob('volume', '101'), null);
+  test('reject out-of-range, fractional, negative and non-string input', () => {
+    assert.equal(parseSoundKnob('sustain', '101'), null);
     assert.equal(parseSoundKnob('attackMs', '2001'), null);
-    assert.equal(parseSoundKnob('volume', '5.5'), null);
-    assert.equal(parseSoundKnob('volume', '-1'), null);
-    assert.equal(parseSoundKnob('volume', ''), null);
-    assert.equal(parseSoundKnob('volume', null), null);
-    assert.equal(parseSoundKnob('volume', 50), null);
+    assert.equal(parseSoundKnob('sustain', '5.5'), null);
+    assert.equal(parseSoundKnob('sustain', '-1'), null);
+    assert.equal(parseSoundKnob('sustain', ''), null);
+    assert.equal(parseSoundKnob('sustain', null), null);
+    assert.equal(parseSoundKnob('sustain', 50), null);
+    assert.equal(parseVolume('101'), null);
+  });
+
+  test('respect a knob minimum above zero', () => {
+    assert.equal(parseSoundKnob('unisonVoices', '1'), null);
+    assert.equal(parseSoundKnob('unisonVoices', '2'), 2);
+    assert.equal(parseSoundKnob('reverbLengthMs', '400'), null);
   });
 });
 
@@ -88,8 +100,9 @@ describe('named sounds', () => {
     assert.equal(parseNamedSound(null), null);
     assert.equal(parseNamedSound({ ...organ, name: ' ' }), null);
     assert.equal(parseNamedSound({ ...organ, waveform: 'noise' }), null);
-    assert.equal(parseNamedSound({ ...organ, volume: 101 }), null);
+    assert.equal(parseNamedSound({ ...organ, sustain: 101 }), null);
     assert.equal(parseNamedSound({ ...organ, attackMs: 2.5 }), null);
+    assert.equal(parseNamedSound({ ...organ, unison: 'yes' }), null);
     assert.equal(parseNamedSound({ ...organ, releaseMs: '60' }), null);
     const { velocity, ...missing } = organ;
     assert.equal(parseNamedSound(missing), null);
@@ -97,7 +110,7 @@ describe('named sounds', () => {
 
   test('parseNamedSounds rejects the whole list if any entry is bad', () => {
     assert.deepEqual(parseNamedSounds([organ]), [organ]);
-    assert.equal(parseNamedSounds([organ, { ...organ, volume: -1 }]), null);
+    assert.equal(parseNamedSounds([organ, { ...organ, sustain: -1 }]), null);
     assert.equal(parseNamedSounds([]), null);
     assert.equal(parseNamedSounds({}), null);
   });
@@ -105,17 +118,31 @@ describe('named sounds', () => {
   test('soundEqual ignores the name', () => {
     assert.ok(soundEqual(organ, { ...organ, name: 'Copy' }));
     assert.equal(soundEqual(organ, { ...organ, brightness: organ.brightness + 1 }), false);
+    assert.equal(soundEqual(organ, { ...organ, unison: !organ.unison }), false);
   });
 
-  test('a sound saved before decay/sustain/reverb existed still loads, unchanged in sound', () => {
-    const legacy = { name: 'Mine', waveform: 'sine', volume: 50, brightness: 50, attackMs: 10, releaseMs: 100, velocity: 0 };
-    assert.deepEqual(parseNamedSound(legacy), { ...legacy, decayMs: 0, sustain: 100, reverb: 0 });
-    assert.deepEqual(parseNamedSounds([legacy]), [{ ...legacy, decayMs: 0, sustain: 100, reverb: 0 }]);
+  // Neutral values for everything added since the first saves, so an old
+  // sound plays as it did: no decay, full sustain, no unison.
+  const added = { decayMs: 0, sustain: 100, reverb: 0, unisonVoices: 3, unisonDetune: 12, reverbLengthMs: 2200, unison: false };
+
+  test('a sound from the first save format still loads, unchanged in sound (volume dropped)', () => {
+    const { volume, ...legacy } = { name: 'Mine', waveform: 'sine', volume: 50, brightness: 50, attackMs: 10, releaseMs: 100, velocity: 0 };
+    assert.deepEqual(parseNamedSound({ ...legacy, volume }), { ...legacy, ...added, reverbEnabled: false });
+    assert.deepEqual(parseNamedSounds([{ ...legacy, volume }]), [{ ...legacy, ...added, reverbEnabled: false }]);
   });
 
-  test('a built-in saved before the new knobs is replaced by its current version', () => {
-    const { decayMs, sustain, reverb, ...oldOrgan } = { ...organ, brightness: 10 };
-    assert.deepEqual(parseNamedSounds([oldOrgan]), [organ]);
+  test('a saved sound with reverb but no reverb toggle keeps its reverb on', () => {
+    const v2 = { name: 'Mine', waveform: 'sine', volume: 50, brightness: 50, attackMs: 10, decayMs: 200, sustain: 50, releaseMs: 100, velocity: 0, reverb: 30 };
+    const sound = parseNamedSound(v2)!;
+    assert.equal(sound.reverbEnabled, true);
+    assert.equal(sound.reverb, 30);
+    assert.equal(sound.reverbLengthMs, 2200); // the old fixed room length
+    assert.equal('volume' in sound, false);
+  });
+
+  test('a built-in saved before the latest settings is replaced by its current version', () => {
+    const { unison, unisonVoices, unisonDetune, reverbEnabled, reverbLengthMs, ...oldOrgan } = { ...organ, brightness: 10 };
+    assert.deepEqual(parseNamedSounds([{ ...oldOrgan, volume: 55 }]), [organ]);
     // A current-format save keeps its edits.
     assert.deepEqual(parseNamedSounds([{ ...organ, brightness: 10 }]), [{ ...organ, brightness: 10 }]);
   });
@@ -127,9 +154,25 @@ describe('named sounds', () => {
   });
 });
 
+describe('unison spread', () => {
+  test('detunes spread evenly across -detune..+detune; one voice stays in tune', () => {
+    assert.deepEqual(unisonDetunes(1, 20), [0]);
+    assert.deepEqual(unisonDetunes(2, 10), [-10, 10]);
+    assert.deepEqual(unisonDetunes(3, 12), [-12, 0, 12]);
+    assert.deepEqual(unisonDetunes(5, 20), [-20, -10, 0, 10, 20]);
+  });
+
+  test('pans spread left to right within the stereo field', () => {
+    const pans = unisonPans(3);
+    assert.equal(pans[1], 0);
+    assert.ok(pans[0] < 0 && pans[2] > 0 && Math.abs(pans[0]) <= 1);
+  });
+});
+
 describe('reverbMix', () => {
-  test('0 is fully dry, and more reverb adds wet while only easing the dry', () => {
+  test('0 or off is fully dry, and more reverb adds wet while only easing the dry', () => {
     assert.deepEqual(reverbMix(0), { dry: 1, wet: 0 });
+    assert.deepEqual(reverbMix(80, false), { dry: 1, wet: 0 });
     const full = reverbMix(100);
     assert.ok(full.wet > 0.5 && full.dry >= 0.5);
     assert.ok(reverbMix(60).wet > reverbMix(30).wet);

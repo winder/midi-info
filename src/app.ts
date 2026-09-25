@@ -19,16 +19,19 @@ import {
 import {
   BUILT_IN_SOUNDS,
   DEFAULT_SOUND_ENABLED,
+  DEFAULT_VOLUME,
   MOUSE_VELOCITY,
   NamedSound,
   SOUND_KNOBS,
   SoundKnob,
   SoundSettings,
+  SoundToggle,
   Synth,
   VoiceKey,
   isWaveform,
   parseNamedSounds,
   parseSoundKnob,
+  parseVolume,
   soundEqual,
 } from './sound';
 import {
@@ -188,6 +191,15 @@ function saveSoundName(name: string): void {
   setCookie('soundPresetName', name, 365);
 }
 
+// Volume is global, not part of any sound.
+function loadVolume(): number {
+  return parseVolume(getCookie('soundVolume')) ?? DEFAULT_VOLUME;
+}
+
+function saveVolume(volume: number): void {
+  setCookie('soundVolume', String(volume), 365);
+}
+
 // ---- Visible keys (zoom level: how many of the 88 keys fit on screen) ----
 
 const DEFAULT_VISIBLE_KEYS = 52;
@@ -292,9 +304,14 @@ let holdDurationMs: number = loadHoldDuration();
 let sounds: NamedSound[] = loadSounds();
 let currentSoundName: string = loadSoundName(sounds);
 let soundEnabled: boolean = loadBoolSetting('soundEnabled', DEFAULT_SOUND_ENABLED);
-// The selected sound plus the on/off switch, as the synth plays it. Rebuilt
-// by applySound() after any change to either.
-let soundSettings: SoundSettings = { ...(sounds.find(t => t.name === currentSoundName) ?? sounds[0]), enabled: soundEnabled };
+let soundVolume: number = loadVolume();
+// The selected sound plus the global on/off and volume, as the synth plays
+// it. Rebuilt by applySound() after any change to them.
+let soundSettings: SoundSettings = {
+  ...(sounds.find(t => t.name === currentSoundName) ?? sounds[0]),
+  enabled: soundEnabled,
+  volume: soundVolume,
+};
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
 // Where a note came from. Each source gets its own once-only first-note
@@ -1007,8 +1024,25 @@ const soundKnobInputs = new Map(SOUND_KNOBS.map(knob => {
 }));
 
 function soundKnobText(knob: SoundKnob, n: number): string {
+  if (knob === 'unisonVoices') return String(n);
+  if (knob === 'unisonDetune') return `${n} cents`;
   return knob.endsWith('Ms') ? `${n} ms` : `${n}%`;
 }
+
+const soundVolumeInput = document.getElementById('soundVolumeInput') as HTMLInputElement;
+const soundVolumeValue = document.getElementById('soundVolumeValue') as HTMLOutputElement;
+
+// Each effect's tick and the options it reveals, like Hold last chord.
+const soundToggleInputs = new Map<SoundToggle, { checkbox: HTMLInputElement; options: HTMLElement }>([
+  ['unison', {
+    checkbox: document.getElementById('soundUnisonCheckbox') as HTMLInputElement,
+    options: document.getElementById('soundUnisonOptions') as HTMLElement,
+  }],
+  ['reverbEnabled', {
+    checkbox: document.getElementById('soundReverbCheckbox') as HTMLInputElement,
+    options: document.getElementById('soundReverbOptions') as HTMLElement,
+  }],
+]);
 
 function getCurrentSound(): NamedSound {
   return sounds.find(t => t.name === currentSoundName) ?? sounds[0];
@@ -1045,6 +1079,12 @@ function syncSoundInputs(): void {
     input.value = String(sound[knob]);
     value.value = soundKnobText(knob, sound[knob]);
   });
+  soundToggleInputs.forEach(({ checkbox, options }, toggle) => {
+    checkbox.checked = sound[toggle];
+    options.hidden = !sound[toggle];
+  });
+  soundVolumeInput.value = String(soundVolume);
+  soundVolumeValue.value = `${soundVolume}%`;
   const builtIn = isBuiltInSound(sound.name);
   soundNameInput.disabled = builtIn;
   soundDeleteBtn.disabled = sounds.length <= 1 || builtIn;
@@ -1052,9 +1092,9 @@ function syncSoundInputs(): void {
   refreshSoundUnlock();
 }
 
-// Push the current sound and on/off state to the synth and the inputs.
+// Push the current sound and the global settings to the synth and the inputs.
 function applySound(): void {
-  soundSettings = { ...getCurrentSound(), enabled: soundEnabled };
+  soundSettings = { ...getCurrentSound(), enabled: soundEnabled, volume: soundVolume };
   synth.configure(soundSettings);
   syncSoundInputs();
 }
@@ -1094,6 +1134,18 @@ soundKnobInputs.forEach(({ input }, knob) => {
     const n = parseSoundKnob(knob, input.value);
     if (n !== null) updateCurrentSound({ [knob]: n });
   });
+});
+
+soundToggleInputs.forEach(({ checkbox }, toggle) => {
+  checkbox.addEventListener('change', () => updateCurrentSound({ [toggle]: checkbox.checked }));
+});
+
+soundVolumeInput.addEventListener('input', () => {
+  const n = parseVolume(soundVolumeInput.value);
+  if (n === null) return;
+  soundVolume = n;
+  saveVolume(n);
+  applySound();
 });
 
 soundNameInput.addEventListener('change', () => {

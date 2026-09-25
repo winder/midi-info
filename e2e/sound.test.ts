@@ -7,18 +7,18 @@ import { launchApp, openSettings, openSettingsTab, closeSettings, openHighlighte
 // asks Web Audio for instead: every oscillator start (frequency, waveform)
 // and stop, in window.__osc.
 interface OscLog {
-  starts: { freq: number; type: string }[];
+  starts: { freq: number; type: string; detune: number }[];
   stops: number;
 }
 
 async function spyOnOscillators(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const log = { starts: [] as { freq: number; type: string }[], stops: 0 };
+    const log = { starts: [] as { freq: number; type: string; detune: number }[], stops: 0 };
     (window as unknown as { __osc: typeof log }).__osc = log;
     const start = OscillatorNode.prototype.start;
     const stop = OscillatorNode.prototype.stop;
     OscillatorNode.prototype.start = function (this: OscillatorNode, ...args: [number?]) {
-      log.starts.push({ freq: this.frequency.value, type: this.type });
+      log.starts.push({ freq: this.frequency.value, type: this.type, detune: this.detune.value });
       return start.apply(this, args);
     };
     OscillatorNode.prototype.stop = function (this: OscillatorNode, ...args: [number?]) {
@@ -298,6 +298,63 @@ describe('sound', () => {
       await setTabHidden(app.page, false);
       await pressKeys(app.page, [67]);
       assert.deepEqual(await startedFreqs(app.page, 1), [392]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('volume is global: switching sounds keeps it and never marks a sound modified', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      await page.check('#soundEnabledCheckbox');
+      await page.fill('#soundVolumeInput', '35');
+      assert.equal(await page.textContent('#soundVolumeValue'), '35%');
+      await page.selectOption('#soundPresetSelect', 'Pad');
+      assert.equal(await page.inputValue('#soundVolumeInput'), '35');
+      const options = await page.$$eval('#soundPresetSelect option', os => os.map(o => o.textContent));
+      assert.ok(options.every(o => !o?.includes('modified')), options.join());
+
+      await page.reload();
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      assert.equal(await page.inputValue('#soundVolumeInput'), '35');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('unison and reverb ticks reveal their options, and unison stacks detuned voices', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await spyOnOscillators(page);
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      await page.check('#soundEnabledCheckbox');
+
+      // Chiptune ships with both off: options hidden.
+      await page.selectOption('#soundPresetSelect', 'Chiptune');
+      assert.equal(await page.isVisible('#soundUnisonOptions'), false);
+      assert.equal(await page.isVisible('#soundReverbOptions'), false);
+
+      await page.check('#soundReverbCheckbox');
+      assert.equal(await page.isVisible('#soundReverbOptions'), true);
+      assert.equal(await page.textContent('#soundReverbLengthMsValue'), '1500 ms');
+
+      await page.check('#soundUnisonCheckbox');
+      assert.equal(await page.isVisible('#soundUnisonOptions'), true);
+      await page.fill('#soundUnisonVoicesInput', '3');
+      await page.fill('#soundUnisonDetuneInput', '20');
+      assert.equal(await page.textContent('#soundUnisonDetuneValue'), '20 cents');
+      assert.equal((await page.$$eval('#soundPresetSelect option', os => os.map(o => o.textContent)))[5], 'Chiptune (modified)');
+      await closeSettings(page);
+
+      await pressKeys(page, [69]);
+      const starts = (await oscLog(page)).starts;
+      assert.deepEqual(starts.map(s => [s.freq, s.detune]), [[440, -20], [440, 0], [440, 20]]);
     } finally {
       await app.close();
     }
