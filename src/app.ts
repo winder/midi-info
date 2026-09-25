@@ -1007,7 +1007,7 @@ const soundKnobInputs = new Map(SOUND_KNOBS.map(knob => {
 }));
 
 function soundKnobText(knob: SoundKnob, n: number): string {
-  return knob === 'attackMs' || knob === 'releaseMs' ? `${n} ms` : `${n}%`;
+  return knob.endsWith('Ms') ? `${n} ms` : `${n}%`;
 }
 
 function getCurrentSound(): NamedSound {

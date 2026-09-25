@@ -4,11 +4,13 @@ import {
   BUILT_IN_SOUNDS,
   SOUND_KNOB_MAX,
   brightnessToCutoff,
+  envelopeLevelAt,
   isWaveform,
   midiToFrequency,
   parseNamedSound,
   parseNamedSounds,
   parseSoundKnob,
+  reverbMix,
   soundEqual,
   velocityGain,
   volumeToGain,
@@ -103,5 +105,53 @@ describe('named sounds', () => {
   test('soundEqual ignores the name', () => {
     assert.ok(soundEqual(organ, { ...organ, name: 'Copy' }));
     assert.equal(soundEqual(organ, { ...organ, brightness: organ.brightness + 1 }), false);
+  });
+
+  test('a sound saved before decay/sustain/reverb existed still loads, unchanged in sound', () => {
+    const legacy = { name: 'Mine', waveform: 'sine', volume: 50, brightness: 50, attackMs: 10, releaseMs: 100, velocity: 0 };
+    assert.deepEqual(parseNamedSound(legacy), { ...legacy, decayMs: 0, sustain: 100, reverb: 0 });
+    assert.deepEqual(parseNamedSounds([legacy]), [{ ...legacy, decayMs: 0, sustain: 100, reverb: 0 }]);
+  });
+
+  test('a built-in saved before the new knobs is replaced by its current version', () => {
+    const { decayMs, sustain, reverb, ...oldOrgan } = { ...organ, brightness: 10 };
+    assert.deepEqual(parseNamedSounds([oldOrgan]), [organ]);
+    // A current-format save keeps its edits.
+    assert.deepEqual(parseNamedSounds([{ ...organ, brightness: 10 }]), [{ ...organ, brightness: 10 }]);
+  });
+
+  test('the new knobs are range-checked like the rest', () => {
+    assert.equal(parseNamedSound({ ...organ, sustain: 101 }), null);
+    assert.equal(parseNamedSound({ ...organ, decayMs: 5001 }), null);
+    assert.equal(parseNamedSound({ ...organ, reverb: 1.5 }), null);
+  });
+});
+
+describe('reverbMix', () => {
+  test('0 is fully dry, and more reverb adds wet while only easing the dry', () => {
+    assert.deepEqual(reverbMix(0), { dry: 1, wet: 0 });
+    const full = reverbMix(100);
+    assert.ok(full.wet > 0.5 && full.dry >= 0.5);
+    assert.ok(reverbMix(60).wet > reverbMix(30).wet);
+  });
+});
+
+describe('envelopeLevelAt', () => {
+  const shape = { start: 1, attackEnd: 1.5, peak: 0.8, sustainLevel: 0.2, decayTau: 0.5 };
+
+  test('ramps up through the attack', () => {
+    assert.equal(envelopeLevelAt(shape, 0.5), 0);
+    assert.ok(Math.abs(envelopeLevelAt(shape, 1.25) - 0.4) < 1e-9);
+    assert.ok(Math.abs(envelopeLevelAt(shape, 1.5) - 0.8) < 1e-9);
+  });
+
+  test('decays exponentially toward sustain', () => {
+    // One time constant in, 1/e of the gap remains.
+    assert.ok(Math.abs(envelopeLevelAt(shape, 2) - (0.2 + 0.6 / Math.E)) < 1e-9);
+    assert.ok(Math.abs(envelopeLevelAt(shape, 20) - 0.2) < 1e-9);
+  });
+
+  test('with no decay it sits at sustain once the attack ends', () => {
+    assert.equal(envelopeLevelAt({ ...shape, decayTau: 0 }, 1.6), 0.2);
   });
 });
