@@ -88,9 +88,9 @@ describe('level curves', () => {
 describe('named sounds', () => {
   const organ = BUILT_IN_SOUNDS.find(t => t.name === 'Organ')!;
 
-  test('there are six built-ins with unique names, each of which parses', () => {
-    assert.equal(BUILT_IN_SOUNDS.length, 6);
-    assert.equal(new Set(BUILT_IN_SOUNDS.map(t => t.name)).size, 6);
+  test('there are fourteen built-ins with unique names, each of which parses', () => {
+    assert.equal(BUILT_IN_SOUNDS.length, 14);
+    assert.equal(new Set(BUILT_IN_SOUNDS.map(t => t.name)).size, 14);
     BUILT_IN_SOUNDS.forEach(t => assert.deepEqual(parseNamedSound(JSON.parse(JSON.stringify(t))), t));
   });
 
@@ -229,3 +229,4 @@ describe('filter envelope and vibrato helpers', () => {
     assert.equal(vibratoHz(10), 1);
   });
 });
+

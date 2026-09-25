@@ -82,6 +82,14 @@ const ADDED_KEYS = [...Object.keys(ADDED_KNOB_DEFAULTS), ...SOUND_TOGGLES];
 //              long reverb.
 //   Chiptune - instant and dry, with a short blip of decay and the wide,
 //              quick vibrato of an old game lead.
+//   Hoover      - the 90s rave hoover: a huge detuned, sweeping wall.
+//   Seasick     - slow, deep pitch sway, like a cassette left in a hot car.
+//   Cathedral   - everything melts into a cloud that takes seconds to die.
+//   Laser Harp  - zappy "pew" plucks with a long tail.
+//   Bees        - a buzzing, angry swarm; best with chords.
+//   Ghost Choir - breathy "ooh" pads that swell in from nowhere.
+//   Broken Toy  - an out-of-tune toy piano with a dying battery.
+//   Drunk Organ - an organ whose vibrato has had several too many.
 const FX_OFF = {
   filterEnv: false, filterEnvAmount: 50, filterEnvMs: 400,
   vibrato: false, vibratoRate: 55, vibratoDepth: 15, vibratoDelayMs: 300,
@@ -108,6 +116,32 @@ export const BUILT_IN_SOUNDS: NamedSound[] = [
     unison: true, unisonVoices: 5, unisonDetune: 18, reverbEnabled: true, reverb: 60, reverbLengthMs: 4000 },
   { name: 'Chiptune', waveform: 'square', brightness: 100, attackMs: 0, decayMs: 150, sustain: 60, releaseMs: 30, velocity: 0,
     ...FX_OFF, vibrato: true, vibratoRate: 60, vibratoDepth: 25, vibratoDelayMs: 250 },
+  // The outrageous ones. They started as hidden "bad" presets and turned
+  // out to be too much fun to hide.
+  { name: 'Hoover', waveform: 'sawtooth', brightness: 45, attackMs: 20, decayMs: 800, sustain: 80, releaseMs: 400, velocity: 30,
+    ...FX_OFF, filterEnv: true, filterEnvAmount: 100, filterEnvMs: 1500,
+    vibrato: true, vibratoRate: 50, vibratoDepth: 30, vibratoDelayMs: 200,
+    unison: true, unisonVoices: 7, unisonDetune: 50, reverbEnabled: true, reverb: 40, reverbLengthMs: 2500 },
+  { name: 'Seasick', waveform: 'triangle', brightness: 55, attackMs: 30, decayMs: 0, sustain: 100, releaseMs: 500, velocity: 30,
+    ...FX_OFF, vibrato: true, vibratoRate: 15, vibratoDepth: 100, vibratoDelayMs: 0,
+    unison: true, unisonVoices: 3, unisonDetune: 40, reverbEnabled: true, reverb: 50, reverbLengthMs: 3000 },
+  { name: 'Cathedral', waveform: 'sine', brightness: 50, attackMs: 400, decayMs: 0, sustain: 100, releaseMs: 5000, velocity: 30,
+    ...FX_OFF, reverbEnabled: true, reverb: 100, reverbLengthMs: 6000 },
+  { name: 'Laser Harp', waveform: 'square', brightness: 35, attackMs: 0, decayMs: 300, sustain: 0, releaseMs: 200, velocity: 50,
+    ...FX_OFF, filterEnv: true, filterEnvAmount: 100, filterEnvMs: 60,
+    reverbEnabled: true, reverb: 30, reverbLengthMs: 3000 },
+  { name: 'Bees', waveform: 'sawtooth', brightness: 100, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 100, velocity: 20,
+    ...FX_OFF, vibrato: true, vibratoRate: 120, vibratoDepth: 40, vibratoDelayMs: 0,
+    unison: true, unisonVoices: 7, unisonDetune: 50 },
+  { name: 'Ghost Choir', waveform: 'sine', brightness: 40, attackMs: 1500, decayMs: 0, sustain: 100, releaseMs: 2500, velocity: 20,
+    ...FX_OFF, vibrato: true, vibratoRate: 55, vibratoDepth: 20, vibratoDelayMs: 800,
+    unison: true, unisonVoices: 5, unisonDetune: 25, reverbEnabled: true, reverb: 80, reverbLengthMs: 5000 },
+  { name: 'Broken Toy', waveform: 'square', brightness: 70, attackMs: 0, decayMs: 120, sustain: 20, releaseMs: 150, velocity: 60,
+    ...FX_OFF, vibrato: true, vibratoRate: 90, vibratoDepth: 60, vibratoDelayMs: 0,
+    unison: true, unisonVoices: 2, unisonDetune: 35 },
+  { name: 'Drunk Organ', waveform: 'square', brightness: 45, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 80, velocity: 0,
+    ...FX_OFF, vibrato: true, vibratoRate: 70, vibratoDepth: 70, vibratoDelayMs: 0,
+    unison: true, unisonVoices: 2, unisonDetune: 50, reverbEnabled: true, reverb: 25, reverbLengthMs: 1500 },
 ];
 
 // Off by default: most MIDI keyboards make their own sound, and doubling it

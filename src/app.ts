@@ -160,27 +160,33 @@ function saveHoldDuration(ms: number): void {
 
 // ---- Sound (named sounds, like themes; see sound.ts) ----
 
-function cloneBuiltInSounds(): NamedSound[] {
-  return BUILT_IN_SOUNDS.map(t => ({ ...t }));
-}
-
-// Same merge as loadThemes: built-ins missing from the cookie are new
-// since it was saved (they can't be deleted), so append them.
+// The cookie holds only what can't be rebuilt: custom sounds and edited
+// built-ins. Every built-in is always present (they can't be deleted), so
+// the list is rebuilt as the built-ins in their usual order, each replaced
+// by its saved edit if there is one, then the custom sounds in saved order.
+// Storing all fourteen built-ins would overflow the ~4 KB cookie limit, and
+// the browser drops an oversized cookie silently.
 function loadSounds(): NamedSound[] {
   const raw = getCookie('soundPresets');
-  if (!raw) return cloneBuiltInSounds();
-  try {
-    const saved = parseNamedSounds(JSON.parse(raw));
-    if (!saved) return cloneBuiltInSounds();
-    const missing = BUILT_IN_SOUNDS.filter(b => !saved.some(t => t.name === b.name));
-    return missing.length ? [...saved, ...missing.map(t => ({ ...t }))] : saved;
-  } catch (e) {
-    return cloneBuiltInSounds();
+  let saved: NamedSound[] = [];
+  if (raw) {
+    try {
+      saved = parseNamedSounds(JSON.parse(raw)) ?? [];
+    } catch (e) {
+      saved = [];
+    }
   }
+  const builtIns = BUILT_IN_SOUNDS.map(b => ({ ...(saved.find(t => t.name === b.name) ?? b) }));
+  return [...builtIns, ...saved.filter(t => !isBuiltInSound(t.name))];
 }
 
 function saveSounds(): void {
-  setCookie('soundPresets', JSON.stringify(sounds), 365);
+  const worthSaving = sounds.filter(t => !isBuiltInSound(t.name) || isSoundModifiedFromBuiltIn(t));
+  if (worthSaving.length) {
+    setCookie('soundPresets', JSON.stringify(worthSaving), 365);
+  } else {
+    deleteCookie('soundPresets');
+  }
 }
 
 function loadSoundName(sounds: NamedSound[]): string {

@@ -227,12 +227,13 @@ describe('sound', () => {
   test('sounds work like themes: built-ins, modified flag, new/rename/delete', async () => {
     const app = await launchApp();
     const { page } = app;
+    const ALL_SOUNDS = ['Classic', 'Flute', 'Organ', 'Brass', 'Pad', 'Chiptune', 'Hoover', 'Seasick', 'Cathedral', 'Laser Harp', 'Bees', 'Ghost Choir', 'Broken Toy', 'Drunk Organ'];
     const optionTexts = () => page.$$eval('#soundPresetSelect option', os => os.map(o => o.textContent));
     try {
       await openSettings(page);
       await openSettingsTab(page, 'sound');
       await page.check('#soundEnabledCheckbox');
-      assert.deepEqual(await optionTexts(), ['Classic', 'Flute', 'Organ', 'Brass', 'Pad', 'Chiptune']);
+      assert.deepEqual(await optionTexts(), ALL_SOUNDS);
 
       // A built-in: loads its knobs, can't be renamed or deleted.
       await page.selectOption('#soundPresetSelect', 'Organ');
@@ -273,8 +274,8 @@ describe('sound', () => {
       assert.equal(await page.inputValue('#soundAttackMsInput'), '400');
 
       await page.click('#soundDeleteBtn');
-      assert.deepEqual(await optionTexts(), ['Classic', 'Flute', 'Organ', 'Brass', 'Pad', 'Chiptune']);
-      assert.equal(await page.inputValue('#soundPresetSelect'), 'Chiptune');
+      assert.deepEqual(await optionTexts(), ALL_SOUNDS);
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'Drunk Organ');
     } finally {
       await app.close();
     }
@@ -391,4 +392,5 @@ describe('sound', () => {
       await app.close();
     }
   });
+
 });
