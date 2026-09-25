@@ -642,16 +642,19 @@
   .black-key.highlighted {
     fill: color-mix(in srgb, var(--highlight-color) 55%, black);
   }
-  .white-key.active.highlighted {
+  /* Auto keys (the rest of a chord auto-played from one pressed key, see
+     soundOn in app.ts) share the active+highlighted blend, so they read
+     as sounding without being mistaken for the key actually pressed. */
+  .white-key.active.highlighted, .white-key.auto {
     fill: color-mix(in srgb, var(--active-key-color) 50%, var(--highlight-color));
   }
-  .black-key.active.highlighted {
+  .black-key.active.highlighted, .black-key.auto {
     fill: color-mix(in srgb, var(--active-key-color) 50%, color-mix(in srgb, var(--highlight-color) 55%, black));
   }
   /* Key fills switch to the SVG gradients built in ui.ts, each spanning the
      full keyboard width - one continuous gradient across all keys, not a
      gradient repeated within each individual key. The active+highlighted
-     combination is deliberately re-pinned to its flat blended color: it's
+     combination (and auto keys with it) is deliberately re-pinned to its flat blended color: it's
      a rare double state and blending two gradients there isn't worth it. */
   html.gradient-enabled .white-key {
     fill: url(#whiteKeyGradient);
@@ -669,10 +672,12 @@
   html.gradient-enabled .black-key.highlighted {
     fill: url(#highlightGradientBlack);
   }
-  html.gradient-enabled .white-key.active.highlighted {
+  html.gradient-enabled .white-key.active.highlighted,
+  html.gradient-enabled .white-key.auto {
     fill: color-mix(in srgb, var(--active-key-color) 50%, var(--highlight-color));
   }
-  html.gradient-enabled .black-key.active.highlighted {
+  html.gradient-enabled .black-key.active.highlighted,
+  html.gradient-enabled .black-key.auto {
     fill: color-mix(in srgb, var(--active-key-color) 50%, color-mix(in srgb, var(--highlight-color) 55%, black));
   }
   /* Glow effect: a small halo around each active key, drawn from a

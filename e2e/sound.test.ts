@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Page } from 'playwright';
-import { launchApp, openSettings, openSettingsTab, closeSettings, pressKeys, releaseKeys } from './fixtures';
+import { launchApp, openSettings, openSettingsTab, closeSettings, openHighlighter, pressKeys, releaseKeys, chordDisplayMain } from './fixtures';
 
 // Headless audio can't be listened to, so the page records what the synth
 // asks Web Audio for instead: every oscillator start (frequency, waveform)
@@ -33,6 +33,36 @@ function oscLog(page: Page): Promise<OscLog> {
   return page.evaluate(() => (window as unknown as { __osc: OscLog }).__osc);
 }
 
+// Started oscillator frequencies, rounded to 0.01 Hz, from index `from` on.
+async function startedFreqs(page: Page, from = 0): Promise<number[]> {
+  return (await oscLog(page)).starts.slice(from).map(s => Math.round(s.freq * 100) / 100);
+}
+
+// MIDI numbers of the key rects carrying `cls` (e.g. 'active', 'auto').
+async function midisWithClass(page: Page, cls: string): Promise<number[]> {
+  return page.$$eval(`rect.${cls}:not(.key-glow)`, rs =>
+    rs.map(r => Number((r as SVGElement).dataset.midi)).sort((a, b) => a - b));
+}
+
+// The fill a key rect with these classes would get, via a throwaway rect.
+function fillForClasses(page: Page, classes: string): Promise<string> {
+  return page.evaluate(cls => {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', cls);
+    document.getElementById('piano')!.appendChild(rect);
+    const fill = getComputedStyle(rect).fill;
+    rect.remove();
+    return fill;
+  }, classes);
+}
+
+async function enableSound(page: Page): Promise<void> {
+  await openSettings(page);
+  await openSettingsTab(page, 'sound');
+  await page.check('#soundEnabledCheckbox');
+  await closeSettings(page);
+}
+
 describe('sound', () => {
   test('is off by default: playing makes no sound and the knobs are disabled', async () => {
     const app = await launchApp();
@@ -41,6 +71,13 @@ describe('sound', () => {
       await pressKeys(app.page, [60]);
       await releaseKeys(app.page, [60]);
       assert.deepEqual((await oscLog(app.page)).starts, []);
+
+      // With sound off, a highlighted chord doesn't auto-play or light keys.
+      await openHighlighter(app.page);
+      await app.page.click('#chordRootButtons .root-btn:text-is("C")');
+      await pressKeys(app.page, [62]);
+      assert.deepEqual(await midisWithClass(app.page, 'auto'), []);
+      await releaseKeys(app.page, [62]);
 
       await openSettings(app.page);
       await openSettingsTab(app.page, 'sound');
@@ -96,6 +133,56 @@ describe('sound', () => {
       await app.page.click('#soundResetBtn');
       assert.equal(await app.page.inputValue('#soundReleaseMsInput'), '300');
       assert.equal(await app.page.isChecked('#soundEnabledCheckbox'), true);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('picking a chord in the highlighter plays it', async () => {
+    const app = await launchApp();
+    try {
+      await spyOnOscillators(app.page);
+      await enableSound(app.page);
+      await openHighlighter(app.page);
+      await app.page.click('#chordRootButtons .root-btn:text-is("C")');
+      assert.deepEqual(await startedFreqs(app.page), [261.63, 329.63, 392]);
+
+      const before = (await oscLog(app.page)).starts.length;
+      await app.page.selectOption('#chordTypeSelect', '-');
+      assert.deepEqual(await startedFreqs(app.page, before), [261.63, 311.13, 392]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('with a chord highlighted, a played key sounds that chord rooted on it', async () => {
+    const app = await launchApp();
+    try {
+      await spyOnOscillators(app.page);
+      await enableSound(app.page);
+      await openHighlighter(app.page);
+      await app.page.click('#chordRootButtons .root-btn:text-is("C")');
+      // Let the selection preview finish so its stops aren't counted below.
+      await app.page.waitForTimeout(800);
+      const before = await oscLog(app.page);
+
+      // D4: D major (the default chord type), stacked up from the key.
+      await pressKeys(app.page, [62]);
+      assert.deepEqual(await startedFreqs(app.page, before.starts.length), [293.66, 369.99, 440]);
+      // The pressed key is active; the rest of the chord shows as auto keys,
+      // and the readout names the whole chord.
+      assert.deepEqual(await midisWithClass(app.page, 'active'), [62]);
+      assert.deepEqual(await midisWithClass(app.page, 'auto'), [66, 69]);
+      assert.equal(await chordDisplayMain(app.page), 'D');
+      // Auto keys use the active+highlighted blend, black and white alike.
+      for (const [midi, base] of [[66, 'black-key'], [69, 'white-key']] as const) {
+        const autoFill = await app.page.$eval(`rect.auto[data-midi="${midi}"]`, el => getComputedStyle(el).fill);
+        assert.equal(autoFill, await fillForClasses(app.page, `${base} active highlighted`));
+      }
+
+      await releaseKeys(app.page, [62]);
+      assert.equal((await oscLog(app.page)).stops - before.stops, 3);
+      assert.deepEqual(await midisWithClass(app.page, 'auto'), []);
     } finally {
       await app.close();
     }

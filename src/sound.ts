@@ -96,6 +96,8 @@ const VOICE_LEVEL = 0.3;
 // instant jump in level is an audible click.
 const MIN_RAMP_S = 0.005;
 
+export type VoiceKey = number | string;
+
 interface Voice {
   osc: OscillatorNode;
   env: GainNode;
@@ -105,7 +107,10 @@ export class Synth {
   private ctx: AudioContext | null = null;
   private filter: BiquadFilterNode | null = null;
   private master: GainNode | null = null;
-  private voices = new Map<number, Voice>();
+  // Keyed by the caller's voice key, which defaults to the MIDI note. A
+  // different key lets the same pitch sound twice, e.g. a tone shared by
+  // two overlapping chords, each released on its own.
+  private voices = new Map<VoiceKey, Voice>();
 
   // onStateChange fires whenever the audio context starts, suspends or is
   // first created, so the UI can offer to unlock sound (see isRunning).
@@ -141,11 +146,11 @@ export class Synth {
     if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
   }
 
-  noteOn(midi: number, velocity: number): void {
+  noteOn(midi: number, velocity: number, key: VoiceKey = midi): void {
     if (!this.settings.enabled) return;
     const ctx = this.ensureContext();
     if (!ctx || !this.filter) return;
-    this.release(midi, MIN_RAMP_S);
+    this.release(key, MIN_RAMP_S);
 
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
@@ -158,21 +163,21 @@ export class Synth {
     env.gain.linearRampToValueAtTime(peak, now + Math.max(this.settings.attackMs / 1000, MIN_RAMP_S));
     osc.connect(env).connect(this.filter);
     osc.start(now);
-    this.voices.set(midi, { osc, env });
+    this.voices.set(key, { osc, env });
   }
 
-  noteOff(midi: number): void {
-    this.release(midi, this.settings.releaseMs / 1000);
+  noteOff(key: VoiceKey): void {
+    this.release(key, this.settings.releaseMs / 1000);
   }
 
   allOff(): void {
-    Array.from(this.voices.keys()).forEach(midi => this.release(midi, MIN_RAMP_S));
+    Array.from(this.voices.keys()).forEach(key => this.release(key, MIN_RAMP_S));
   }
 
-  private release(midi: number, seconds: number): void {
-    const voice = this.voices.get(midi);
+  private release(key: VoiceKey, seconds: number): void {
+    const voice = this.voices.get(key);
     if (!voice || !this.ctx) return;
-    this.voices.delete(midi);
+    this.voices.delete(key);
     const now = this.ctx.currentTime;
     const end = now + Math.max(seconds, MIN_RAMP_S);
     const gain = voice.env.gain;

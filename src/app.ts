@@ -22,6 +22,7 @@ import {
   SoundKnob,
   SoundSettings,
   Synth,
+  VoiceKey,
   isWaveform,
   parseSoundKnob,
 } from './sound';
@@ -388,7 +389,7 @@ const isMouseDown = trackMouseIsDown();
 // regardless of what is playing or where the piano is scrolled.
 function refreshOffscreenIndicators(): void {
   if (showOffscreenArrows) {
-    updateOffscreenIndicators(pianoContainer, piano, activeNotes, offscreenLeftEl, offscreenRightEl);
+    updateOffscreenIndicators(pianoContainer, piano, soundingNotes(), offscreenLeftEl, offscreenRightEl);
   } else {
     offscreenLeftEl.hidden = true;
     offscreenRightEl.hidden = true;
@@ -416,13 +417,60 @@ function refreshSoundUnlock(): void {
 
 const synth = new Synth(soundSettings, refreshSoundUnlock);
 
+// While sound is on and the highlighter shows a chord, each key played
+// sounds that chord type rooted on the key instead of the lone note. The
+// chord's other keys light up as auto keys and count toward the chord
+// readout. The voicing is fixed at note-on, so changing the highlight
+// mid-hold still releases what's sounding.
+const soundingVoicings = new Map<number, number[]>();
+
+// Every note sounding: the held keys plus their auto-played chord tones.
+function soundingNotes(): Set<number> {
+  const notes = new Set(activeNotes);
+  soundingVoicings.forEach(voicing => voicing.forEach(m => notes.add(m)));
+  return notes;
+}
+
+// The auto-played chord tones that aren't themselves held keys.
+function autoNotes(): Set<number> {
+  const notes = soundingNotes();
+  activeNotes.forEach(m => notes.delete(m));
+  return notes;
+}
+
+function chordVoiceKey(pressed: number, midi: number): VoiceKey {
+  return `${pressed}:${midi}`;
+}
+
+function soundOn(midi: number, velocity: number): void {
+  soundOff(midi);
+  const chord = soundSettings.enabled && highlightMode === 'chord' ? HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol) : undefined;
+  const voicing = chord ? buildChordVoicing(midi % 12, chord.voicing, midi) : [midi];
+  soundingVoicings.set(midi, voicing);
+  voicing.forEach(m => synth.noteOn(m, velocity, chordVoiceKey(midi, m)));
+}
+
+function soundOff(midi: number): void {
+  soundingVoicings.get(midi)?.forEach(m => synth.noteOff(chordVoiceKey(midi, m)));
+  soundingVoicings.delete(midi);
+}
+
+// Sounds a chord briefly without touching the keyboard or readout: the
+// Sound tab's test chord, and a chord picked in the highlighter.
+const PREVIEW_MS = 700;
+function previewChord(midis: number[]): void {
+  synth.resume();
+  midis.forEach(m => synth.noteOn(m, MOUSE_VELOCITY, `preview:${m}`));
+  setTimeout(() => midis.forEach(m => synth.noteOff(`preview:${m}`)), PREVIEW_MS);
+}
+
 function render(): void {
   renderKeys();
   renderChord();
 }
 
 function renderKeys(): void {
-  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels);
+  renderKeyboard(piano, activeNotes, currentNoteNames, computeHighlightedNotes(), showNoteLabels, autoNotes());
   refreshOffscreenIndicators();
 }
 
@@ -440,9 +488,9 @@ function noteOn(midi: number, source: NoteSource, velocity: number = MOUSE_VELOC
   analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
-  synth.noteOn(midi, velocity);
+  soundOn(midi, velocity);
   renderKeys();
-  noteSettler.update(activeNotes, 'on');
+  noteSettler.update(soundingNotes(), 'on');
 }
 
 function noteOff(midi: number): void {
@@ -451,9 +499,9 @@ function noteOff(midi: number): void {
     return;
   }
   activeNotes.delete(midi);
-  synth.noteOff(midi);
+  soundOff(midi);
   renderKeys();
-  noteSettler.update(activeNotes, 'off');
+  noteSettler.update(soundingNotes(), 'off');
 }
 
 function setSustain(isDown: boolean): void {
@@ -461,11 +509,11 @@ function setSustain(isDown: boolean): void {
   if (!isDown) {
     sustainedNotes.forEach(midi => {
       activeNotes.delete(midi);
-      synth.noteOff(midi);
+      soundOff(midi);
     });
     sustainedNotes.clear();
     renderKeys();
-    noteSettler.update(activeNotes, 'off');
+    noteSettler.update(soundingNotes(), 'off');
   }
 }
 
@@ -851,7 +899,7 @@ noteLabelsCheckbox.addEventListener('change', () => {
 // ---- Chord smoothing and hold ----
 
 function reconfigureSettler(): void {
-  noteSettler.configure(smoothingDelays(), holdMs(), activeNotes);
+  noteSettler.configure(smoothingDelays(), holdMs(), soundingNotes());
 }
 
 function syncSmoothingInputs(): void {
@@ -968,17 +1016,8 @@ soundKnobInputs.forEach(({ input }, knob) => {
   });
 });
 
-// A C major triad, held briefly, so the knobs can be tried without a
-// keyboard. Plays through the synth only; the keyboard and chord display
-// don't react.
-const TEST_CHORD = [60, 64, 67];
-soundTestBtn.addEventListener('click', () => {
-  synth.resume();
-  TEST_CHORD.forEach(midi => synth.noteOn(midi, MOUSE_VELOCITY));
-  setTimeout(() => TEST_CHORD.forEach(midi => {
-    if (!activeNotes.has(midi)) synth.noteOff(midi);
-  }), 700);
-});
+// A C major triad, so the knobs can be tried without a keyboard.
+soundTestBtn.addEventListener('click', () => previewChord([60, 64, 67]));
 
 soundResetBtn.addEventListener('click', () => {
   updateSoundSettings({ ...DEFAULT_SOUND, enabled: soundSettings.enabled });
@@ -1135,11 +1174,18 @@ function selectScaleType(name: string): void {
   render();
 }
 
+// Picking a chord (root or type) plays it, so you hear what's highlighted.
+function previewHighlightedChord(): void {
+  if (highlightMode !== 'chord') return;
+  previewChord(Array.from(computeHighlightedNotes()));
+}
+
 function selectChordRoot(index: number): void {
   highlightMode = highlightMode === 'chord' && chordRootIndex === index ? null : 'chord';
   chordRootIndex = index;
   refreshHighlighterUI();
   render();
+  previewHighlightedChord();
 }
 
 function selectChordType(symbol: string): void {
@@ -1147,6 +1193,7 @@ function selectChordType(symbol: string): void {
   if (chordRootIndex !== null) highlightMode = 'chord';
   refreshHighlighterUI();
   render();
+  previewHighlightedChord();
 }
 
 function refreshHighlighterUI(): void {

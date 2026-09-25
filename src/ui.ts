@@ -309,6 +309,10 @@ export function updateOffscreenIndicators(
   rightEl.style.top = `${top}px`;
 }
 
+// autoNotes are keys sounding as part of an auto-played chord (a pressed
+// key voicing the highlighter's chord) without being pressed themselves.
+// They are drawn like active keys, but in the highlight color.
+//
 // Highlights the active keys and, when showNoteLabels is true, floats a
 // note-name label above each one. highlightedNotes marks keys lit up by
 // the Highlighter (scale/chord study aid), independent of - and
@@ -319,19 +323,24 @@ export function renderKeyboard(
   activeNotes: Set<number>,
   noteNames: string[],
   highlightedNotes: Set<number> = new Set(),
-  showNoteLabels = true
+  showNoteLabels = true,
+  autoNotes: Set<number> = new Set()
 ): void {
+  function stateClasses(midi: number): string {
+    if (activeNotes.has(midi)) return highlightedNotes.has(midi) ? ' active highlighted' : ' active';
+    if (autoNotes.has(midi)) return ' auto';
+    return highlightedNotes.has(midi) ? ' highlighted' : '';
+  }
+  const sounding = new Set([...activeNotes, ...autoNotes]);
+
   piano.rectByMidi.forEach((rect, midi) => {
     const base = rect.classList.contains('black-key') ? 'black-key' : 'white-key';
-    let cls = base;
-    if (activeNotes.has(midi)) cls += ' active';
-    if (highlightedNotes.has(midi)) cls += ' highlighted';
-    rect.setAttribute('class', cls);
+    rect.setAttribute('class', base + stateClasses(midi));
   });
 
   while (piano.labelGroup.firstChild) piano.labelGroup.removeChild(piano.labelGroup.firstChild);
   if (showNoteLabels) {
-    activeNotes.forEach(midi => {
+    sounding.forEach(midi => {
       const key = piano.keys.find(k => k.midi === midi);
       if (!key) return;
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -355,7 +364,7 @@ export function renderKeyboard(
   while (piano.whiteGlowGroup.firstChild) piano.whiteGlowGroup.removeChild(piano.whiteGlowGroup.firstChild);
   while (piano.blackGlowGroup.firstChild) piano.blackGlowGroup.removeChild(piano.blackGlowGroup.firstChild);
   if (document.documentElement.classList.contains('glow-enabled')) {
-    activeNotes.forEach(midi => {
+    sounding.forEach(midi => {
       const key = piano.keys.find(k => k.midi === midi);
       if (!key) return;
       const glow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -363,9 +372,7 @@ export function renderKeyboard(
       glow.setAttribute('y', String(piano.dims.labelAreaH));
       glow.setAttribute('width', String(key.width));
       glow.setAttribute('height', String(key.height));
-      let cls = (key.isBlack ? 'black-key' : 'white-key') + ' active key-glow';
-      if (highlightedNotes.has(midi)) cls += ' highlighted';
-      glow.setAttribute('class', cls);
+      glow.setAttribute('class', (key.isBlack ? 'black-key' : 'white-key') + stateClasses(midi) + ' key-glow');
       (key.isBlack ? piano.blackGlowGroup : piano.whiteGlowGroup).appendChild(glow);
     });
   }
