@@ -88,7 +88,7 @@ const ADDED_KEYS = [...Object.keys(ADDED_KNOB_DEFAULTS), ...SOUND_TOGGLES];
 //   Laser Harp  - zappy "pew" plucks with a long tail.
 //   Bees        - a buzzing, angry swarm; best with chords.
 //   Ghost Choir - breathy "ooh" pads that swell in from nowhere.
-//   Broken Toy  - an out-of-tune toy piano with a dying battery.
+//   Broken Toy  - an out-of-tune toy piano: plinky, detuned, no vibrato.
 //   Drunk Organ - an organ whose vibrato has had several too many.
 const FX_OFF = {
   filterEnv: false, filterEnvAmount: 50, filterEnvMs: 400,
@@ -137,7 +137,9 @@ export const BUILT_IN_SOUNDS: NamedSound[] = [
     ...FX_OFF, vibrato: true, vibratoRate: 55, vibratoDepth: 20, vibratoDelayMs: 800,
     unison: true, unisonVoices: 5, unisonDetune: 25, reverbEnabled: true, reverb: 80, reverbLengthMs: 5000 },
   { name: 'Broken Toy', waveform: 'square', brightness: 70, attackMs: 0, decayMs: 120, sustain: 20, releaseMs: 150, velocity: 60,
-    ...FX_OFF, vibrato: true, vibratoRate: 90, vibratoDepth: 60, vibratoDelayMs: 0,
+    // Vibrato is off (it sounded better without), but its old settings are
+    // kept so ticking Vibrato brings back the original wobble.
+    ...FX_OFF, vibrato: false, vibratoRate: 90, vibratoDepth: 60, vibratoDelayMs: 0,
     unison: true, unisonVoices: 2, unisonDetune: 35 },
   { name: 'Drunk Organ', waveform: 'square', brightness: 45, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 80, velocity: 0,
     ...FX_OFF, vibrato: true, vibratoRate: 70, vibratoDepth: 70, vibratoDelayMs: 0,
