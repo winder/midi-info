@@ -408,6 +408,7 @@
     border-left: 2px solid color-mix(in srgb, var(--font-color) 15%, transparent);
   }
   #smoothingAdvanced[hidden], #holdDurationRow[hidden],
+  #soundFilterEnvOptions[hidden], #soundVibratoOptions[hidden],
   #soundUnisonOptions[hidden], #soundReverbOptions[hidden] {
     display: none;
   }
@@ -883,6 +884,17 @@
                   <label for="soundReleaseMsInput" title="How long (0-5000 ms) a note takes to fade out after the key (or sustain pedal) comes up.">Release <span class="sound-knob"><input type="range" id="soundReleaseMsInput" min="0" max="5000" step="10"><output id="soundReleaseMsValue" for="soundReleaseMsInput"></output></span></label>
                   <label for="soundVelocityInput" title="How much playing harder makes a note louder. 0% plays every note at the same level; 100% follows your touch fully. Clicked keys count as a firm press.">Velocity sensitivity <span class="sound-knob"><input type="range" id="soundVelocityInput" min="0" max="100" step="1"><output id="soundVelocityValue" for="soundVelocityInput"></output></span></label>
                   <h4>Effects</h4>
+                  <label for="soundFilterEnvCheckbox" title="Start each note brighter and let it mellow back to the Brightness setting. Gives plucks, pianos and brass their bite.">Filter envelope <input type="checkbox" id="soundFilterEnvCheckbox"></label>
+                  <div id="soundFilterEnvOptions" class="settings-subgroup" hidden>
+                    <label for="soundFilterEnvAmountInput" title="How much brighter each note starts. 100% opens the filter five octaves above Brightness.">Amount <span class="sound-knob"><input type="range" id="soundFilterEnvAmountInput" min="0" max="100" step="1"><output id="soundFilterEnvAmountValue" for="soundFilterEnvAmountInput"></output></span></label>
+                    <label for="soundFilterEnvMsInput" title="How long (10-5000 ms) the brightness takes to settle back. Short is a snappy pluck or brass blat; long is a slow sweep.">Time <span class="sound-knob"><input type="range" id="soundFilterEnvMsInput" min="10" max="5000" step="10"><output id="soundFilterEnvMsValue" for="soundFilterEnvMsInput"></output></span></label>
+                  </div>
+                  <label for="soundVibratoCheckbox" title="Wobble the pitch of each note up and down, like a singer, violinist or flute player.">Vibrato <input type="checkbox" id="soundVibratoCheckbox"></label>
+                  <div id="soundVibratoOptions" class="settings-subgroup" hidden>
+                    <label for="soundVibratoRateInput" title="How fast the pitch wobbles (1-12 Hz). Around 5-6 Hz is natural; faster sounds nervous or electronic.">Rate <span class="sound-knob"><input type="range" id="soundVibratoRateInput" min="10" max="120" step="1"><output id="soundVibratoRateValue" for="soundVibratoRateInput"></output></span></label>
+                    <label for="soundVibratoDepthInput" title="How far the pitch swings either way, in cents (hundredths of a semitone). 10-20 is subtle; 50 or more is a wide warble.">Depth <span class="sound-knob"><input type="range" id="soundVibratoDepthInput" min="0" max="100" step="1"><output id="soundVibratoDepthValue" for="soundVibratoDepthInput"></output></span></label>
+                    <label for="soundVibratoDelayMsInput" title="How long (0-2000 ms) the vibrato takes to fade in after a note starts. Players usually start a note steady and add vibrato as it's held.">Delay <span class="sound-knob"><input type="range" id="soundVibratoDelayMsInput" min="0" max="2000" step="10"><output id="soundVibratoDelayMsValue" for="soundVibratoDelayMsInput"></output></span></label>
+                  </div>
                   <label for="soundUnisonCheckbox" title="Stack several slightly detuned copies of each note, spread left to right. Thickens and widens the sound, like a section instead of a soloist.">Unison <input type="checkbox" id="soundUnisonCheckbox"></label>
                   <div id="soundUnisonOptions" class="settings-subgroup" hidden>
                     <label for="soundUnisonVoicesInput" title="How many copies of each note play (2-7). More is thicker and wider.">Voices <span class="sound-knob"><input type="range" id="soundUnisonVoicesInput" min="2" max="7" step="1"><output id="soundUnisonVoicesValue" for="soundUnisonVoicesInput"></output></span></label>

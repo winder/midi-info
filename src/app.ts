@@ -33,6 +33,7 @@ import {
   parseSoundKnob,
   parseVolume,
   soundEqual,
+  vibratoHz,
 } from './sound';
 import {
   ChordFormula,
@@ -1025,7 +1026,8 @@ const soundKnobInputs = new Map(SOUND_KNOBS.map(knob => {
 
 function soundKnobText(knob: SoundKnob, n: number): string {
   if (knob === 'unisonVoices') return String(n);
-  if (knob === 'unisonDetune') return `${n} cents`;
+  if (knob === 'unisonDetune' || knob === 'vibratoDepth') return `${n} cents`;
+  if (knob === 'vibratoRate') return `${vibratoHz(n).toFixed(1)} Hz`;
   return knob.endsWith('Ms') ? `${n} ms` : `${n}%`;
 }
 
@@ -1034,6 +1036,14 @@ const soundVolumeValue = document.getElementById('soundVolumeValue') as HTMLOutp
 
 // Each effect's tick and the options it reveals, like Hold last chord.
 const soundToggleInputs = new Map<SoundToggle, { checkbox: HTMLInputElement; options: HTMLElement }>([
+  ['filterEnv', {
+    checkbox: document.getElementById('soundFilterEnvCheckbox') as HTMLInputElement,
+    options: document.getElementById('soundFilterEnvOptions') as HTMLElement,
+  }],
+  ['vibrato', {
+    checkbox: document.getElementById('soundVibratoCheckbox') as HTMLInputElement,
+    options: document.getElementById('soundVibratoOptions') as HTMLElement,
+  }],
   ['unison', {
     checkbox: document.getElementById('soundUnisonCheckbox') as HTMLInputElement,
     options: document.getElementById('soundUnisonOptions') as HTMLElement,

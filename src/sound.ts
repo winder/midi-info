@@ -3,8 +3,9 @@
 // DOM- and audio-free so it can be unit-tested in node.
 //
 // Signal path: per held note, one oscillator (or a detuned, stereo-spread
-// stack of them with Unison) into an envelope gain (attack/decay/sustain/
-// release). All notes sum into a shared lowpass filter (Brightness) and a
+// stack of them with Unison, all wobbled by a shared Vibrato LFO) into the
+// note's own lowpass filter (Brightness, swept by the Filter envelope) and
+// its envelope gain (attack/decay/sustain/release). All notes sum into a
 // master gain (the global Volume). From there a dry path and a convolution
 // reverb meet in a compressor used as a limiter, so a big chord never clips.
 
@@ -14,6 +15,7 @@ export const WAVEFORMS: Waveform[] = ['sine', 'triangle', 'square', 'sawtooth'];
 // A sound's numeric settings, each an integer within SOUND_KNOB_RANGE.
 export type SoundKnob =
   'brightness' | 'attackMs' | 'decayMs' | 'sustain' | 'releaseMs' | 'velocity' |
+  'filterEnvAmount' | 'filterEnvMs' | 'vibratoRate' | 'vibratoDepth' | 'vibratoDelayMs' |
   'unisonVoices' | 'unisonDetune' | 'reverb' | 'reverbLengthMs';
 
 export const SOUND_KNOB_RANGE: Record<SoundKnob, [min: number, max: number]> = {
@@ -23,6 +25,12 @@ export const SOUND_KNOB_RANGE: Record<SoundKnob, [min: number, max: number]> = {
   sustain: [0, 100],
   releaseMs: [0, 5000],
   velocity: [0, 100],
+  filterEnvAmount: [0, 100],
+  filterEnvMs: [10, 5000],
+  // In tenths of a hertz, so the slider can pick 5.5 Hz with whole numbers.
+  vibratoRate: [10, 120],
+  vibratoDepth: [0, 100],
+  vibratoDelayMs: [0, 2000],
   unisonVoices: [2, 7],
   unisonDetune: [0, 50],
   reverb: [0, 100],
@@ -33,8 +41,8 @@ export const SOUND_KNOBS = Object.keys(SOUND_KNOB_RANGE) as SoundKnob[];
 
 // A sound's on/off effects. Each one's options (e.g. unisonVoices) are kept
 // while it's off, so switching it back on restores them.
-export type SoundToggle = 'unison' | 'reverbEnabled';
-export const SOUND_TOGGLES: SoundToggle[] = ['unison', 'reverbEnabled'];
+export type SoundToggle = 'filterEnv' | 'vibrato' | 'unison' | 'reverbEnabled';
+export const SOUND_TOGGLES: SoundToggle[] = ['filterEnv', 'vibrato', 'unison', 'reverbEnabled'];
 
 // A named sound: the tone, every knob and every effect toggle. The Sound tab
 // edits these the way the Themes tab edits color sets (built-ins, custom
@@ -57,30 +65,49 @@ export interface SoundSettings extends NamedSound {
 // defaults to whether the saved sound had any reverb (see parseNamedSound).
 const ADDED_KNOB_DEFAULTS: Partial<Record<SoundKnob, number>> = {
   decayMs: 0, sustain: 100, reverb: 0, unisonVoices: 3, unisonDetune: 12, reverbLengthMs: 2200,
+  filterEnvAmount: 50, filterEnvMs: 400, vibratoRate: 55, vibratoDepth: 15, vibratoDelayMs: 300,
 };
 const ADDED_KEYS = [...Object.keys(ADDED_KNOB_DEFAULTS), ...SOUND_TOGGLES];
 
 // Built-in sounds, always present: they can be edited (and reset) but not
 // renamed or deleted. The first is the default.
-//   Classic  - electric-piano-ish: quick attack, rings down to a low sustain.
-//   Flute    - soft sine that eases in and holds, a little air from reverb.
-//   Organ    - no decay (an organ doesn't fade), a gentle 2-voice chorus.
-//   Brass    - sawtooth section: 3 detuned voices that swell, dip and hold.
-//   Pad      - slow, dark and wide: 5 voices and a long reverb.
-//   Chiptune - instant and dry, with a short blip of decay.
+//   Classic  - electric-piano-ish: a bright, bell-like strike that mellows
+//              as it rings down to a low sustain.
+//   Flute    - soft sine that eases in, with vibrato that arrives late.
+//   Organ    - no decay (an organ doesn't fade), 2-voice chorus, and a
+//              fast shallow vibrato like an organ's scanner.
+//   Brass    - 3-voice sawtooth section with a filter "blat" on each note
+//              and a delayed vibrato.
+//   Pad      - slow, dark and wide: 5 voices, a slow filter sweep, and a
+//              long reverb.
+//   Chiptune - instant and dry, with a short blip of decay and the wide,
+//              quick vibrato of an old game lead.
+const FX_OFF = {
+  filterEnv: false, filterEnvAmount: 50, filterEnvMs: 400,
+  vibrato: false, vibratoRate: 55, vibratoDepth: 15, vibratoDelayMs: 300,
+  unison: false, unisonVoices: 3, unisonDetune: 12,
+  reverbEnabled: false, reverb: 20, reverbLengthMs: 2000,
+};
+
 export const BUILT_IN_SOUNDS: NamedSound[] = [
   { name: 'Classic', waveform: 'triangle', brightness: 60, attackMs: 5, decayMs: 1500, sustain: 35, releaseMs: 300, velocity: 60,
-    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: true, reverb: 20, reverbLengthMs: 1800 },
+    ...FX_OFF, filterEnv: true, filterEnvAmount: 40, filterEnvMs: 800,
+    reverbEnabled: true, reverb: 20, reverbLengthMs: 1800 },
   { name: 'Flute', waveform: 'sine', brightness: 45, attackMs: 80, decayMs: 300, sustain: 85, releaseMs: 250, velocity: 40,
-    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: true, reverb: 30, reverbLengthMs: 2200 },
+    ...FX_OFF, vibrato: true, vibratoRate: 50, vibratoDepth: 12, vibratoDelayMs: 400,
+    reverbEnabled: true, reverb: 30, reverbLengthMs: 2200 },
   { name: 'Organ', waveform: 'square', brightness: 40, attackMs: 10, decayMs: 0, sustain: 100, releaseMs: 60, velocity: 0,
+    ...FX_OFF, vibrato: true, vibratoRate: 65, vibratoDepth: 6, vibratoDelayMs: 0,
     unison: true, unisonVoices: 2, unisonDetune: 6, reverbEnabled: true, reverb: 25, reverbLengthMs: 1500 },
   { name: 'Brass', waveform: 'sawtooth', brightness: 55, attackMs: 60, decayMs: 400, sustain: 70, releaseMs: 200, velocity: 70,
+    ...FX_OFF, filterEnv: true, filterEnvAmount: 60, filterEnvMs: 250,
+    vibrato: true, vibratoRate: 55, vibratoDepth: 10, vibratoDelayMs: 500,
     unison: true, unisonVoices: 3, unisonDetune: 10, reverbEnabled: true, reverb: 20, reverbLengthMs: 1600 },
   { name: 'Pad', waveform: 'sawtooth', brightness: 30, attackMs: 700, decayMs: 2000, sustain: 80, releaseMs: 1800, velocity: 20,
+    ...FX_OFF, filterEnv: true, filterEnvAmount: 30, filterEnvMs: 2500,
     unison: true, unisonVoices: 5, unisonDetune: 18, reverbEnabled: true, reverb: 60, reverbLengthMs: 4000 },
   { name: 'Chiptune', waveform: 'square', brightness: 100, attackMs: 0, decayMs: 150, sustain: 60, releaseMs: 30, velocity: 0,
-    unison: false, unisonVoices: 3, unisonDetune: 12, reverbEnabled: false, reverb: 20, reverbLengthMs: 1500 },
+    ...FX_OFF, vibrato: true, vibratoRate: 60, vibratoDepth: 25, vibratoDelayMs: 250 },
 ];
 
 // Off by default: most MIDI keyboards make their own sound, and doubling it
@@ -135,7 +162,9 @@ export function parseNamedSound(raw: unknown): NamedSound | null {
     if (typeof n !== 'number' || !Number.isInteger(n) || n < min || n > max) return null;
     sound[knob] = n;
   }
-  const toggleDefaults: Record<SoundToggle, boolean> = { unison: false, reverbEnabled: sound.reverb > 0 };
+  const toggleDefaults: Record<SoundToggle, boolean> = {
+    filterEnv: false, vibrato: false, unison: false, reverbEnabled: sound.reverb > 0,
+  };
   for (const toggle of SOUND_TOGGLES) {
     const b = t[toggle] === undefined ? toggleDefaults[toggle] : t[toggle];
     if (typeof b !== 'boolean') return null;
@@ -188,6 +217,20 @@ const MAX_CUTOFF_HZ = 18000;
 
 export function brightnessToCutoff(brightness: number): number {
   return MIN_CUTOFF_HZ * Math.pow(MAX_CUTOFF_HZ / MIN_CUTOFF_HZ, brightness / 100);
+}
+
+// Filter envelope: where a note's cutoff starts before settling back to
+// Brightness. Amount 100 opens it up to FILTER_ENV_OCTAVES octaves higher,
+// capped at the top of the Brightness range.
+const FILTER_ENV_OCTAVES = 5;
+
+export function filterEnvStartCutoff(brightness: number, amount: number): number {
+  return Math.min(brightnessToCutoff(brightness) * Math.pow(2, FILTER_ENV_OCTAVES * amount / 100), MAX_CUTOFF_HZ);
+}
+
+// The Vibrato Rate knob is in tenths of a hertz.
+export function vibratoHz(rate: number): number {
+  return rate / 10;
 }
 
 // Volume 0..100 to a master gain. Squared because loudness is perceived
@@ -256,13 +299,17 @@ export type VoiceKey = number | string;
 
 interface Voice {
   oscs: OscillatorNode[];
+  filter: BiquadFilterNode;
   env: GainNode;
   shape: EnvelopeShape;
+  // The vibrato LFO and the gain that scales it to cents; null when the
+  // note started with vibrato off.
+  lfo: OscillatorNode | null;
+  lfoDepth: GainNode | null;
 }
 
 export class Synth {
   private ctx: AudioContext | null = null;
-  private filter: BiquadFilterNode | null = null;
   private master: GainNode | null = null;
   private dry: GainNode | null = null;
   private wet: GainNode | null = null;
@@ -291,22 +338,27 @@ export class Synth {
       this.allOff();
       return;
     }
-    if (!this.ctx || !this.filter || !this.master) return;
+    if (!this.ctx || !this.master) return;
     const now = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(volumeToGain(settings.volume), now, 0.02);
-    this.filter.frequency.setTargetAtTime(brightnessToCutoff(settings.brightness), now, 0.02);
     const mix = reverbMix(settings.reverb, settings.reverbEnabled);
     this.dry?.gain.setTargetAtTime(mix.dry, now, 0.02);
     this.wet?.gain.setTargetAtTime(mix.wet, now, 0.02);
     this.updateImpulse();
-    // Tone and detune follow live on held notes; a change in the number of
-    // unison voices only applies from the next note.
+    // Tone, brightness, detune and vibrato rate/depth follow live on held
+    // notes (a brightness change overrides a filter sweep in progress).
+    // Turning an effect on or off, or the number of unison voices, only
+    // applies from the next note.
+    const cutoff = brightnessToCutoff(settings.brightness);
     this.voices.forEach(voice => {
       const detunes = unisonDetunes(voice.oscs.length, settings.unisonDetune);
       voice.oscs.forEach((osc, i) => {
         osc.type = settings.waveform;
         if (voice.oscs.length > 1) osc.detune.setTargetAtTime(detunes[i], now, 0.02);
       });
+      voice.filter.frequency.setTargetAtTime(cutoff, now, 0.02);
+      voice.lfo?.frequency.setTargetAtTime(vibratoHz(settings.vibratoRate), now, 0.02);
+      voice.lfoDepth?.gain.setTargetAtTime(settings.vibratoDepth, now, 0.02);
     });
   }
 
@@ -329,11 +381,13 @@ export class Synth {
   noteOn(midi: number, velocity: number, key: VoiceKey = midi): void {
     if (!this.settings.enabled || this.muted) return;
     const ctx = this.ensureContext();
-    if (!ctx || !this.filter) return;
+    if (!ctx || !this.master) return;
     this.release(key, MIN_RAMP_S);
 
     const now = ctx.currentTime;
     const env = ctx.createGain();
+    const filter = this.createVoiceFilter(ctx, now);
+    const { lfo, lfoDepth } = this.createVibrato(ctx, now);
     const count = this.settings.unison ? this.settings.unisonVoices : 1;
     const detunes = unisonDetunes(count, this.settings.unisonDetune);
     const pans = unisonPans(count);
@@ -349,10 +403,11 @@ export class Synth {
         pan.pan.value = pans[i];
         const makeup = ctx.createGain();
         makeup.gain.value = Math.SQRT2;
-        osc.connect(pan).connect(makeup).connect(env);
+        osc.connect(pan).connect(makeup).connect(filter);
       } else {
-        osc.connect(env);
+        osc.connect(filter);
       }
+      lfoDepth?.connect(osc.detune);
       return osc;
     });
     // Detuned copies drift in and out of phase, so they add up by power,
@@ -378,13 +433,52 @@ export class Synth {
         env.gain.setValueAtTime(shape.sustainLevel, shape.attackEnd);
       }
     }
-    env.connect(this.filter);
+    filter.connect(env).connect(this.master);
     // Unison copies start at random points in their cycle, as on a
     // hardware synth; started in step they'd sweep through a phasey swoosh
     // on every note, and sum louder or softer depending on the detune.
     const period = 1 / midiToFrequency(midi);
     oscs.forEach(osc => osc.start(count > 1 ? now + Math.random() * period : now));
-    this.voices.set(key, { oscs, env, shape });
+    lfo?.start(now);
+    this.voices.set(key, { oscs, filter, env, shape, lfo, lfoDepth });
+  }
+
+  // The note's own lowpass. With the Filter envelope on, the cutoff starts
+  // high and settles exponentially back to Brightness over Time (a third
+  // of it as the time constant, like Decay), so the attack is brighter
+  // than the rest of the note.
+  private createVoiceFilter(ctx: AudioContext, now: number): BiquadFilterNode {
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 0.7;
+    const cutoff = brightnessToCutoff(this.settings.brightness);
+    if (this.settings.filterEnv && this.settings.filterEnvAmount > 0) {
+      filter.frequency.setValueAtTime(filterEnvStartCutoff(this.settings.brightness, this.settings.filterEnvAmount), now);
+      filter.frequency.setTargetAtTime(cutoff, now, this.settings.filterEnvMs / 1000 / 3);
+    } else {
+      filter.frequency.value = cutoff;
+    }
+    return filter;
+  }
+
+  // A sine LFO whose output, scaled to Depth in cents, drives every copy's
+  // detune. With a Delay the depth fades in, so a held note starts steady
+  // and blooms into vibrato the way a player adds it.
+  private createVibrato(ctx: AudioContext, now: number): { lfo: OscillatorNode | null; lfoDepth: GainNode | null } {
+    if (!this.settings.vibrato) return { lfo: null, lfoDepth: null };
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = vibratoHz(this.settings.vibratoRate);
+    const lfoDepth = ctx.createGain();
+    const depth = this.settings.vibratoDepth;
+    const delay = this.settings.vibratoDelayMs / 1000;
+    if (delay > 0) {
+      lfoDepth.gain.setValueAtTime(0, now);
+      lfoDepth.gain.linearRampToValueAtTime(depth, now + delay);
+    } else {
+      lfoDepth.gain.value = depth;
+    }
+    lfo.connect(lfoDepth);
+    return { lfo, lfoDepth };
   }
 
   noteOff(key: VoiceKey): void {
@@ -409,6 +503,7 @@ export class Synth {
     gain.setValueAtTime(envelopeLevelAt(voice.shape, now), now);
     gain.linearRampToValueAtTime(0, end);
     voice.oscs.forEach(osc => osc.stop(end + 0.02));
+    voice.lfo?.stop(end + 0.02);
     voice.oscs[0].onended = () => voice.env.disconnect();
   }
 
@@ -416,10 +511,6 @@ export class Synth {
     if (this.ctx) return this.ctx;
     if (typeof AudioContext === 'undefined') return null;
     const ctx = new AudioContext();
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.Q.value = 0.7;
-    filter.frequency.value = brightnessToCutoff(this.settings.brightness);
     const master = ctx.createGain();
     master.gain.value = volumeToGain(this.settings.volume);
     const limiter = ctx.createDynamicsCompressor();
@@ -434,12 +525,10 @@ export class Synth {
     const wet = ctx.createGain();
     wet.gain.value = mix.wet;
     const reverb = ctx.createConvolver();
-    filter.connect(master);
     master.connect(dry).connect(limiter);
     master.connect(reverb).connect(wet).connect(limiter);
     limiter.connect(ctx.destination);
     this.ctx = ctx;
-    this.filter = filter;
     this.master = master;
     this.dry = dry;
     this.wet = wet;

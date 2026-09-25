@@ -4,6 +4,8 @@ import {
   BUILT_IN_SOUNDS,
   SOUND_KNOB_RANGE,
   brightnessToCutoff,
+  filterEnvStartCutoff,
+  vibratoHz,
   envelopeLevelAt,
   isWaveform,
   midiToFrequency,
@@ -123,7 +125,10 @@ describe('named sounds', () => {
 
   // Neutral values for everything added since the first saves, so an old
   // sound plays as it did: no decay, full sustain, no unison.
-  const added = { decayMs: 0, sustain: 100, reverb: 0, unisonVoices: 3, unisonDetune: 12, reverbLengthMs: 2200, unison: false };
+  const added = {
+    decayMs: 0, sustain: 100, reverb: 0, unisonVoices: 3, unisonDetune: 12, reverbLengthMs: 2200, unison: false,
+    filterEnv: false, filterEnvAmount: 50, filterEnvMs: 400, vibrato: false, vibratoRate: 55, vibratoDepth: 15, vibratoDelayMs: 300,
+  };
 
   test('a sound from the first save format still loads, unchanged in sound (volume dropped)', () => {
     const { volume, ...legacy } = { name: 'Mine', waveform: 'sine', volume: 50, brightness: 50, attackMs: 10, releaseMs: 100, velocity: 0 };
@@ -138,6 +143,18 @@ describe('named sounds', () => {
     assert.equal(sound.reverb, 30);
     assert.equal(sound.reverbLengthMs, 2200); // the old fixed room length
     assert.equal('volume' in sound, false);
+  });
+
+  test('a built-in saved without the filter envelope and vibrato is replaced too', () => {
+    const { filterEnv, filterEnvAmount, filterEnvMs, vibrato, vibratoRate, vibratoDepth, vibratoDelayMs, ...older } = { ...organ, brightness: 10 };
+    assert.deepEqual(parseNamedSounds([older]), [organ]);
+  });
+
+  test('the new knobs are range-checked, including vibrato rate\'s minimum', () => {
+    assert.equal(parseNamedSound({ ...organ, vibratoRate: 9 }), null);
+    assert.equal(parseNamedSound({ ...organ, filterEnvMs: 5 }), null);
+    assert.equal(parseNamedSound({ ...organ, vibratoDepth: 101 }), null);
+    assert.equal(parseNamedSound({ ...organ, filterEnv: 1 }), null);
   });
 
   test('a built-in saved before the latest settings is replaced by its current version', () => {
@@ -196,5 +213,19 @@ describe('envelopeLevelAt', () => {
 
   test('with no decay it sits at sustain once the attack ends', () => {
     assert.equal(envelopeLevelAt({ ...shape, decayTau: 0 }, 1.6), 0.2);
+  });
+});
+
+describe('filter envelope and vibrato helpers', () => {
+  test('the sweep starts above Brightness by up to five octaves, capped at the top', () => {
+    assert.equal(filterEnvStartCutoff(40, 0), brightnessToCutoff(40));
+    assert.ok(Math.abs(filterEnvStartCutoff(20, 20) - brightnessToCutoff(20) * 2) < 1e-9);
+    assert.ok(Math.abs(filterEnvStartCutoff(0, 100) - 150 * 32) < 1e-9);
+    assert.equal(Math.round(filterEnvStartCutoff(90, 100)), 18000);
+  });
+
+  test('vibrato rate is stored in tenths of a hertz', () => {
+    assert.equal(vibratoHz(55), 5.5);
+    assert.equal(vibratoHz(10), 1);
   });
 });

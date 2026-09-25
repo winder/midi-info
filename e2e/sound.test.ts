@@ -342,7 +342,7 @@ describe('sound', () => {
 
       await page.check('#soundReverbCheckbox');
       assert.equal(await page.isVisible('#soundReverbOptions'), true);
-      assert.equal(await page.textContent('#soundReverbLengthMsValue'), '1500 ms');
+      assert.equal(await page.textContent('#soundReverbLengthMsValue'), '2000 ms');
 
       await page.check('#soundUnisonCheckbox');
       assert.equal(await page.isVisible('#soundUnisonOptions'), true);
@@ -353,8 +353,40 @@ describe('sound', () => {
       await closeSettings(page);
 
       await pressKeys(page, [69]);
-      const starts = (await oscLog(page)).starts;
+      // Audible oscillators only: Chiptune's vibrato LFO runs at a few hertz.
+      const starts = (await oscLog(page)).starts.filter(s => s.freq > 20);
       assert.deepEqual(starts.map(s => [s.freq, s.detune]), [[440, -20], [440, 0], [440, 20]]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('filter envelope and vibrato ticks reveal their options with readable units', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      await page.check('#soundEnabledCheckbox');
+
+      // Flute ships with vibrato on and the filter envelope off.
+      await page.selectOption('#soundPresetSelect', 'Flute');
+      assert.equal(await page.isVisible('#soundFilterEnvOptions'), false);
+      assert.equal(await page.isVisible('#soundVibratoOptions'), true);
+      assert.equal(await page.textContent('#soundVibratoRateValue'), '5.0 Hz');
+      assert.equal(await page.textContent('#soundVibratoDepthValue'), '12 cents');
+      assert.equal(await page.textContent('#soundVibratoDelayMsValue'), '400 ms');
+
+      await page.check('#soundFilterEnvCheckbox');
+      assert.equal(await page.isVisible('#soundFilterEnvOptions'), true);
+      await page.fill('#soundFilterEnvAmountInput', '75');
+      assert.equal(await page.textContent('#soundFilterEnvAmountValue'), '75%');
+      await page.fill('#soundVibratoRateInput', '63');
+      assert.equal(await page.textContent('#soundVibratoRateValue'), '6.3 Hz');
+
+      await page.uncheck('#soundVibratoCheckbox');
+      assert.equal(await page.isVisible('#soundVibratoOptions'), false);
+      assert.equal((await page.$$eval('#soundPresetSelect option', os => os.map(o => o.textContent)))[1], 'Flute (modified)');
     } finally {
       await app.close();
     }
