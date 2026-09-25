@@ -115,4 +115,35 @@ describe('display tab toggles', () => {
       await app.close();
     }
   });
+  test('roman numeral hints are off by default, label diatonic keys below the keyboard, and survive a reload', async () => {
+    const app = await launchApp();
+    try {
+      assert.equal(await app.page.locator('.roman-hint').count(), 0);
+
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      await app.page.locator('#romanHintsCheckbox').check();
+
+      // Default key is C major: white keys only, and C4 reads "I", centered
+      // on its key, below the key bottoms.
+      assert.equal(await app.page.locator('.roman-hint.black').count(), 0);
+      const c4 = await app.page.evaluate(() => {
+        const rect = document.querySelector('rect[data-midi="60"]')!;
+        const keyX = Number(rect.getAttribute('x')) + Number(rect.getAttribute('width')) / 2;
+        const keyBottom = Number(rect.getAttribute('y')) + Number(rect.getAttribute('height'));
+        const hint = Array.from(document.querySelectorAll('.roman-hint'))
+          .find(t => Math.abs(Number(t.getAttribute('x')) - keyX) < 0.01)!;
+        return { text: hint.textContent, below: Number(hint.getAttribute('y')) > keyBottom };
+      });
+      assert.deepEqual(c4, { text: 'I', below: true });
+
+      await app.page.reload();
+      await openSettings(app.page);
+      await openSettingsTab(app.page, 'display');
+      assert.equal(await app.page.locator('#romanHintsCheckbox').isChecked(), true);
+      assert.ok(await app.page.locator('.roman-hint').count() > 0);
+    } finally {
+      await app.close();
+    }
+  });
 });

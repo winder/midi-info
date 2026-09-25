@@ -10,6 +10,7 @@ import {
   buildKeyNoteNames,
   chordLabel,
   detectChords,
+  diatonicRomanNumerals,
   isBlackPitch,
   keyPitchClass,
   octaveOf,
@@ -269,6 +270,31 @@ describe('romanNumeralLabel', () => {
     const aPc = keyPitchClass(KEYS.find(k => k.name === 'A')!);
     assert.equal(romanNumeralLabel({ root: 0, formula: formula('') }, aPc, aeolian), 'III'); // C major
     assert.equal(romanNumeralLabel({ root: 5, formula: formula('') }, aPc, aeolian), 'VI'); // F major
+  });
+});
+
+describe('diatonicRomanNumerals', () => {
+  const mode = (name: string) => MODES.find(m => m.name === name)!;
+
+  test('C Ionian labels the white keys I through vii° and leaves black keys empty', () => {
+    assert.deepEqual(diatonicRomanNumerals(0, mode('Ionian')), [
+      'I', null, 'ii', null, 'iii', 'IV', null, 'V', null, 'vi', null, 'vii°',
+    ]);
+  });
+
+  test("A Aeolian uses the minor mode's own degrees", () => {
+    const hints = diatonicRomanNumerals(9, mode('Aeolian'));
+    assert.equal(hints[9], 'i');
+    assert.equal(hints[11], 'ii°');
+    assert.equal(hints[0], 'III');
+    assert.equal(hints[7], 'VII');
+    assert.equal(hints.filter(h => h !== null).length, 7);
+  });
+
+  test('a key with black-key degrees labels them too', () => {
+    const hints = diatonicRomanNumerals(5, mode('Ionian')); // F major
+    assert.equal(hints[10], 'IV'); // Bb
+    assert.equal(hints[11], null); // B natural
   });
 });
 

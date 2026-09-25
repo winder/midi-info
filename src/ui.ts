@@ -95,6 +95,10 @@ export interface Piano {
   keys: PianoKey[];
   rectByMidi: Map<number, SVGRectElement>;
   labelGroup: SVGGElement;
+  // Roman numeral hints, in the strip below the keys (hintAreaH tall, 0
+  // when the piano was built without one). See renderRomanHints.
+  hintGroup: SVGGElement;
+  hintAreaH: number;
   keyGroup: SVGGElement;
   // Glow-effect layers, populated per active note by renderKeyboard (see
   // there for why they're separate elements rather than a filter on the
@@ -154,13 +158,16 @@ function buildGradientDefs(totalWidth: number): SVGDefsElement {
 // Builds the piano SVG (white/black key rects + octave labels) inside the
 // given <svg> element and returns handles needed to render note state.
 // Replaces any previous contents of svg, so it's safe to call again (with a
-// different range/dims) to rebuild the piano in place.
+// different range/dims) to rebuild the piano in place. showRomanHints adds
+// a strip below the keys for renderRomanHints to fill.
 export function createPiano(
-  svg: SVGSVGElement, minMidi: number, maxMidi: number, dims: KeyDimensions, showOctaveLabels = true
+  svg: SVGSVGElement, minMidi: number, maxMidi: number, dims: KeyDimensions, showOctaveLabels = true,
+  showRomanHints = false
 ): Piano {
   const { keys, totalWhiteWidth } = buildKeys(minMidi, maxMidi, dims);
+  const hintAreaH = showRomanHints ? romanHintAreaHeight(dims) : 0;
   const svgWidth = totalWhiteWidth;
-  const svgHeight = dims.labelAreaH + dims.whiteH;
+  const svgHeight = dims.labelAreaH + dims.whiteH + hintAreaH;
 
   svg.innerHTML = '';
   svg.setAttribute('width', String(svgWidth));
@@ -172,6 +179,7 @@ export function createPiano(
   const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   const keyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   const octaveGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const hintGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
   // Four sub-groups under keyGroup, in paint order: white key bodies, then
   // the white-glow layer (on top of all white keys), then black key
@@ -220,8 +228,9 @@ export function createPiano(
   svg.appendChild(keyGroup);
   svg.appendChild(octaveGroup);
   svg.appendChild(labelGroup);
+  svg.appendChild(hintGroup);
 
-  return { keys, rectByMidi, labelGroup, keyGroup, whiteGlowGroup, blackGlowGroup, dims };
+  return { keys, rectByMidi, labelGroup, hintGroup, hintAreaH, keyGroup, whiteGlowGroup, blackGlowGroup, dims };
 }
 
 // Tracks whether the mouse button is currently down, globally. Call once;
@@ -281,6 +290,43 @@ const NOTE_LABEL_GAP = 2;
 
 function noteLabelBaseline(piano: Piano): number {
   return piano.dims.labelAreaH - NOTE_LABEL_GAP;
+}
+
+// The Roman numeral hints mirror the note label: same x, same font, but
+// hanging just below the keys instead of sitting just above them. Black-key
+// hints take the upper row and white-key hints sit ROMAN_HINT_ROW_OFFSET (in
+// em of the hint font) lower, echoing the keys themselves, where the black
+// keys stop short above the white ones. The stagger also keeps adjacent
+// white/black hints from colliding.
+const ROMAN_HINT_GAP = 3;
+const ROMAN_HINT_ROW_OFFSET = 0.75;
+
+// Tall enough for the lower (white-key) row of hints at the current note font size.
+// Read once per piano build; the container's bottom padding absorbs a
+// font-size change made afterwards.
+function romanHintAreaHeight(dims: KeyDimensions): number {
+  const fontPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--font-size-note')) || 15;
+  return Math.max(dims.labelAreaH, ROMAN_HINT_GAP + fontPx * (1.1 + ROMAN_HINT_ROW_OFFSET));
+}
+
+// Labels every key whose pitch class has a hint (see diatonicRomanNumerals)
+// in the piano's hint strip. hints is indexed by pitch class; pass [] to
+// clear. Does nothing on a piano built without the strip.
+export function renderRomanHints(piano: Piano, hints: (string | null)[]): void {
+  while (piano.hintGroup.firstChild) piano.hintGroup.removeChild(piano.hintGroup.firstChild);
+  if (piano.hintAreaH === 0) return;
+  const top = piano.dims.labelAreaH + piano.dims.whiteH + ROMAN_HINT_GAP;
+  piano.keys.forEach(key => {
+    const hint = hints[key.midi % 12];
+    if (!hint) return;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', String(key.x + key.width / 2));
+    text.setAttribute('y', String(top));
+    if (!key.isBlack) text.setAttribute('dy', `${ROMAN_HINT_ROW_OFFSET}em`);
+    text.setAttribute('class', key.isBlack ? 'roman-hint black' : 'roman-hint');
+    text.textContent = hint;
+    piano.hintGroup.appendChild(text);
+  });
 }
 
 // All 88 keys always exist in the SVG, but visibleKeys zoom and manual

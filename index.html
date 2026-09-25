@@ -635,6 +635,16 @@
     text-anchor: middle;
     font-weight: 600;
   }
+  /* Below-keyboard counterpart of .note-label (see renderRomanHints in
+     ui.ts), lighter so it reads as a guide rather than something played. */
+  .roman-hint {
+    font-size: var(--font-size-note);
+    fill: color-mix(in srgb, var(--font-color) 60%, transparent);
+    font-family: var(--font-family);
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    pointer-events: none;
+  }
   .octave-label {
     font-size: var(--font-size-octave);
     fill: var(--font-color);
@@ -841,6 +851,7 @@
                   <h4>Keyboard</h4>
                   <label title="Label each C on the keyboard with its octave (C1, C2, ...) so you can tell where you are." for="octaveLabelsCheckbox">Octave labels <input type="checkbox" id="octaveLabelsCheckbox"></label>
                   <label title="Show the note name above each key while it&#x27;s held." for="noteLabelsCheckbox">Note labels <input type="checkbox" id="noteLabelsCheckbox"></label>
+                  <label title="Label each key in the current key and mode with the Roman numeral of the chord built on it (I, ii, iii...), just below the keyboard." for="romanHintsCheckbox">Roman numeral hints <input type="checkbox" id="romanHintsCheckbox"></label>
                   <label title="Show an arrow at the edge of the keyboard when a held note is scrolled out of view." for="offscreenArrowsCheckbox">Off-screen note arrows <input type="checkbox" id="offscreenArrowsCheckbox"></label>
                 </div>
               </div>

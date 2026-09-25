@@ -48,6 +48,7 @@ import {
   Mode,
   buildChordVoicing,
   buildKeyNoteNames,
+  diatonicRomanNumerals,
   keyPitchClass,
   levelAtLeast,
   parseChordFormulas,
@@ -74,6 +75,7 @@ import {
   renderChordDisplay,
   renderChordTable,
   renderKeyboard,
+  renderRomanHints,
   setErrorMessage,
   setSettingsOpen,
   themeEqual,
@@ -302,6 +304,7 @@ let showTertiaryLine: boolean = loadBoolSetting('showTertiaryLine', true);
 let showRomanNumerals: boolean = loadBoolSetting('showRomanNumerals', true);
 let showOctaveLabels: boolean = loadBoolSetting('showOctaveLabels', true);
 let showNoteLabels: boolean = loadBoolSetting('showNoteLabels', true);
+let showRomanHints: boolean = loadBoolSetting('showRomanHints', false);
 let showOffscreenArrows: boolean = loadBoolSetting('showOffscreenArrows', true);
 let showNoChord: boolean = loadBoolSetting('showNoChord', true);
 let chordSmoothing: SmoothingLevel = loadSmoothing();
@@ -357,6 +360,7 @@ const romanNumeralsCheckbox = document.getElementById('romanNumeralsCheckbox') a
 const noChordCheckbox = document.getElementById('noChordCheckbox') as HTMLInputElement;
 const octaveLabelsCheckbox = document.getElementById('octaveLabelsCheckbox') as HTMLInputElement;
 const noteLabelsCheckbox = document.getElementById('noteLabelsCheckbox') as HTMLInputElement;
+const romanHintsCheckbox = document.getElementById('romanHintsCheckbox') as HTMLInputElement;
 const offscreenArrowsCheckbox = document.getElementById('offscreenArrowsCheckbox') as HTMLInputElement;
 const chordSmoothingSelect = document.getElementById('chordSmoothingSelect') as HTMLSelectElement;
 const holdLastChordCheckbox = document.getElementById('holdLastChordCheckbox') as HTMLInputElement;
@@ -528,6 +532,7 @@ function previewChord(midis: number[]): void {
 }
 
 function render(): void {
+  renderRomanHints(piano, showRomanHints ? diatonicRomanNumerals(currentTonicPc, currentMode) : []);
   renderKeys();
   renderChord();
 }
@@ -600,7 +605,7 @@ pianoContainer.addEventListener('scroll', refreshOffscreenIndicators);
 function rebuildPiano(): void {
   const availableWidth = Math.max(pianoContainer.clientWidth - 32, 50);
   const dims = computeKeyDimensions(currentVisibleKeys, availableWidth);
-  piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims, showOctaveLabels);
+  piano = createPiano(svg, MIN_MIDI, MAX_MIDI, dims, showOctaveLabels, showRomanHints);
   attachPianoMouseInput(piano, isMouseDown, (midi, isOn) => (isOn ? noteOn(midi, 'mouse') : noteOff(midi)));
   centerOnMiddleC(pianoContainer, piano);
   render();
@@ -969,6 +974,13 @@ noteLabelsCheckbox.addEventListener('change', () => {
   showNoteLabels = noteLabelsCheckbox.checked;
   saveBoolSetting('showNoteLabels', showNoteLabels);
   render();
+});
+
+romanHintsCheckbox.checked = showRomanHints;
+romanHintsCheckbox.addEventListener('change', () => {
+  showRomanHints = romanHintsCheckbox.checked;
+  saveBoolSetting('showRomanHints', showRomanHints);
+  rebuildPiano();
 });
 
 // ---- Chord smoothing and hold ----

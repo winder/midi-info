@@ -375,6 +375,25 @@ export function romanNumeralLabel(match: ChordMatch, tonicPc: number, mode: Mode
   return cased + chordSuffix(match.formula.symbol, quality);
 }
 
+// The Roman numeral of the triad stacked in thirds on each degree of the
+// mode, indexed by pitch class (null for the 5 non-diatonic ones), e.g. C
+// Ionian gives I at 0, ii at 2, ... vii° at 11. Feeds the keyboard's
+// Roman numeral hints.
+const TRIAD_SYMBOLS: Record<string, string> = { '4,7': '', '3,7': '-', '3,6': '°', '4,8': 'aug' };
+
+export function diatonicRomanNumerals(tonicPc: number, mode: Mode): (string | null)[] {
+  const result: (string | null)[] = new Array(12).fill(null);
+  const steps = mode.steps;
+  steps.forEach((step, i) => {
+    const third = (steps[(i + 2) % 7] - step + 12) % 12;
+    const fifth = (steps[(i + 4) % 7] - step + 12) % 12;
+    const symbol = TRIAD_SYMBOLS[`${third},${fifth}`] ?? '';
+    const root = (tonicPc + step) % 12;
+    result[root] = romanNumeralLabel({ root, formula: { symbol, intervals: [0, third, fifth] } }, tonicPc, mode);
+  });
+  return result;
+}
+
 // Validates and normalizes arbitrary parsed JSON (from a cookie or an
 // imported file) into a chord formula list. Intervals are deduped and
 // wrapped into 0-11. Returns null if the shape isn't a chord table at all,
