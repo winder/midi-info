@@ -275,6 +275,14 @@ export function centerOnMiddleC(container: HTMLElement, piano: Piano): void {
 
 const OFFSCREEN_INDICATOR_H = 20; // keep in sync with .offscreen-indicator's font-size in index.html
 
+// Gap in px between a note label's baseline and the top of the keys: just
+// enough that the letters almost touch the key they name.
+const NOTE_LABEL_GAP = 2;
+
+function noteLabelBaseline(piano: Piano): number {
+  return piano.dims.labelAreaH - NOTE_LABEL_GAP;
+}
+
 // All 88 keys always exist in the SVG, but visibleKeys zoom and manual
 // scrolling can put an active key outside container's current scroll
 // viewport. Shows a small arrow at the edge whose direction that key is
@@ -304,7 +312,7 @@ export function updateOffscreenIndicators(
   leftEl.hidden = !offLeft;
   rightEl.hidden = !offRight;
 
-  const top = Math.max(piano.dims.labelAreaH - 12 - 16 - OFFSCREEN_INDICATOR_H, 2);
+  const top = Math.max(noteLabelBaseline(piano) - 16 - OFFSCREEN_INDICATOR_H, 2);
   leftEl.style.top = `${top}px`;
   rightEl.style.top = `${top}px`;
 }
@@ -345,7 +353,7 @@ export function renderKeyboard(
       if (!key) return;
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', String(key.x + key.width / 2));
-      text.setAttribute('y', String(piano.dims.labelAreaH - 12));
+      text.setAttribute('y', String(noteLabelBaseline(piano)));
       text.setAttribute('class', 'note-label');
       text.textContent = noteNames[midi % 12];
       piano.labelGroup.appendChild(text);
