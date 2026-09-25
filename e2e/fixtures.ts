@@ -97,9 +97,15 @@ export async function openSettings(page: Page): Promise<void> {
 // Closes the settings modal. It overlays the whole page - including the
 // gear button that opened it - so it's closed via its own close button,
 // not by clicking the (now-covered) gear button again.
+//
+// The close button sits over the keyboard once the overlay is gone, so the
+// mouse is then parked in the top-left corner. Left over a key, a late
+// mouseenter can land after pressKeys() has set the app's mouse-is-down
+// flag, and the app plays that key as if dragged onto it.
 export async function closeSettings(page: Page): Promise<void> {
   await page.click('#settingsCloseBtn');
   await page.waitForSelector('#settingsOverlay', { state: 'hidden' });
+  await page.mouse.move(0, 0);
 }
 
 // Switches to a settings modal tab. Requires the settings modal to be open.
@@ -155,4 +161,54 @@ export async function highlightedMidis(page: Page): Promise<number[]> {
   return page.$$eval('rect.highlighted', rects =>
     rects.map(r => Number((r as SVGElement).dataset.midi)).sort((a, b) => a - b)
   );
+}
+
+const FAKE_MIDI_SCRIPT = `
+  const inputs = new Map();
+  const access = {
+    inputs: { forEach(cb) { inputs.forEach(input => cb(input)); } },
+    onstatechange: null,
+  };
+  Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: () => Promise.resolve(access) });
+  window.__fakeMidi = {
+    plug(name) {
+      inputs.set(name, { id: 'id-' + name, name, onmidimessage: null });
+      if (access.onstatechange) access.onstatechange();
+    },
+    unplug(name) {
+      inputs.delete(name);
+      if (access.onstatechange) access.onstatechange();
+    },
+    send(name, bytes) {
+      const input = inputs.get(name);
+      if (input && input.onmidimessage) input.onmidimessage({ data: new Uint8Array(bytes) });
+    },
+  };
+`;
+
+// A fake Web MIDI in place of the browser's (headless Chromium has none),
+// so tests can plug devices in and out and play notes from a particular
+// device. Install before the app loads: this adds an init script and
+// reloads. Then drive it with plugMidiDevice / unplugMidiDevice /
+// sendMidi. Devices are keyed by name.
+export async function installFakeMidi(page: Page): Promise<void> {
+  // Plain source, not a function: tsx wraps named functions in a __name()
+  // helper that doesn't exist inside the page, which would break the stub.
+  await page.addInitScript({ content: FAKE_MIDI_SCRIPT });
+  await page.reload();
+}
+
+type FakeMidi = { plug(n: string): void; unplug(n: string): void; send(n: string, b: number[]): void };
+
+export async function plugMidiDevice(page: Page, name: string): Promise<void> {
+  await page.evaluate(n => (window as unknown as { __fakeMidi: FakeMidi }).__fakeMidi.plug(n), name);
+}
+
+export async function unplugMidiDevice(page: Page, name: string): Promise<void> {
+  await page.evaluate(n => (window as unknown as { __fakeMidi: FakeMidi }).__fakeMidi.unplug(n), name);
+}
+
+// Raw MIDI bytes from one device, e.g. [0x90, 60, 100] is note-on middle C.
+export async function sendMidi(page: Page, name: string, bytes: number[]): Promise<void> {
+  await page.evaluate(([n, b]) => (window as unknown as { __fakeMidi: FakeMidi }).__fakeMidi.send(n as string, b as number[]), [name, bytes]);
 }

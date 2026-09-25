@@ -85,7 +85,26 @@ prefix on its `npm run build`, or the config call never happens and
 example, and the event/user-property list of record is the header comment
 in `src/analytics.ts`.
 
+## Fake MIDI devices
+
+Headless Chromium refuses Web MIDI, so a plain `launchApp()` shows "MIDI
+blocked". To test anything MIDI-driven, call `installFakeMidi(page)` (it
+adds an init script and reloads), then `plugMidiDevice(page, name)`,
+`unplugMidiDevice(page, name)` and `sendMidi(page, name, [0x90, 60, 100])`.
+`e2e/midi-picker.test.ts` is the worked example.
+
 ## Gotchas
+
+- **tsx breaks named functions inside `page.evaluate` / `addInitScript`.**
+  It wraps them in a `__name()` helper that doesn't exist in the page, so
+  the script throws `__name is not defined` (as a `[pageerror]`, easy to
+  miss). Keep in-page code to anonymous inline arrows and plain values, or
+  pass the script as a source string (`addInitScript({ content })`, as
+  `installFakeMidi` does).
+- **Park the mouse after closing Settings.** `closeSettings()` moves it to
+  the top-left corner; a real cursor left over a key can make the app play
+  that key during a later `pressKeys()`. Anything that closes the panel
+  another way should do the same.
 
 - **Rebuild before testing.** `e2e/server.ts` serves whatever is in
   `dist/` - it does not bundle `src/*.ts` on the fly. A change under `src/`

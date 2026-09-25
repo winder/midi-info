@@ -95,7 +95,7 @@ describe('sound', () => {
       await openSettingsTab(app.page, 'sound');
       assert.equal(await app.page.isChecked('#soundEnabledCheckbox'), false);
       assert.equal(await app.page.isDisabled('#soundVolumeInput'), true);
-      assert.equal(await app.page.isVisible('#soundUnlockBtn'), false);
+      assert.equal(await app.page.$eval('#soundPickerRow', el => el.classList.contains('locked')), false);
     } finally {
       await app.close();
     }
@@ -393,4 +393,69 @@ describe('sound', () => {
     }
   });
 
+
+  test('the top-bar picker switches sounds and doubles as the on/off switch', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await spyOnOscillators(page);
+      // Off by default, listed first, with every sound after it.
+      assert.equal(await page.inputValue('#soundPickerSelect'), '');
+      const labels = await page.$$eval('#soundPickerSelect option', os => os.map(o => o.textContent));
+      assert.equal(labels[0], 'Sound off');
+      assert.equal(labels.length, 15);
+
+      // Picking a sound turns sound on with it, and the notes use it.
+      await page.selectOption('#soundPickerSelect', 'Organ');
+      await pressKeys(page, [69]);
+      const audible = (await oscLog(page)).starts.filter(s => s.freq > 20);
+      assert.ok(audible.length > 0 && audible.every(s => s.type === 'square'));
+      await releaseKeys(page, [69]);
+
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      assert.equal(await page.isChecked('#soundEnabledCheckbox'), true);
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'Organ');
+
+      // The Sound tab drives the top bar too, modified label included.
+      await page.selectOption('#soundPresetSelect', 'Pad');
+      await page.fill('#soundBrightnessInput', '90');
+      assert.equal(await page.inputValue('#soundPickerSelect'), 'Pad');
+      assert.ok(
+        (await page.$$eval('#soundPickerSelect option', os => os.map(o => o.textContent))).includes('Pad (modified)'));
+      await page.uncheck('#soundEnabledCheckbox');
+      assert.equal(await page.inputValue('#soundPickerSelect'), '');
+      await closeSettings(page);
+
+      // And "Sound off" from the top bar turns it off.
+      await page.selectOption('#soundPickerSelect', 'Flute');
+      await page.selectOption('#soundPickerSelect', '');
+      await openSettings(page);
+      await openSettingsTab(page, 'sound');
+      assert.equal(await page.isChecked('#soundEnabledCheckbox'), false);
+      assert.equal(await page.inputValue('#soundPresetSelect'), 'Flute');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('while the browser holds sound back, the top-bar sound picker says so', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    const locked = () => page.$eval('#soundPickerRow', el => el.classList.contains('locked'));
+    try {
+      await page.selectOption('#soundPickerSelect', 'Classic');
+      assert.equal(await locked(), false);
+      // Reload with sound saved on: no click yet, so no audio yet.
+      await page.reload();
+      assert.equal(await locked(), true);
+      assert.match(await page.getAttribute('#soundPickerRow', 'title') ?? '', /holding sound back/);
+      assert.equal(await page.textContent('#soundPickerIcon'), '\u{1F507}');
+      await page.mouse.click(5, 300);
+      await page.waitForFunction(() => !document.getElementById('soundPickerRow')!.classList.contains('locked'));
+      assert.equal(await page.textContent('#soundPickerIcon'), '\u{1F50A}');
+    } finally {
+      await app.close();
+    }
+  });
 });

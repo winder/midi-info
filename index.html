@@ -74,13 +74,10 @@
     border-bottom: 1px solid #eee;
     flex-wrap: wrap;
   }
-  #status {
-    font-size: 13px;
-    color: #666;
-  }
-  #status.connected { color: #2a7a2a; }
-  #status.error { color: #b33; }
-  #inputRow {
+  /* The top-bar pickers: a small icon and a compact select. Each select's
+     own entry carries its status (see midiPickerModel and the sound
+     picker's Sound off), with the detail in the row's tooltip. */
+  #midiPickerRow, #soundPickerRow {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -135,26 +132,24 @@
   #menuButton:hover {
     background: #f5f5f5;
   }
-  /* Sits just left of the gear: it takes the gear's auto margin while
-     shown, so the pair stays pinned right. */
-  #soundUnlockBtn {
-    margin-left: auto;
-    font-size: 13px;
-    padding: 5px 10px;
+  /* Capped so a long device name can't stretch the bar: the closed box
+     truncates, the open list shows names in full. */
+  #midiPickerSelect, #soundPickerSelect {
+    max-width: 150px;
+  }
+  #midiPickerRow.error select {
+    color: #b33;
+  }
+  #midiPickerSelect:disabled {
+    opacity: 1;
+    cursor: help;
+  }
+  /* Sound is on but the browser is still holding audio back until a click
+     or key press: amber, like a warning light. */
+  #soundPickerRow.locked select {
     background: #fff8e1;
-    border: 1px solid #e0c060;
-    border-radius: 4px;
-    cursor: pointer;
-    color: #333;
-  }
-  #soundUnlockBtn:hover {
-    background: #ffefb3;
-  }
-  #soundUnlockBtn[hidden] {
-    display: none;
-  }
-  #soundUnlockBtn:not([hidden]) + #menuButton {
-    margin-left: 0;
+    border-color: #e0c060;
+    outline: 1px solid #e0c060;
   }
   #settingsOverlay {
     position: fixed;
@@ -782,9 +777,8 @@
 <body>
   <div id="topBar">
     <strong>MIDI Piano</strong>
-    <span id="status">Checking for Web MIDI support&hellip;</span>
-    <label for="inputSelect" id="inputRow" style="display:none;"><select id="inputSelect"></select></label>
-    <button id="soundUnlockBtn" type="button" title="Your browser holds back sound until you click or press a key on the page. Click here (or anywhere) to start it." hidden>&#128263; Click to enable sound</button>
+    <label for="midiPickerSelect" id="midiPickerRow" title="Checking for Web MIDI support&hellip;"><span aria-hidden="true">&#127929;</span> <select id="midiPickerSelect" aria-label="MIDI input"><option value="">Checking MIDI&hellip;</option></select></label>
+    <label for="soundPickerSelect" id="soundPickerRow" title="The sound notes play with. Pick Sound off to silence the page. Edit sounds on the Sound tab in Settings."><span id="soundPickerIcon" aria-hidden="true">&#128266;</span> <select id="soundPickerSelect" aria-label="Sound"></select></label>
     <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">&#9881;</button>
     <div id="settingsOverlay" hidden>
       <div id="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">

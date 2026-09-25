@@ -2,7 +2,7 @@
 
 declare const __COMMIT_HASH__: string;
 
-import { initMIDI } from './midi';
+import { ALL_DEVICES, MidiState, initMIDI, midiPickerModel } from './midi';
 import { Params, analytics, initAnalytics } from './analytics';
 import {
   DEFAULT_HOLD_MS,
@@ -377,9 +377,8 @@ const menuButton = document.getElementById('menuButton') as HTMLElement;
 const settingsOverlay = document.getElementById('settingsOverlay') as HTMLElement;
 const settingsPanel = document.getElementById('settingsPanel') as HTMLElement;
 const settingsCloseBtn = document.getElementById('settingsCloseBtn') as HTMLButtonElement;
-const statusEl = document.getElementById('status') as HTMLElement;
-const inputSelect = document.getElementById('inputSelect') as HTMLSelectElement;
-const inputRow = document.getElementById('inputRow') as HTMLElement;
+const midiPickerRow = document.getElementById('midiPickerRow') as HTMLElement;
+const midiPickerSelect = document.getElementById('midiPickerSelect') as HTMLSelectElement;
 const versionInfoEl = document.getElementById('versionInfo') as HTMLElement;
 const highlighterToggle = document.getElementById('highlighterToggle') as HTMLButtonElement;
 const highlighterBody = document.getElementById('highlighterBody') as HTMLElement;
@@ -422,10 +421,12 @@ const soundWaveformSelect = document.getElementById('soundWaveformSelect') as HT
 const soundTestBtn = document.getElementById('soundTestBtn') as HTMLButtonElement;
 const soundResetBtn = document.getElementById('soundResetBtn') as HTMLButtonElement;
 const soundPresetSelect = document.getElementById('soundPresetSelect') as HTMLSelectElement;
+const soundPickerSelect = document.getElementById('soundPickerSelect') as HTMLSelectElement;
 const soundNameInput = document.getElementById('soundNameInput') as HTMLInputElement;
 const soundNewBtn = document.getElementById('soundNewBtn') as HTMLButtonElement;
 const soundDeleteBtn = document.getElementById('soundDeleteBtn') as HTMLButtonElement;
-const soundUnlockBtn = document.getElementById('soundUnlockBtn') as HTMLButtonElement;
+const soundPickerRow = document.getElementById('soundPickerRow') as HTMLElement;
+const soundPickerIcon = document.getElementById('soundPickerIcon') as HTMLElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -458,10 +459,18 @@ function holdMs(): number {
 
 const noteSettler = new NoteSettler(smoothingDelays(), holdMs(), renderChord);
 
-// The top-bar unlock button shows while sound is on but the browser hasn't
-// let it start yet (see Synth.isRunning).
+// While sound is on but the browser hasn't let it start yet (see
+// Synth.isRunning), the top-bar sound picker says so: muted icon, amber
+// outline, and a tooltip. Any click or key press starts it, including a
+// click on the picker itself.
+const SOUND_PICKER_TITLE = 'The sound notes play with. Pick Sound off to silence the page. Edit sounds on the Sound tab in Settings.';
+const SOUND_LOCKED_TITLE = 'Your browser is holding sound back until you click or press a key on the page. Click here (or anywhere) to start it.';
+
 function refreshSoundUnlock(): void {
-  soundUnlockBtn.hidden = !soundSettings.enabled || synth.isRunning;
+  const locked = soundSettings.enabled && !synth.isRunning;
+  soundPickerRow.classList.toggle('locked', locked);
+  soundPickerIcon.textContent = locked ? '\u{1F507}' : '\u{1F50A}';
+  soundPickerRow.title = locked ? SOUND_LOCKED_TITLE : SOUND_PICKER_TITLE;
 }
 
 const synth = new Synth(soundSettings, refreshSoundUnlock);
@@ -555,6 +564,17 @@ function noteOff(midi: number): void {
   }
   activeNotes.delete(midi);
   soundOff(midi);
+  renderKeys();
+  noteSettler.update(soundingNotes(), 'off');
+}
+
+// Lift every held key and the pedal at once, e.g. when the MIDI device
+// being listened to changes and its note-offs will never arrive.
+function releaseAllNotes(): void {
+  sustainOn = false;
+  sustainedNotes.clear();
+  activeNotes.forEach(midi => soundOff(midi));
+  activeNotes.clear();
   renderKeys();
   noteSettler.update(soundingNotes(), 'off');
 }
@@ -1073,15 +1093,28 @@ function isSoundModifiedFromBuiltIn(sound: NamedSound): boolean {
   return builtIn !== undefined && !soundEqual(sound, builtIn);
 }
 
+// The top-bar picker's "Sound off" entry. Safe as a sentinel: a sound's
+// name is never empty.
+const SOUND_OFF = '';
+
+// Fills both pickers: the Sound tab's, and the top bar's, which leads with
+// "Sound off" so it doubles as the on/off switch.
 function populateSoundSelect(): void {
   soundPresetSelect.innerHTML = '';
+  soundPickerSelect.innerHTML = '';
+  const off = document.createElement('option');
+  off.value = SOUND_OFF;
+  off.textContent = 'Sound off';
+  soundPickerSelect.appendChild(off);
   sounds.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.name;
     opt.textContent = isSoundModifiedFromBuiltIn(t) ? `${t.name} (modified)` : t.name;
     soundPresetSelect.appendChild(opt);
+    soundPickerSelect.appendChild(opt.cloneNode(true));
   });
   soundPresetSelect.value = currentSoundName;
+  soundPickerSelect.value = soundEnabled ? currentSoundName : SOUND_OFF;
 }
 
 function syncSoundInputs(): void {
@@ -1089,6 +1122,7 @@ function syncSoundInputs(): void {
   soundEnabledCheckbox.checked = soundEnabled;
   soundControlsEl.disabled = !soundEnabled;
   soundPresetSelect.value = currentSoundName;
+  soundPickerSelect.value = soundEnabled ? currentSoundName : SOUND_OFF;
   soundNameInput.value = sound.name;
   soundWaveformSelect.value = sound.waveform;
   soundKnobInputs.forEach(({ input, value }, knob) => {
@@ -1129,15 +1163,28 @@ function updateCurrentSound(partial: Partial<NamedSound>): void {
   applySound();
 }
 
-soundEnabledCheckbox.addEventListener('change', () => {
-  soundEnabled = soundEnabledCheckbox.checked;
+function setSoundEnabled(enabled: boolean): void {
+  soundEnabled = enabled;
   saveBoolSetting('soundEnabled', soundEnabled);
   applySound();
-  // This change is a user gesture, the moment the browser allows audio to start.
+  // Called from a user gesture, the moment the browser allows audio to start.
   synth.resume();
-});
+}
+
+soundEnabledCheckbox.addEventListener('change', () => setSoundEnabled(soundEnabledCheckbox.checked));
 
 soundPresetSelect.addEventListener('change', () => selectSound(soundPresetSelect.value));
+
+// Top bar: a sound turns sound on as it's picked; "Sound off" turns it off.
+soundPickerSelect.addEventListener('change', () => {
+  const name = soundPickerSelect.value;
+  if (name === SOUND_OFF) {
+    setSoundEnabled(false);
+    return;
+  }
+  selectSound(name);
+  if (!soundEnabled) setSoundEnabled(true);
+});
 
 soundWaveformSelect.addEventListener('change', () => {
   const value = soundWaveformSelect.value;
@@ -1203,11 +1250,6 @@ soundResetBtn.addEventListener('click', () => {
 
 // A C major triad, so the knobs can be tried without a keyboard.
 soundTestBtn.addEventListener('click', () => previewChord([60, 64, 67]));
-
-soundUnlockBtn.addEventListener('click', e => {
-  e.stopPropagation();
-  synth.resume();
-});
 
 // Browsers only start audio after a click or key press on the page, and
 // MIDI input doesn't count. Any gesture will do, so sound saved as on from
@@ -1465,13 +1507,48 @@ initAnalytics(settingsSnapshot());
 
 // ---- MIDI ----
 
-initMIDI({
-  onNoteOn: (midi, velocity) => noteOn(midi, 'midi', velocity),
+// The device the user chose to listen to, by name (ids can change between
+// visits); absent means every device. Kept while that device is unplugged,
+// so plugging it back in restores the choice.
+function loadMidiInput(): string | null {
+  return getCookie('midiInput');
+}
+
+function saveMidiInput(name: string | null): void {
+  if (name === null) deleteCookie('midiInput');
+  else setCookie('midiInput', name, 365);
+}
+
+let midiState: MidiState = { kind: 'checking' };
+let preferredMidiInput: string | null = loadMidiInput();
+
+// The top-bar MIDI picker: its selected entry is the status (see
+// midiPickerModel), so there's no separate status line.
+function renderMidiPicker(): void {
+  const model = midiPickerModel(midiState, preferredMidiInput);
+  midiPickerSelect.innerHTML = '';
+  model.options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    midiPickerSelect.appendChild(opt);
+  });
+  midiPickerSelect.value = model.value;
+  midiPickerSelect.disabled = model.disabled;
+  midiPickerRow.title = model.title;
+  midiPickerRow.classList.toggle('error', model.error);
+}
+
+const midi = initMIDI({
+  onNoteOn: (note, velocity) => noteOn(note, 'midi', velocity),
   onNoteOff: noteOff,
   onSustainChange: setSustain,
-  onStatusChange(text, className) {
-    statusEl.textContent = text;
-    statusEl.className = className;
+  onStateChange(state) {
+    midiState = state;
+    if (state.kind === 'ready' && state.inputs.length > 0) {
+      analytics().once('midi_device_connected', { device_count: state.inputs.length });
+    }
+    renderMidiPicker();
   },
   onUnsupported() {
     analytics().once('midi_unsupported');
@@ -1479,18 +1556,16 @@ initMIDI({
   onAccess(granted) {
     analytics().once('midi_access', { result: granted ? 'granted' : 'denied' });
   },
-  onInputsChange(inputNames) {
-    if (inputNames.length === 0) {
-      inputRow.style.display = 'none';
-      return;
-    }
-    analytics().once('midi_device_connected', { device_count: inputNames.length });
-    inputRow.style.display = '';
-    inputSelect.innerHTML = '';
-    inputNames.forEach(name => {
-      const opt = document.createElement('option');
-      opt.textContent = name;
-      inputSelect.appendChild(opt);
-    });
-  },
+});
+midi.setInputFilter(preferredMidiInput);
+
+midiPickerSelect.addEventListener('change', () => {
+  const value = midiPickerSelect.value;
+  preferredMidiInput = value === ALL_DEVICES ? null : value;
+  saveMidiInput(preferredMidiInput);
+  midi.setInputFilter(preferredMidiInput);
+  // A key held on a device that's now ignored would never get its
+  // note-off, so start clean.
+  releaseAllNotes();
+  renderMidiPicker();
 });
