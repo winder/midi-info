@@ -404,9 +404,13 @@ describe('sound', () => {
       const labels = await page.$$eval('#soundPickerSelect option', os => os.map(o => o.textContent));
       assert.equal(labels[0], 'Sound off');
       assert.equal(labels.length, 15);
+      assert.equal(await page.isVisible('#topVolumeInput'), false);
 
       // Picking a sound turns sound on with it, and the notes use it.
       await page.selectOption('#soundPickerSelect', 'Organ');
+      assert.equal(await page.isVisible('#topVolumeInput'), true);
+      // The top-bar volume is the Sound tab's Volume.
+      await page.fill('#topVolumeInput', '42');
       await pressKeys(page, [69]);
       const audible = (await oscLog(page)).starts.filter(s => s.freq > 20);
       assert.ok(audible.length > 0 && audible.every(s => s.type === 'square'));
@@ -416,6 +420,9 @@ describe('sound', () => {
       await openSettingsTab(page, 'sound');
       assert.equal(await page.isChecked('#soundEnabledCheckbox'), true);
       assert.equal(await page.inputValue('#soundPresetSelect'), 'Organ');
+      assert.equal(await page.textContent('#soundVolumeValue'), '42%');
+      await page.fill('#soundVolumeInput', '60');
+      assert.equal(await page.inputValue('#topVolumeInput'), '60');
 
       // The Sound tab drives the top bar too, modified label included.
       await page.selectOption('#soundPresetSelect', 'Pad');
@@ -426,6 +433,7 @@ describe('sound', () => {
       await page.uncheck('#soundEnabledCheckbox');
       assert.equal(await page.inputValue('#soundPickerSelect'), '');
       await closeSettings(page);
+      assert.equal(await page.isVisible('#topVolumeInput'), false);
 
       // And "Sound off" from the top bar turns it off.
       await page.selectOption('#soundPickerSelect', 'Flute');

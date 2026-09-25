@@ -1071,6 +1071,8 @@ function soundKnobText(knob: SoundKnob, n: number): string {
 
 const soundVolumeInput = document.getElementById('soundVolumeInput') as HTMLInputElement;
 const soundVolumeValue = document.getElementById('soundVolumeValue') as HTMLOutputElement;
+// The top bar's copy of Volume, shown only while sound is on.
+const topVolumeInput = document.getElementById('topVolumeInput') as HTMLInputElement;
 
 // Each effect's tick and the options it reveals, like Hold last chord.
 const soundToggleInputs = new Map<SoundToggle, { checkbox: HTMLInputElement; options: HTMLElement }>([
@@ -1147,6 +1149,9 @@ function syncSoundInputs(): void {
   });
   soundVolumeInput.value = String(soundVolume);
   soundVolumeValue.value = `${soundVolume}%`;
+  topVolumeInput.value = String(soundVolume);
+  topVolumeInput.title = `Volume: ${soundVolume}%`;
+  topVolumeInput.hidden = !soundEnabled;
   const builtIn = isBuiltInSound(sound.name);
   soundNameInput.disabled = builtIn;
   soundDeleteBtn.disabled = sounds.length <= 1 || builtIn;
@@ -1215,13 +1220,13 @@ soundToggleInputs.forEach(({ checkbox }, toggle) => {
   checkbox.addEventListener('change', () => updateCurrentSound({ [toggle]: checkbox.checked }));
 });
 
-soundVolumeInput.addEventListener('input', () => {
-  const n = parseVolume(soundVolumeInput.value);
+[soundVolumeInput, topVolumeInput].forEach(input => input.addEventListener('input', () => {
+  const n = parseVolume(input.value);
   if (n === null) return;
   soundVolume = n;
   saveVolume(n);
   applySound();
-});
+}));
 
 soundNameInput.addEventListener('change', () => {
   const sound = getCurrentSound();

@@ -146,6 +146,14 @@
   }
   /* Sound is on but the browser is still holding audio back until a click
      or key press: amber, like a warning light. */
+  /* Only while sound is on; mirrors the Sound tab's Volume. */
+  #topVolumeInput {
+    width: 90px;
+    accent-color: var(--font-color);
+  }
+  #topVolumeInput[hidden] {
+    display: none;
+  }
   #soundPickerRow.locked select {
     background: #fff8e1;
     border-color: #e0c060;
@@ -789,6 +797,7 @@
     <strong>MIDI Piano</strong>
     <label for="midiPickerSelect" id="midiPickerRow" title="Checking for Web MIDI support&hellip;"><span aria-hidden="true">&#127929;</span> <select id="midiPickerSelect" aria-label="MIDI input"><option value="">Checking MIDI&hellip;</option></select></label>
     <label for="soundPickerSelect" id="soundPickerRow" title="The sound notes play with. Pick Sound off to silence the page. Edit sounds on the Sound tab in Settings."><span id="soundPickerIcon" aria-hidden="true">&#128266;</span> <select id="soundPickerSelect" aria-label="Sound"></select></label>
+    <input type="range" id="topVolumeInput" min="0" max="100" step="1" aria-label="Volume" title="Volume" hidden>
     <button id="menuButton" type="button" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">&#9881;</button>
     <div id="settingsOverlay" hidden>
       <div id="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">
