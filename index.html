@@ -28,6 +28,16 @@
     --font-size-tertiary: 15px;
     --font-size-note: 15px;
     --font-size-octave: 10px;
+    /* Page chrome (top bar, pickers, the collapsible sections) is tinted
+       from the theme so it suits dark themes as well as light: a share of
+       the text color mixed into the background. */
+    --ui-surface: color-mix(in srgb, var(--bg-color) 88%, var(--font-color));
+    --ui-surface-hover: color-mix(in srgb, var(--bg-color) 80%, var(--font-color));
+    --ui-control: color-mix(in srgb, var(--bg-color) 95%, var(--font-color));
+    --ui-line: color-mix(in srgb, var(--bg-color) 72%, var(--font-color));
+    --ui-muted: color-mix(in srgb, var(--font-color) 60%, transparent);
+    --ui-disabled: color-mix(in srgb, var(--font-color) 30%, transparent);
+    --ui-accent: #4a76c4;
   }
   body {
     margin: 0;
@@ -65,13 +75,19 @@
   html.gradient-enabled #mainContent {
     background: linear-gradient(135deg, var(--bg-color), var(--bg-color-2));
   }
+  /* Some of the theme's text color sets the bar apart from the main area:
+     darker on light themes, lighter on dark ones. The bar's own text
+     (title, settings button) follows the theme too, so it stays readable
+     on dark themes; the pickers keep the browser's select styling. */
   #topBar {
     position: relative;
     display: flex;
     align-items: center;
     gap: 16px;
     padding: 10px 16px;
-    border-bottom: 1px solid #eee;
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-line);
+    color: var(--font-color);
     flex-wrap: wrap;
   }
   /* The top-bar pickers: a small icon and a compact select. Each select's
@@ -124,13 +140,20 @@
     font-size: 18px;
     line-height: 1;
     background: none;
-    border: 1px solid #ddd;
+    border: 1px solid var(--ui-line);
     border-radius: 4px;
     cursor: pointer;
-    color: #333;
+    color: var(--font-color);
   }
   #menuButton:hover {
-    background: #f5f5f5;
+    background: var(--ui-surface-hover);
+  }
+  #topBar select, #highlighterSection select, #playerSection select {
+    padding: 3px 6px;
+    background: var(--ui-control);
+    color: var(--font-color);
+    border: 1px solid var(--ui-line);
+    border-radius: 4px;
   }
   /* Capped so a long device name can't stretch the bar: the closed box
      truncates, the open list shows names in full. */
@@ -155,7 +178,7 @@
     display: none;
   }
   #soundPickerRow.locked select {
-    background: #fff8e1;
+    background: color-mix(in srgb, #e0c060 25%, var(--ui-control));
     border-color: #e0c060;
     outline: 1px solid #e0c060;
   }
@@ -717,8 +740,9 @@
   }
   #highlighterSection, #playerSection {
     margin: 0 16px 24px 16px;
-    border: 1px solid #eee;
+    border: 1px solid var(--ui-line);
     border-radius: 6px;
+    color: var(--font-color);
   }
   #highlighterToggle, #playerToggle {
     width: 100%;
@@ -726,21 +750,25 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: #fafafa;
+    background: var(--ui-surface);
     border: none;
     border-radius: 6px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    color: #333;
+    color: var(--font-color);
   }
   #highlighterToggle:hover, #playerToggle:hover {
-    background: #f2f2f2;
+    background: var(--ui-surface-hover);
+  }
+  /* Square off the header's bottom corners while its body shows below. */
+  #highlighterToggle.open, #playerToggle.open {
+    border-radius: 6px 6px 0 0;
   }
   #highlighterToggle .chevron, #playerToggle .chevron {
     display: inline-block;
     transition: transform 0.15s ease;
-    color: #999;
+    color: var(--ui-muted);
   }
   #highlighterToggle.open .chevron, #playerToggle.open .chevron {
     transform: rotate(90deg);
@@ -750,7 +778,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--ui-line);
   }
   #highlighterBody[hidden], #playerBody[hidden] {
     display: none;
@@ -758,7 +786,7 @@
   .highlighter-group h4 {
     margin: 0 0 8px;
     font-size: 12px;
-    color: #888;
+    color: var(--ui-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -773,18 +801,18 @@
   .root-btn, .type-btn {
     padding: 5px 10px;
     font-size: 13px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--ui-line);
     border-radius: 4px;
-    background: #fff;
+    background: var(--ui-control);
     cursor: pointer;
-    color: #333;
+    color: var(--font-color);
   }
   .root-btn:hover, .type-btn:hover {
-    background: #f5f5f5;
+    background: var(--ui-surface-hover);
   }
   .root-btn.active, .type-btn.active {
-    background: #4a76c4;
-    border-color: #4a76c4;
+    background: var(--ui-accent);
+    border-color: var(--ui-accent);
     color: #fff;
   }
   #chordTypeSelect {
@@ -798,7 +826,7 @@
   .section-note {
     margin: 0;
     font-size: 12px;
-    color: #888;
+    color: var(--ui-muted);
   }
   #playerTransport {
     display: flex;
@@ -811,28 +839,28 @@
     flex: none;
     border: none;
     border-radius: 50%;
-    background: #4a76c4;
+    background: var(--ui-accent);
     color: #fff;
     font-size: 16px;
     cursor: pointer;
   }
   #playerPlayBtn:disabled {
-    background: #ccc;
+    background: var(--ui-disabled);
     cursor: default;
   }
   #playerStopBtn {
     width: 32px;
     height: 32px;
     flex: none;
-    border: 1px solid #ddd;
+    border: 1px solid var(--ui-line);
     border-radius: 50%;
-    background: #fff;
-    color: #555;
+    background: var(--ui-control);
+    color: var(--font-color);
     font-size: 12px;
     cursor: pointer;
   }
   #playerStopBtn:disabled {
-    color: #ccc;
+    color: var(--ui-disabled);
     cursor: default;
   }
   #playerTranspose {
@@ -843,39 +871,40 @@
   .transpose-btn {
     width: 28px;
     height: 28px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--ui-line);
     border-radius: 4px;
-    background: #fff;
-    color: #333;
+    background: var(--ui-control);
+    color: var(--font-color);
     font-size: 15px;
     cursor: pointer;
   }
   .transpose-btn:disabled {
-    color: #ccc;
+    color: var(--ui-disabled);
     cursor: default;
   }
   #playerSeek {
     flex: 1;
     min-width: 0;
+    accent-color: var(--ui-accent);
   }
   .player-time {
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    color: #888;
+    color: var(--ui-muted);
   }
   #playerDropZone {
     display: block;
     padding: 16px;
-    border: 2px dashed #ddd;
+    border: 2px dashed var(--ui-line);
     border-radius: 6px;
     text-align: center;
     font-size: 13px;
-    color: #888;
+    color: var(--ui-muted);
     cursor: pointer;
   }
   #playerDropZone.dragover {
-    border-color: #4a76c4;
-    color: #4a76c4;
+    border-color: var(--ui-accent);
+    color: var(--ui-accent);
   }
 </style>
 </head>

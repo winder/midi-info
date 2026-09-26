@@ -818,6 +818,13 @@ export const DEFAULT_THEME: Theme = BUILT_IN_THEMES[0];
 
 // Applies the theme by setting CSS custom properties on the root element;
 // index.html's stylesheet reads these to color the page and keyboard.
+// A #rrggbb color with a relative luminance under half: text on it
+// should be light.
+function isDarkColor(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5;
+}
+
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement.style;
   root.setProperty('--bg-color', theme.background);
@@ -831,6 +838,9 @@ export function applyTheme(theme: Theme): void {
   root.setProperty('--black-key-color-2', theme.blackKey2);
   root.setProperty('--active-key-color-2', theme.activeKey2);
   root.setProperty('--highlight-color-2', theme.highlight2);
+  // Native controls (dropdown lists, sliders, file picker) follow the
+  // theme's lightness, so a dark theme doesn't pop open a white list.
+  document.documentElement.style.colorScheme = isDarkColor(theme.background) ? 'dark' : 'light';
   document.documentElement.classList.toggle('gradient-enabled', theme.gradient);
   document.documentElement.classList.toggle('glow-enabled', theme.glow);
   applyFont(theme.fontId);
