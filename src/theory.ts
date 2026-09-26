@@ -499,3 +499,18 @@ export function transpositionLabel(from: Key, to: Key, semitones: number): strin
   const interval = number === 8 && diff === 0 ? 'an octave' : `${/^[aeiou]/.test(quality) ? 'an' : 'a'} ${quality} ${ORDINALS[number]}`;
   return `${semitones > 0 ? 'up' : 'down'} ${interval}`;
 }
+
+// A change of mode on the same tonic, as a semitone adjustment for each
+// pitch class counted from the tonic (0-11). Each scale degree of `from`
+// moves to the same degree of `to` (D major to D minor: F# to F, B to Bb,
+// C# to C). Notes outside `from` keep their pitch: a raised leading tone
+// or a secondary dominant's accidental has no degree to follow, and left
+// alone it usually still makes sense (the G# of A minor becomes A major's
+// own leading tone).
+export function modeShiftMap(from: Mode, to: Mode): number[] {
+  const deltas = new Array<number>(12).fill(0);
+  from.steps.forEach((step, degree) => {
+    deltas[step] = to.steps[degree] - step;
+  });
+  return deltas;
+}

@@ -100,10 +100,10 @@ export class MidiPlayer {
   private offset = 0; // position (s) when last paused or seeked
   private startedAt: number | null = null; // clock (ms) when play() began, null while paused
   private timer: ReturnType<typeof setTimeout> | null = null;
-  // Pitches struck and not yet released, as played (after transposing).
+  // Pitches struck and not yet released, as played (after the pitch map).
   private readonly sounding = new Set<number>();
   private pedalDown = false;
-  private shift = 0; // semitones added to every note
+  private map: (midi: number) => number = midi => midi;
 
   constructor(
     readonly song: Song,
@@ -145,16 +145,13 @@ export class MidiPlayer {
     this.releaseAll();
   }
 
-  get transpose(): number {
-    return this.shift;
-  }
-
-  // Takes effect at once: what's sounding is released and playback carries
-  // on in the new key, as a seek would.
-  set transpose(semitones: number) {
+  // Where each of the file's notes is played: a transposition, a change of
+  // mode, or both. Takes effect at once: what's sounding is released and
+  // playback carries on with the new map, as a seek would.
+  set pitchMap(map: (midi: number) => number) {
     const wasPlaying = this.playing;
     this.pause();
-    this.shift = semitones;
+    this.map = map;
     if (wasPlaying) this.play();
   }
 
@@ -173,10 +170,10 @@ export class MidiPlayer {
     if (wasPlaying) this.play();
   }
 
-  // The notes that span `seconds`, transposed, lowest first: what's
-  // sounding there.
+  // The notes that span `seconds`, through the pitch map, lowest first:
+  // what's sounding there.
   notesAt(seconds: number): number[] {
-    const midis = this.song.notes.filter(n => n.start <= seconds && n.end > seconds).map(n => n.midi + this.shift);
+    const midis = this.song.notes.filter(n => n.start <= seconds && n.end > seconds).map(n => this.map(n.midi));
     return Array.from(new Set(midis)).sort((a, b) => a - b);
   }
 
@@ -212,13 +209,13 @@ export class MidiPlayer {
 
   private fire(event: PlayerEvent): void {
     if (event.kind === 'on') {
-      const midi = event.midi + this.shift;
+      const midi = this.map(event.midi);
       if (midi < 0 || midi > 127) return;
       this.sounding.add(midi);
       this.callbacks.noteOn(midi, event.velocity);
     } else if (event.kind === 'off') {
-      // A note struck before a pause, seek or transpose was already released.
-      const midi = event.midi + this.shift;
+      // A note struck before a pause, seek or new pitch map was already released.
+      const midi = this.map(event.midi);
       if (!this.sounding.delete(midi)) return;
       this.callbacks.noteOff(midi);
     } else {

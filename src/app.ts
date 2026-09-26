@@ -53,6 +53,7 @@ import {
   diatonicRomanNumerals,
   keyPitchClass,
   levelAtLeast,
+  modeShiftMap,
   nearestShift,
   parseChordFormulas,
   scalePitchClasses,
@@ -906,13 +907,17 @@ KEYS.forEach((key, i) => {
 const IONIAN_INDEX = MODES.findIndex(m => m.name === 'Ionian');
 const AEOLIAN_INDEX = MODES.findIndex(m => m.name === 'Aeolian');
 
+function modeOptions(): { label: string; index: number }[] {
+  return currentLevel === 'basic'
+    ? [{ label: 'Major', index: IONIAN_INDEX }, { label: 'Minor', index: AEOLIAN_INDEX }]
+    : MODES.map((mode, i) => ({ label: mode.name, index: i }));
+}
+
 function populateModeSelect(): void {
   modeLabelText.textContent = currentLevel === 'basic' ? 'Tonality' : 'Mode';
   const prevIndex = modeSelect.value ? Number(modeSelect.value) : IONIAN_INDEX;
   modeSelect.innerHTML = '';
-  const options = currentLevel === 'basic'
-    ? [{ label: 'Major', index: IONIAN_INDEX }, { label: 'Minor', index: AEOLIAN_INDEX }]
-    : MODES.map((mode, i) => ({ label: mode.name, index: i }));
+  const options = modeOptions();
   options.forEach(o => {
     const opt = document.createElement('option');
     opt.value = String(o.index);
@@ -947,6 +952,7 @@ function setLevel(level: Level): void {
   updateLevelButtons();
   populateModeSelect();
   refreshHighlighterUI();
+  refreshTransposeControls();
   refreshNoteNames();
 }
 
@@ -1517,6 +1523,7 @@ const playerFileInput = document.getElementById('playerFileInput') as HTMLInputE
 const playerDropZone = document.getElementById('playerDropZone') as HTMLElement;
 const playerError = document.getElementById('playerError') as HTMLElement;
 const playerKeySelect = document.getElementById('playerKeySelect') as HTMLSelectElement;
+const playerModeSelect = document.getElementById('playerModeSelect') as HTMLSelectElement;
 const playerFlatBtn = document.getElementById('playerFlatBtn') as HTMLButtonElement;
 const playerSharpBtn = document.getElementById('playerSharpBtn') as HTMLButtonElement;
 const playerTransposeLabel = document.getElementById('playerTransposeLabel') as HTMLElement;
@@ -1536,14 +1543,16 @@ const UPLOAD_PREFIX = 'upload:';
 // Bumped on every load, so a slow preset fetch can't replace a newer choice.
 let loadRequest = 0;
 
-// "Play in": the loaded file's own key and the key it's played in (KEYS
-// indices), and the actual shift between them. The shift is kept apart
-// because the flat/sharp buttons walk it up to an octave either way, while
-// the key alone only says where it landed.
+// "Play in": the loaded file's own key and mode and the ones it's played
+// in (KEYS and MODES indices), and the actual shift between the keys. The
+// shift is kept apart because the flat/sharp buttons walk it up to an
+// octave either way, while the key alone only says where it landed.
 const MAX_TRANSPOSE = 12;
 let fileKeyIndex = 0;
 let playKeyIndex = 0;
 let transposeShift = 0;
+let fileModeIndex = IONIAN_INDEX;
+let playModeIndex = IONIAN_INDEX;
 
 function setPlayerOpen(open: boolean): void {
   playerBody.hidden = !open;
@@ -1617,6 +1626,9 @@ function loadSong(song: Song, settings: FileSettings): void {
   fileKeyIndex = Math.max(0, KEYS.findIndex(k => k.name === settings.key));
   playKeyIndex = fileKeyIndex;
   transposeShift = 0;
+  const modeIndex = MODES.findIndex(m => m.name === settings.mode);
+  fileModeIndex = modeIndex === -1 ? IONIAN_INDEX : modeIndex;
+  playModeIndex = fileModeIndex;
   refreshTransposeControls();
   refreshPlayerControls();
 }
@@ -1632,26 +1644,79 @@ function refreshTransposeControls(): void {
       playerKeySelect.appendChild(opt);
     });
     playerKeySelect.value = String(playKeyIndex);
+    // The level's choices, plus the file's own mode and the one playing if
+    // the level hides them.
+    const options = modeOptions();
+    [fileModeIndex, playModeIndex].forEach(index => {
+      if (!options.some(o => o.index === index)) options.push({ label: MODES[index].name, index });
+    });
+    playerModeSelect.innerHTML = '';
+    options.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = String(o.index);
+      opt.textContent = o.index === fileModeIndex ? `${o.label} (original)` : o.label;
+      playerModeSelect.appendChild(opt);
+    });
+    playerModeSelect.value = String(playModeIndex);
+  } else {
+    playerModeSelect.innerHTML = '';
   }
   playerKeySelect.disabled = !loaded;
+  playerModeSelect.disabled = !loaded;
   playerFlatBtn.disabled = !loaded || transposeShift <= -MAX_TRANSPOSE;
   playerSharpBtn.disabled = !loaded || transposeShift >= MAX_TRANSPOSE;
-  playerTransposeLabel.textContent = loaded ? transpositionLabel(KEYS[fileKeyIndex], KEYS[playKeyIndex], transposeShift) : '';
+  playerTransposeLabel.textContent = loaded ? playInLabel() : '';
 }
 
-// Only the file's notes move; the Key setting follows so spelling and
-// Roman numerals are measured in the new key. Live, like a seek.
-function setTransposition(shift: number, keyIndex: number): void {
+// What "Play in" did, in words: "up a major 2nd", "parallel minor", or
+// "up a major 2nd, in Dorian".
+function playInLabel(): string {
+  const keyPart = transpositionLabel(KEYS[fileKeyIndex], KEYS[playKeyIndex], transposeShift);
+  if (playModeIndex === fileModeIndex) return keyPart;
+  const mode = playModeIndex === IONIAN_INDEX ? 'major' : playModeIndex === AEOLIAN_INDEX ? 'minor' : MODES[playModeIndex].name;
+  return keyPart === 'original key' ? `parallel ${mode}` : `${keyPart}, in ${mode}`;
+}
+
+// Only the file's notes move, live, like a seek: first to the new mode on
+// the file's own tonic, then by the key shift. A paused chord moves too.
+function refreshPitchMap(): void {
   if (!filePlayer) return;
-  const delta = shift - transposeShift;
-  transposeShift = shift;
-  playKeyIndex = keyIndex;
-  filePlayer.transpose = shift;
-  pausedChord = pausedChord.map(m => m + delta);
-  keySelect.value = String(keyIndex);
+  const tonicPc = keyPitchClass(KEYS[fileKeyIndex]);
+  const deltas = modeShiftMap(MODES[fileModeIndex], MODES[playModeIndex]);
+  const shift = transposeShift;
+  filePlayer.pitchMap = midi => midi + deltas[(midi - tonicPc + 120) % 12] + shift;
+  if (playbackActive && !filePlayer.playing) pausedChord = filePlayer.notesAt(filePlayer.position);
+}
+
+// The Key and Mode settings follow, so spelling and Roman numerals are
+// measured in what's playing. A mode the level hides is left alone there.
+function syncKeySettings(): void {
+  keySelect.value = String(playKeyIndex);
+  const modeValue = String(playModeIndex);
+  if (Array.from(modeSelect.options).some(o => o.value === modeValue)) modeSelect.value = modeValue;
   refreshNoteNames();
   refreshTransposeControls();
 }
+
+function setTransposition(shift: number, keyIndex: number): void {
+  if (!filePlayer) return;
+  transposeShift = shift;
+  playKeyIndex = keyIndex;
+  refreshPitchMap();
+  syncKeySettings();
+}
+
+// A transposed key is respelled for the new mode (C# minor, not Db minor);
+// the file's own key keeps its name.
+function setPlayMode(modeIndex: number): void {
+  if (!filePlayer) return;
+  playModeIndex = modeIndex;
+  if (transposeShift !== 0) playKeyIndex = standardKeyIndex(keyPitchClass(KEYS[playKeyIndex]), MODES[modeIndex]);
+  refreshPitchMap();
+  syncKeySettings();
+}
+
+playerModeSelect.addEventListener('change', () => setPlayMode(Number(playerModeSelect.value)));
 
 // Picking a key takes the short way there.
 playerKeySelect.addEventListener('change', () => {
@@ -1664,7 +1729,7 @@ function stepTransposition(step: number): void {
   const shift = transposeShift + step;
   if (Math.abs(shift) > MAX_TRANSPOSE) return;
   const pc = (keyPitchClass(KEYS[fileKeyIndex]) + shift + 24) % 12;
-  setTransposition(shift, shift === 0 ? fileKeyIndex : standardKeyIndex(pc, currentMode));
+  setTransposition(shift, shift === 0 ? fileKeyIndex : standardKeyIndex(pc, MODES[playModeIndex]));
 }
 
 playerFlatBtn.addEventListener('click', () => stepTransposition(-1));

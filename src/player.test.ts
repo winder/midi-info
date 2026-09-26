@@ -79,17 +79,17 @@ describe('MidiPlayer', () => {
     assert.equal(h.ended(), 0);
   });
 
-  test('transposing mid-note releases it and carries on in the new key', () => {
+  test('a new pitch map mid-note releases it and carries on with the new map', () => {
     const h = harness(SONG);
     h.player.play();
     h.advance(500);
-    h.player.transpose = 2;
+    h.player.pitchMap = midi => midi + 2;
     assert.deepEqual(h.log, ['on 60 90', 'off 60']);
     assert.equal(h.player.playing, true);
     assert.deepEqual(h.player.notesAt(1.5), [66]);
     h.advance(500);
     assert.deepEqual(h.log.slice(2), ['pedal down', 'on 66 70']);
-    h.player.transpose = 0;
+    h.player.pitchMap = midi => midi;
     assert.deepEqual(h.log.slice(4), ['pedal up', 'off 66', 'pedal down']);
   });
 

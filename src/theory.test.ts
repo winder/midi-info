@@ -13,6 +13,7 @@ import {
   diatonicRomanNumerals,
   isBlackPitch,
   keyPitchClass,
+  modeShiftMap,
   nearestShift,
   octaveOf,
   parseChordFormulas,
@@ -352,6 +353,16 @@ describe('transposition', () => {
   const key = (name: string) => KEYS.find(k => k.name === name)!;
   const IONIAN = MODES.find(m => m.name === 'Ionian')!;
   const AEOLIAN = MODES.find(m => m.name === 'Aeolian')!;
+
+  test('modeShiftMap moves each scale degree to the new mode and leaves other notes alone', () => {
+    const DORIAN = MODES.find(m => m.name === 'Dorian')!;
+    // Major to minor: the 3rd, 6th and 7th come down.
+    assert.deepEqual(modeShiftMap(IONIAN, AEOLIAN), [0, 0, 0, 0, -1, 0, 0, 0, 0, -1, 0, -1]);
+    // Minor to major: they go up; the raised 7th (11, outside Aeolian) stays.
+    assert.deepEqual(modeShiftMap(AEOLIAN, IONIAN), [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]);
+    assert.deepEqual(modeShiftMap(IONIAN, DORIAN), [0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, -1]);
+    assert.deepEqual(modeShiftMap(IONIAN, IONIAN), new Array(12).fill(0));
+  });
 
   test('nearestShift takes the short way round', () => {
     assert.equal(nearestShift(0, 2), 2);

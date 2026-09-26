@@ -191,6 +191,41 @@ describe('MIDI player', () => {
     }
   });
 
+  test('the tonality picker plays the file in another mode, live', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    const selectedText = (sel: string) => page.$eval(sel, el => (el as HTMLSelectElement).selectedOptions[0].textContent);
+    try {
+      await openPlayer(page);
+      await upload(page, 'progression.mid', progression());
+      await page.waitForSelector('#playerPlayBtn:not([disabled])');
+      assert.equal(await selectedText('#playerModeSelect'), 'Major (original)');
+
+      // Paused on the first chord, then switched to minor: the chord moves with it.
+      await seek(page, 0.5);
+      assert.deepEqual(await highlightedMidis(page), [60, 64, 67]);
+      await page.selectOption('#playerModeSelect', { label: 'Minor' });
+      assert.deepEqual(await highlightedMidis(page), [60, 63, 67]);
+      assert.equal(await chordDisplayMain(page), 'C-');
+      assert.equal(await selectedText('#modeSelect'), 'Minor', 'the Mode setting follows');
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'parallel minor');
+
+      // Up a whole step as well: D minor.
+      await page.click('#playerSharpBtn');
+      await page.click('#playerSharpBtn');
+      assert.equal(await selectedText('#playerKeySelect'), 'D');
+      assert.deepEqual(await highlightedMidis(page), [62, 65, 69]);
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'up a major 2nd, in minor');
+
+      await seek(page, 0);
+      await page.click('#playerPlayBtn');
+      await page.waitForFunction(() => document.querySelector('#chordDisplay .chord-main')?.textContent?.trim() === 'G-');
+      assert.deepEqual(await activeMidis(page), [67, 70, 74], "the file's F major, as iv of D minor");
+    } finally {
+      await app.close();
+    }
+  });
+
   test('the end of a file turns every note off', async () => {
     const app = await launchApp();
     const { page } = app;
