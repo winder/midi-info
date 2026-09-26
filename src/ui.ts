@@ -588,14 +588,24 @@ export function setErrorMessage(el: HTMLElement, message: string | null): void {
 
 export interface PlayerControls {
   playButton: HTMLButtonElement;
+  stopButton: HTMLButtonElement;
   seek: HTMLInputElement;
   elapsed: HTMLElement;
   duration: HTMLElement;
 }
 
-// `duration` null means nothing is loaded: everything reads 0:00, disabled.
-export function renderPlayerControls(controls: PlayerControls, playing: boolean, position: number, duration: number | null): void {
+export interface PlayerState {
+  playing: boolean;
+  // Started and not yet stopped or ended, playing or paused: what Stop ends.
+  active: boolean;
+  position: number;
+  // null means nothing is loaded: everything reads 0:00, disabled.
+  duration: number | null;
+}
+
+export function renderPlayerControls(controls: PlayerControls, { playing, active, position, duration }: PlayerState): void {
   controls.playButton.disabled = duration === null;
+  controls.stopButton.disabled = !active;
   controls.playButton.textContent = playing ? '\u23F8' : '\u25B6';
   controls.playButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
   controls.seek.disabled = duration === null;

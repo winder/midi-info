@@ -108,6 +108,35 @@ describe('MIDI player', () => {
     }
   });
 
+  test('Stop goes back to the start and hands control back to the highlighter', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await openPlayer(page);
+      await upload(page, 'progression.mid', progression());
+      await page.waitForSelector('#playerPlayBtn:not([disabled])');
+      assert.equal(await page.isDisabled('#playerStopBtn'), true, 'nothing to stop yet');
+
+      await page.click('#playerPlayBtn');
+      await page.waitForFunction(() => document.querySelector('#chordDisplay .chord-main')?.textContent?.trim() === 'C');
+      assert.equal(await page.isDisabled('#playerStopBtn'), false);
+      await page.click('#playerPlayBtn');
+      assert.deepEqual(await highlightedMidis(page), [60, 64, 67]);
+
+      await page.click('#playerStopBtn');
+      assert.deepEqual(await activeMidis(page), []);
+      assert.deepEqual(await highlightedMidis(page), [], 'the paused chord clears');
+      assert.equal(await highlighterInert(page), false);
+      assert.deepEqual(await sectionOrder(page), ['highlighterSection', 'playerSection']);
+      assert.equal(await page.textContent('#playerElapsed'), '0:00');
+      assert.equal(await playLabel(page), 'Play');
+      assert.equal(await page.isDisabled('#playerStopBtn'), true);
+      assert.equal(await page.isDisabled('#playerPlayBtn'), false, 'the file stays loaded');
+    } finally {
+      await app.close();
+    }
+  });
+
   test('seeking while paused shows the chord at the new spot without playing it', async () => {
     const app = await launchApp();
     const { page } = app;

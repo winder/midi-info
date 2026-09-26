@@ -142,6 +142,12 @@ export class MidiPlayer {
     this.releaseAll();
   }
 
+  // Pause and go back to the start.
+  stop(): void {
+    this.pause();
+    this.seek(0);
+  }
+
   seek(seconds: number): void {
     const wasPlaying = this.playing;
     this.pause();

@@ -64,6 +64,21 @@ describe('MidiPlayer', () => {
     assert.equal(h.ended(), 1);
   });
 
+  test('stop releases everything and goes back to the start, ready to play again', () => {
+    const h = harness(SONG);
+    h.player.play();
+    h.advance(1500);
+    h.log.length = 0;
+    h.player.stop();
+    assert.deepEqual(h.log, ['pedal up', 'off 64']);
+    assert.equal(h.player.playing, false);
+    assert.equal(h.player.position, 0);
+    h.log.length = 0;
+    h.player.play();
+    assert.deepEqual(h.log, ['on 60 90']);
+    assert.equal(h.ended(), 0);
+  });
+
   test('seek while playing continues from notes that start later', () => {
     const h = harness(SONG);
     h.player.play();

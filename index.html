@@ -820,6 +820,21 @@
     background: #ccc;
     cursor: default;
   }
+  #playerStopBtn {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    background: #fff;
+    color: #555;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #playerStopBtn:disabled {
+    color: #ccc;
+    cursor: default;
+  }
   #playerSeek {
     flex: 1;
     min-width: 0;
@@ -1115,7 +1130,7 @@
           <div class="root-buttons" id="chordRootButtons"></div>
           <select id="chordTypeSelect"></select>
         </div>
-        <p id="highlighterSuspendedNote" class="section-note" hidden>Paused while the MIDI Player has a file playing.</p>
+        <p id="highlighterSuspendedNote" class="section-note" hidden>Paused while the MIDI Player has a file playing. Press Stop (&#9632;) to use it again.</p>
       </div>
     </div>
 
@@ -1127,6 +1142,7 @@
         <label for="playerFileSelect">File <select id="playerFileSelect"><option value="">Choose a file&hellip;</option></select></label>
         <div id="playerTransport">
           <button id="playerPlayBtn" type="button" aria-label="Play" disabled>&#9654;</button>
+          <button id="playerStopBtn" type="button" aria-label="Stop" title="Stop: back to the start, and the Chord/Scale Display returns" disabled>&#9632;</button>
           <span id="playerElapsed" class="player-time">0:00</span>
           <input type="range" id="playerSeek" min="0" max="0" step="0.01" value="0" aria-label="Position" disabled>
           <span id="playerDuration" class="player-time">0:00</span>

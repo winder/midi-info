@@ -1516,6 +1516,7 @@ const playerError = document.getElementById('playerError') as HTMLElement;
 const highlighterSuspendedNote = document.getElementById('highlighterSuspendedNote') as HTMLElement;
 const playerControls = {
   playButton: document.getElementById('playerPlayBtn') as HTMLButtonElement,
+  stopButton: document.getElementById('playerStopBtn') as HTMLButtonElement,
   seek: document.getElementById('playerSeek') as HTMLInputElement,
   elapsed: document.getElementById('playerElapsed') as HTMLElement,
   duration: document.getElementById('playerDuration') as HTMLElement,
@@ -1535,7 +1536,12 @@ function setPlayerOpen(open: boolean): void {
 }
 
 function refreshPlayerControls(): void {
-  renderPlayerControls(playerControls, filePlayer?.playing ?? false, filePlayer?.position ?? 0, filePlayer?.song.duration ?? null);
+  renderPlayerControls(playerControls, {
+    playing: filePlayer?.playing ?? false,
+    active: playbackActive,
+    position: filePlayer?.position ?? 0,
+    duration: filePlayer?.song.duration ?? null,
+  });
 }
 
 // Keeps the clock and bar moving while playing.
@@ -1707,6 +1713,13 @@ playerControls.playButton.addEventListener('click', () => {
   render();
   filePlayer.play();
   followPlayback();
+});
+
+// Back to 0:00 with the file still loaded, and the highlighter back in charge.
+playerControls.stopButton.addEventListener('click', () => {
+  filePlayer?.stop();
+  setPlaybackActive(false);
+  refreshPlayerControls();
 });
 
 // Dragging the bar while paused shows the chord at the new spot, silently.
