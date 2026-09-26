@@ -2,6 +2,7 @@
 // the DOM; they don't own application state (see app.ts for that).
 
 import { ChordFormula, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel } from './theory';
+import { formatTime } from './player';
 
 // Base key dimensions; also the reference for scaling every other
 // dimension proportionally as key width changes.
@@ -581,6 +582,27 @@ export function downloadJSON(filename: string, data: unknown): void {
 export function setErrorMessage(el: HTMLElement, message: string | null): void {
   el.textContent = message || '';
   el.hidden = !message;
+}
+
+// ---- MIDI player controls ----
+
+export interface PlayerControls {
+  playButton: HTMLButtonElement;
+  seek: HTMLInputElement;
+  elapsed: HTMLElement;
+  duration: HTMLElement;
+}
+
+// `duration` null means nothing is loaded: everything reads 0:00, disabled.
+export function renderPlayerControls(controls: PlayerControls, playing: boolean, position: number, duration: number | null): void {
+  controls.playButton.disabled = duration === null;
+  controls.playButton.textContent = playing ? '\u23F8' : '\u25B6';
+  controls.playButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  controls.seek.disabled = duration === null;
+  controls.seek.max = String(duration ?? 0);
+  controls.seek.value = String(position);
+  controls.elapsed.textContent = formatTime(position);
+  controls.duration.textContent = formatTime(duration ?? 0);
 }
 
 // ---- Font family selection ----

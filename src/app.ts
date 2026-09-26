@@ -3,6 +3,8 @@
 declare const __COMMIT_HASH__: string;
 
 import { ALL_DEVICES, MidiState, initMIDI, midiPickerModel } from './midi';
+import { MidiPlayer, Song, parseSong } from './player';
+import { MIDI_PRESETS, MidiPreset } from './presets';
 import { Params, analytics, initAnalytics } from './analytics';
 import {
   DEFAULT_HOLD_MS,
@@ -75,6 +77,7 @@ import {
   renderChordDisplay,
   renderChordTable,
   renderKeyboard,
+  renderPlayerControls,
   renderRomanHints,
   setErrorMessage,
   setSettingsOpen,
@@ -324,9 +327,10 @@ let soundSettings: SoundSettings = {
 };
 const activeNotes = new Set<number>();
 let hasPlayedNote = false;
-// Where a note came from. Each source gets its own once-only first-note
-// event, so clicking the on-screen keyboard first never hides later MIDI use.
-type NoteSource = 'midi' | 'mouse';
+// Where a note came from. Each live source gets its own once-only
+// first-note event, so clicking the on-screen keyboard first never hides
+// later MIDI use. A MIDI file playing ('file') reports nothing.
+type NoteSource = 'midi' | 'mouse' | 'file';
 let sustainOn = false;
 // Notes released while the sustain pedal is held: kept sounding until the pedal comes up.
 const sustainedNotes = new Set<number>();
@@ -342,6 +346,15 @@ let chordTypeSymbol: string = HIGHLIGHT_CHORDS[0].symbol;
 // (see soundOn), so they don't compete with the auto keys. The selection
 // itself stays; picking a chord again shows them.
 let chordHighlightHidden = false;
+
+// The MIDI player (see player.ts). Playback is active from the first Play
+// (or seek) until the file ends or another loads, paused or not; meanwhile
+// the highlighter steps aside. While paused mid-file, pausedChord is the
+// chord that was showing, lit in the highlight color so a learner can play
+// along.
+let filePlayer: MidiPlayer | null = null;
+let playbackActive = false;
+let pausedChord: number[] = [];
 
 // ---- DOM references ----
 
@@ -510,7 +523,7 @@ function chordVoiceKey(pressed: number, midi: number): VoiceKey {
 
 function soundOn(midi: number, velocity: number): void {
   soundOff(midi);
-  const chord = soundSettings.enabled && highlightMode === 'chord' ? HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol) : undefined;
+  const chord = soundSettings.enabled && highlightMode === 'chord' && !playbackActive ? HIGHLIGHT_CHORDS.find(c => c.symbol === chordTypeSymbol) : undefined;
   if (chord) chordHighlightHidden = true;
   const voicing = chord ? buildChordVoicing(midi % 12, chord.voicing, midi) : [midi];
   soundingVoicings.set(midi, voicing);
@@ -537,14 +550,21 @@ function render(): void {
   renderChord();
 }
 
+function highlightedKeys(): Set<number> {
+  if (playbackActive) return new Set(pausedChord);
+  if (highlightMode === 'chord' && chordHighlightHidden) return new Set();
+  return computeHighlightedNotes();
+}
+
 function renderKeys(): void {
-  const highlighted = highlightMode === 'chord' && chordHighlightHidden ? new Set<number>() : computeHighlightedNotes();
-  renderKeyboard(piano, activeNotes, currentNoteNames, highlighted, showNoteLabels, autoNotes());
+  renderKeyboard(piano, activeNotes, currentNoteNames, highlightedKeys(), showNoteLabels, autoNotes());
   refreshOffscreenIndicators();
 }
 
+// While paused mid-file the readout names the paused chord, unless you're
+// playing something yourself.
 function renderChord(): void {
-  const activeMidiSorted = noteSettler.notes;
+  const activeMidiSorted = pausedChord.length && soundingNotes().size === 0 ? pausedChord : noteSettler.notes;
   const pitchClasses = Array.from(new Set(activeMidiSorted.map(m => m % 12)));
   renderChordDisplay(
     chordDisplayEl, activeMidiSorted, pitchClasses, chordFormulas, currentNoteNames, currentTonicPc, currentMode,
@@ -554,7 +574,7 @@ function renderChord(): void {
 
 function noteOn(midi: number, source: NoteSource, velocity: number = MOUSE_VELOCITY): void {
   hasPlayedNote = true;
-  analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
+  if (source !== 'file') analytics().once(source === 'midi' ? 'first_midi_note' : 'first_mouse_note');
   sustainedNotes.delete(midi);
   activeNotes.add(midi);
   soundOn(midi, velocity);
@@ -1482,6 +1502,240 @@ function setHighlighterOpen(open: boolean): void {
 highlighterToggle.addEventListener('click', () => setHighlighterOpen(!highlighterOpen));
 setHighlighterOpen(false);
 refreshHighlighterUI();
+
+// ---- MIDI player ----
+
+const highlighterSection = document.getElementById('highlighterSection') as HTMLElement;
+const playerSection = document.getElementById('playerSection') as HTMLElement;
+const playerToggle = document.getElementById('playerToggle') as HTMLButtonElement;
+const playerBody = document.getElementById('playerBody') as HTMLElement;
+const playerFileSelect = document.getElementById('playerFileSelect') as HTMLSelectElement;
+const playerFileInput = document.getElementById('playerFileInput') as HTMLInputElement;
+const playerDropZone = document.getElementById('playerDropZone') as HTMLElement;
+const playerError = document.getElementById('playerError') as HTMLElement;
+const highlighterSuspendedNote = document.getElementById('highlighterSuspendedNote') as HTMLElement;
+const playerControls = {
+  playButton: document.getElementById('playerPlayBtn') as HTMLButtonElement,
+  seek: document.getElementById('playerSeek') as HTMLInputElement,
+  elapsed: document.getElementById('playerElapsed') as HTMLElement,
+  duration: document.getElementById('playerDuration') as HTMLElement,
+};
+
+// Uploaded files join the file list for this visit only. Their option
+// values are 'upload:<index>'; presets use their id.
+const uploads: { name: string; song: Song }[] = [];
+const UPLOAD_PREFIX = 'upload:';
+// Bumped on every load, so a slow preset fetch can't replace a newer choice.
+let loadRequest = 0;
+
+function setPlayerOpen(open: boolean): void {
+  playerBody.hidden = !open;
+  playerToggle.setAttribute('aria-expanded', String(open));
+  playerToggle.classList.toggle('open', open);
+}
+
+function refreshPlayerControls(): void {
+  renderPlayerControls(playerControls, filePlayer?.playing ?? false, filePlayer?.position ?? 0, filePlayer?.song.duration ?? null);
+}
+
+// Keeps the clock and bar moving while playing.
+function followPlayback(): void {
+  refreshPlayerControls();
+  if (filePlayer?.playing) requestAnimationFrame(followPlayback);
+}
+
+function setPlaybackActive(active: boolean): void {
+  playbackActive = active;
+  pausedChord = [];
+  highlighterBody.inert = active;
+  highlighterSuspendedNote.hidden = !active;
+  // The section in use goes on top. The two are never in use together
+  // (playback sets the highlighter aside), so playback alone decides.
+  if (active) highlighterSection.before(playerSection);
+  else playerSection.before(highlighterSection);
+  render();
+}
+
+function populatePlayerFileSelect(value: string): void {
+  playerFileSelect.innerHTML = '';
+  const choose = document.createElement('option');
+  choose.value = '';
+  choose.textContent = 'Choose a file\u2026';
+  playerFileSelect.appendChild(choose);
+  const entries = [
+    ...MIDI_PRESETS.map(p => ({ value: p.id, label: p.name })),
+    ...uploads.map((u, i) => ({ value: UPLOAD_PREFIX + i, label: u.name })),
+  ];
+  entries.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.value;
+    opt.textContent = e.label;
+    playerFileSelect.appendChild(opt);
+  });
+  playerFileSelect.value = value;
+}
+
+// Loading a file stops the old one, sets up the new one paused at 0:00,
+// and applies its key, mode and sound the same way picking them would.
+// Sound always comes on: you asked to hear a file.
+function loadSong(song: Song, settings: FileSettings): void {
+  filePlayer?.pause();
+  filePlayer = new MidiPlayer(song, {
+    noteOn: (midi, velocity) => noteOn(midi, 'file', velocity),
+    noteOff,
+    pedal: setSustain,
+    onEnd() {
+      setPlaybackActive(false);
+      refreshPlayerControls();
+    },
+  });
+  setPlaybackActive(false);
+  setErrorMessage(playerError, null);
+  applyFileSettings(settings);
+  refreshPlayerControls();
+}
+
+type FileSettings = { key?: string; mode?: string; sound?: string };
+
+// An uploaded file brings only its own key signature, if it has one.
+function uploadSettings(song: Song): FileSettings {
+  const sig = song.keySignature;
+  return sig ? { key: sig.key, mode: sig.minor ? 'Aeolian' : 'Ionian' } : {};
+}
+
+function applyFileSettings({ key, mode, sound }: FileSettings): void {
+  const keyIndex = KEYS.findIndex(k => k.name === key);
+  if (keyIndex !== -1) keySelect.value = String(keyIndex);
+  // Basic offers only Major and Minor; leave any other mode alone rather
+  // than pick one the level hides.
+  const modeValue = String(MODES.findIndex(m => m.name === mode));
+  if (Array.from(modeSelect.options).some(o => o.value === modeValue)) modeSelect.value = modeValue;
+  refreshNoteNames();
+  if (sound && sounds.some(t => t.name === sound)) selectSound(sound);
+  if (!soundEnabled) setSoundEnabled(true);
+}
+
+function unloadSong(message: string | null): void {
+  filePlayer?.pause();
+  filePlayer = null;
+  setPlaybackActive(false);
+  setErrorMessage(playerError, message);
+  refreshPlayerControls();
+}
+
+async function loadPreset(preset: MidiPreset): Promise<void> {
+  const request = ++loadRequest;
+  let result: Song | string;
+  try {
+    const response = await fetch('midi/' + preset.file);
+    if (!response.ok) throw new Error(String(response.status));
+    result = parseSong(await response.arrayBuffer());
+  } catch (e) {
+    result = `Could not load ${preset.name}.`;
+  }
+  if (request !== loadRequest) return;
+  if (typeof result === 'string') unloadSong(result);
+  else loadSong(result, preset);
+}
+
+async function loadUpload(file: File): Promise<void> {
+  const request = ++loadRequest;
+  const result = parseSong(await file.arrayBuffer());
+  if (request !== loadRequest) return;
+  if (typeof result === 'string') {
+    setErrorMessage(playerError, result);
+    return;
+  }
+  uploads.push({ name: file.name, song: result });
+  populatePlayerFileSelect(UPLOAD_PREFIX + (uploads.length - 1));
+  loadSong(result, uploadSettings(result));
+}
+
+playerFileSelect.addEventListener('change', () => {
+  const value = playerFileSelect.value;
+  if (value.startsWith(UPLOAD_PREFIX)) {
+    ++loadRequest;
+    const { song } = uploads[Number(value.slice(UPLOAD_PREFIX.length))];
+    loadSong(song, uploadSettings(song));
+    return;
+  }
+  const preset = MIDI_PRESETS.find(p => p.id === value);
+  if (preset) {
+    loadPreset(preset);
+  } else {
+    ++loadRequest;
+    unloadSong(null);
+  }
+});
+
+playerFileInput.addEventListener('change', () => {
+  const file = playerFileInput.files?.[0];
+  playerFileInput.value = ''; // allow choosing the same file again
+  if (file) loadUpload(file);
+});
+
+playerDropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  playerDropZone.classList.add('dragover');
+});
+playerDropZone.addEventListener('dragleave', () => playerDropZone.classList.remove('dragover'));
+playerDropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  playerDropZone.classList.remove('dragover');
+  const file = e.dataTransfer?.files[0];
+  if (file) loadUpload(file);
+});
+
+function pausePlayback(): void {
+  if (!filePlayer?.playing) return;
+  // The readout's chord, taken before pausing releases its notes.
+  pausedChord = noteSettler.notes.slice();
+  filePlayer.pause();
+  render();
+  refreshPlayerControls();
+}
+
+playerControls.playButton.addEventListener('click', () => {
+  if (!filePlayer) return;
+  if (filePlayer.playing) {
+    pausePlayback();
+    return;
+  }
+  synth.resume();
+  if (!playbackActive) setPlaybackActive(true);
+  pausedChord = [];
+  render();
+  filePlayer.play();
+  followPlayback();
+});
+
+// Dragging the bar while paused shows the chord at the new spot, silently.
+playerControls.seek.addEventListener('input', () => {
+  if (!filePlayer) return;
+  filePlayer.seek(Number(playerControls.seek.value));
+  if (!playbackActive) setPlaybackActive(true);
+  if (!filePlayer.playing) pausedChord = filePlayer.notesAt(filePlayer.position);
+  render();
+  refreshPlayerControls();
+});
+
+// Background tabs throttle timers, which would bunch the notes up.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pausePlayback();
+});
+
+playerToggle.addEventListener('click', () => setPlayerOpen(playerBody.hidden));
+populatePlayerFileSelect('');
+refreshPlayerControls();
+
+// ?midi=<preset id> opens the player with that file loaded (paused: the
+// browser won't play sound before a click anyway).
+const linkedPreset = MIDI_PRESETS.find(p => p.id === new URLSearchParams(location.search).get('midi'));
+setPlayerOpen(linkedPreset !== undefined);
+if (linkedPreset) {
+  playerFileSelect.value = linkedPreset.id;
+  loadPreset(linkedPreset);
+}
 
 // ---- Analytics ----
 

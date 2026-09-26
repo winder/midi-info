@@ -9,13 +9,15 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/midi.ts` - Web MIDI wrapper (`initMIDI`, with a per-device input filter) and `midiPickerModel`, the pure model behind the top bar's MIDI picker, whose selected entry doubles as the connection status.
 - `src/settle.ts` - `NoteSettler`, the chord-readout debouncer (the Smoothing setting). Pure, timer-based, no DOM.
 - `src/sound.ts` - Web Audio `Synth` (per held note: one oscillator or a detuned stereo unison stack, a vibrato LFO, its own lowpass with an optional filter envelope, and an ADSR gain; then shared volume, generated convolution reverb, limiter) and the pure Sound-tab settings helpers. Off by default; browsers keep audio suspended until a click or key press (MIDI doesn't count), hence the top-bar unlock button.
+- `src/player.ts` - the MIDI file player: `parseSong` (the only `@tonejs/midi` user; rejects files with more than one instrument part) and `MidiPlayer`, which plays a plain `Song` through note/pedal callbacks on a timer. Pure apart from timers.
+- `src/presets.ts` - the player's built-in files (`MIDI_PRESETS`: id, name, file in `midi/`, optional key/mode/sound applied on load). The id is the `?midi=<id>` link, so keep it stable. The `.mid` files themselves live in `midi/`.
 - `src/ui.ts` - SVG piano rendering, DOM helpers, themes and fonts. Functions take data in and own no state.
 - `src/app.ts` - orchestrator: all app state, cookie persistence, event wiring, init.
-- `src/theory.test.ts`, `src/settle.test.ts`, `src/sound.test.ts`, `src/midi.test.ts`, `src/analytics.test.ts` - unit tests. Only `theory.ts`, `settle.ts`, the pure helpers in `sound.ts` and `midi.ts`, and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
+- `src/theory.test.ts`, `src/settle.test.ts`, `src/sound.test.ts`, `src/midi.test.ts`, `src/analytics.test.ts`, `src/player.test.ts` - unit tests. Only `theory.ts`, `settle.ts`, `player.ts`, the pure helpers in `sound.ts` and `midi.ts`, and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
 - `favicon.ico` - site icon, referenced from `index.html` and copied into `dist/` by the build.
-- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html` and `favicon.ico` into `dist/` (gitignored).
+- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html`, `favicon.ico` and `midi/` into `dist/` (gitignored).
 
 Commands live in `Makefile` and `package.json` scripts. Read those rather than trusting a doc to stay in sync.
 
@@ -62,6 +64,8 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 
 - **Smoothing debounces the readout, not the keyboard**: the keys show raw notes instantly; the chord name waits until the held set stops changing (short wait after a note-on, longer after a note-off). It never guesses at intent, so strict matching still holds. `launchApp()` in `e2e/fixtures.ts` sets it to `off` so tests can read the chord right after `pressKeys()`; pass `{ chordSmoothing }` to test it.
 
+- **MIDI player**: file notes go through the same `noteOn`/`noteOff`/`setSustain` as live input (source `'file'`, which reports no analytics), so keys, sound and chord detection behave as if played. From the first Play or seek until the file ends or another loads, the Chord/Scale Display is set aside (inert, highlights and chord auto-play off) and the player moves above it; otherwise the Chord/Scale Display is on top. Pause releases every note and lights the readout's chord in the highlight color; seeking while paused shows the chord at that spot. Loading a file turns sound on and applies its key/mode/sound through the normal setters. Files with more than one part are rejected, not mixed down: presets are curated.
+
 ### Settings and persistence
 
 - **Settings levels** `basic` / `intermediate` / `nerd` progressively disclose content. Gating is data-driven: modes, highlight scales and highlight chords carry a `minLevel` and `app.ts` filters them with `levelAtLeast`. Give new theory content a `minLevel` rather than adding UI branches. The chord and theme editors are separate tabs, always enabled, independent of level.
@@ -76,6 +80,7 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 - The gtag stub in `analytics.ts` must push the real `arguments` object, as Google's snippet does. gtag.js ignores plain arrays in `dataLayer`, so a rest-parameter version loads the tag, registers the container and sends nothing, with no error anywhere. This shipped once and analytics silently recorded zero hits until it was caught by watching for `collect` requests. Two related non-problems: the config passes `cookie_domain` explicitly because gtag's default probing tries `github.io` first and Firefox logs each rejected attempt as a console error; and Firefox still warns that the cookie's `expires` was clamped to 400 days, which is fine. When checking `collect` traffic, wait: gtag holds events other than `page_view` for about five seconds before sending.
 - Web Audio: Chromium's `cancelAndHoldAtTime` breaks mid-`setTargetAtTime` (the ramp after it drops straight to 0), and `AudioParam.value` isn't reliably the live level. `Synth.release` pins the level from `envelopeLevelAt()` instead; keep it that way. To check what the synth actually outputs, tap the limiter with an `AnalyserNode` from a Playwright init script and sample RMS.
 - Cookies cap at ~4 KB and an oversized write is dropped silently. `soundPresets` therefore stores only custom and edited sounds (untouched built-ins are rebuilt on load); even so, only ~7 fit. Measure `encodeURIComponent(JSON.stringify(...))` before adding anything big to a cookie.
+- `@tonejs/midi` names a key signature by its major key even when the file marks it minor (A minor reads as `'C'` + `'minor'`); `parseSong` converts it. Its writer also encodes key signatures wrongly, so a test needing one builds the bytes by hand (see `player.test.ts`).
 - Shell aliases may add `-i` to `cp`/`mv`/`rm`. Use `-f` so nothing blocks on a prompt.
 - esbuild's dev server (`make run`) exits as soon as stdin closes. Fine in a terminal, but a script that backgrounds it must hold stdin open (`tail -f /dev/null | npm run serve &`) or it stops before the first request.
 

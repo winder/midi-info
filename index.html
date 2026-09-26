@@ -715,12 +715,12 @@
   html.glow-enabled .key-glow {
     filter: drop-shadow(0 0 1px var(--active-key-color)) drop-shadow(0 0 3px var(--active-key-color));
   }
-  #highlighterSection {
+  #highlighterSection, #playerSection {
     margin: 0 16px 24px 16px;
     border: 1px solid #eee;
     border-radius: 6px;
   }
-  #highlighterToggle {
+  #highlighterToggle, #playerToggle {
     width: 100%;
     display: flex;
     align-items: center;
@@ -734,25 +734,25 @@
     cursor: pointer;
     color: #333;
   }
-  #highlighterToggle:hover {
+  #highlighterToggle:hover, #playerToggle:hover {
     background: #f2f2f2;
   }
-  #highlighterToggle .chevron {
+  #highlighterToggle .chevron, #playerToggle .chevron {
     display: inline-block;
     transition: transform 0.15s ease;
     color: #999;
   }
-  #highlighterToggle.open .chevron {
+  #highlighterToggle.open .chevron, #playerToggle.open .chevron {
     transform: rotate(90deg);
   }
-  #highlighterBody {
+  #highlighterBody, #playerBody {
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 16px;
     border-top: 1px solid #eee;
   }
-  #highlighterBody[hidden] {
+  #highlighterBody[hidden], #playerBody[hidden] {
     display: none;
   }
   .highlighter-group h4 {
@@ -789,6 +789,59 @@
   }
   #chordTypeSelect {
     margin-top: 8px;
+  }
+  /* While a MIDI file is playing or paused the highlighter steps aside
+     (app.ts makes its body inert). */
+  #highlighterBody[inert] .highlighter-group {
+    opacity: 0.4;
+  }
+  .section-note {
+    margin: 0;
+    font-size: 12px;
+    color: #888;
+  }
+  #playerTransport {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #playerPlayBtn {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border: none;
+    border-radius: 50%;
+    background: #4a76c4;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #playerPlayBtn:disabled {
+    background: #ccc;
+    cursor: default;
+  }
+  #playerSeek {
+    flex: 1;
+    min-width: 0;
+  }
+  .player-time {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: #888;
+  }
+  #playerDropZone {
+    display: block;
+    padding: 16px;
+    border: 2px dashed #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+    cursor: pointer;
+  }
+  #playerDropZone.dragover {
+    border-color: #4a76c4;
+    color: #4a76c4;
   }
 </style>
 </head>
@@ -1062,6 +1115,25 @@
           <div class="root-buttons" id="chordRootButtons"></div>
           <select id="chordTypeSelect"></select>
         </div>
+        <p id="highlighterSuspendedNote" class="section-note" hidden>Paused while the MIDI Player has a file playing.</p>
+      </div>
+    </div>
+
+    <div id="playerSection">
+      <button id="playerToggle" type="button" aria-expanded="false" aria-controls="playerBody">
+        MIDI Player <span class="chevron">&#9656;</span>
+      </button>
+      <div id="playerBody" hidden>
+        <label for="playerFileSelect">File <select id="playerFileSelect"><option value="">Choose a file&hellip;</option></select></label>
+        <div id="playerTransport">
+          <button id="playerPlayBtn" type="button" aria-label="Play" disabled>&#9654;</button>
+          <span id="playerElapsed" class="player-time">0:00</span>
+          <input type="range" id="playerSeek" min="0" max="0" step="0.01" value="0" aria-label="Position" disabled>
+          <span id="playerDuration" class="player-time">0:00</span>
+        </div>
+        <label id="playerDropZone" for="playerFileInput">Drop a MIDI file (.mid, .midi) here, or click to browse
+          <input type="file" id="playerFileInput" accept=".mid,.midi,audio/midi" hidden></label>
+        <div id="playerError" class="import-error" hidden></div>
       </div>
     </div>
   </div>
