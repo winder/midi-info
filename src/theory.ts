@@ -432,3 +432,70 @@ export const INTERVAL_NAMES = [
   'Minor 7th', // 10
   'Major 7th', // 11
 ];
+
+// ---- Transposition (the MIDI player's "Play in") ----
+
+// The shortest way from one pitch class to another: -6..+5 semitones, so a
+// transposed piece stays near its own range.
+export function nearestShift(fromPc: number, toPc: number): number {
+  const up = ((toPc - fromPc) % 12 + 12) % 12;
+  return up > 5 ? up - 12 : up;
+}
+
+// Sharps plus flats in a key's signature for a mode, a double sharp or
+// flat counting two.
+function signatureAccidentals(key: Key, mode: Mode): number {
+  const tonicPc = keyPitchClass(key);
+  const letterIndex = LETTERS.indexOf(key.tonicLetter);
+  return mode.steps.reduce((sum, step, degree) => {
+    const letter = LETTERS[(letterIndex + degree) % 7];
+    const offset = ((tonicPc + step - NATURAL_PC[letter]) % 12 + 18) % 12 - 6;
+    return sum + Math.abs(offset);
+  }, 0);
+}
+
+// The usual name for a key on a pitch class: the spelling with the fewest
+// accidentals (Db major, not C#). The two six-and-six ties follow common
+// usage: sharps for major-third modes (F# major), flats for minor-third
+// ones (Eb minor).
+export function standardKeyIndex(pc: number, mode: Mode): number {
+  const minorThird = mode.steps[2] === 3;
+  let best = -1;
+  KEYS.forEach((key, i) => {
+    if (keyPitchClass(key) !== pc) return;
+    if (best === -1) {
+      best = i;
+      return;
+    }
+    const diff = signatureAccidentals(key, mode) - signatureAccidentals(KEYS[best], mode);
+    const tieWins = minorThird ? key.tonicAccidental < 0 : key.tonicAccidental > 0;
+    if (diff < 0 || (diff === 0 && tieWins)) best = i;
+  });
+  return best;
+}
+
+const PERFECT_NUMBERS = [1, 4, 5, 8];
+// Semitones in the major or perfect interval of each number (index 1..8).
+const REFERENCE_SEMITONES = [0, 0, 2, 4, 5, 7, 9, 11, 12];
+const ORDINALS = ['', 'unison', '2nd', '3rd', '4th', '5th', '6th', '7th', 'octave'];
+
+// A transposition in words, spelled by letter as well as distance: C to D
+// is "up a major 2nd", C to C# "up an augmented unison", C to Db "up a
+// minor 2nd". `semitones` is the actual shift (-12..12), since which way
+// it went isn't recoverable from the two keys.
+export function transpositionLabel(from: Key, to: Key, semitones: number): string {
+  if (semitones === 0) return from.name === to.name ? 'original key' : 'same pitch, respelled';
+  const [low, high] = semitones > 0 ? [from, to] : [to, from];
+  const distance = Math.abs(semitones);
+  const letterSteps = (LETTERS.indexOf(high.tonicLetter) - LETTERS.indexOf(low.tonicLetter) + 7) % 7;
+  const number = letterSteps === 0 && distance > 6 ? 8 : letterSteps + 1;
+  const diff = distance - REFERENCE_SEMITONES[number];
+  let quality: string;
+  if (PERFECT_NUMBERS.includes(number)) {
+    quality = diff === 0 ? 'perfect' : diff > 0 ? 'augmented' : 'diminished';
+  } else {
+    quality = diff === 0 ? 'major' : diff === -1 ? 'minor' : diff > 0 ? 'augmented' : 'diminished';
+  }
+  const interval = number === 8 && diff === 0 ? 'an octave' : `${/^[aeiou]/.test(quality) ? 'an' : 'a'} ${quality} ${ORDINALS[number]}`;
+  return `${semitones > 0 ? 'up' : 'down'} ${interval}`;
+}

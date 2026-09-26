@@ -53,8 +53,11 @@ import {
   diatonicRomanNumerals,
   keyPitchClass,
   levelAtLeast,
+  nearestShift,
   parseChordFormulas,
   scalePitchClasses,
+  standardKeyIndex,
+  transpositionLabel,
 } from './theory';
 import {
   BUILT_IN_THEMES,
@@ -1513,6 +1516,10 @@ const playerFileSelect = document.getElementById('playerFileSelect') as HTMLSele
 const playerFileInput = document.getElementById('playerFileInput') as HTMLInputElement;
 const playerDropZone = document.getElementById('playerDropZone') as HTMLElement;
 const playerError = document.getElementById('playerError') as HTMLElement;
+const playerKeySelect = document.getElementById('playerKeySelect') as HTMLSelectElement;
+const playerFlatBtn = document.getElementById('playerFlatBtn') as HTMLButtonElement;
+const playerSharpBtn = document.getElementById('playerSharpBtn') as HTMLButtonElement;
+const playerTransposeLabel = document.getElementById('playerTransposeLabel') as HTMLElement;
 const highlighterSuspendedNote = document.getElementById('highlighterSuspendedNote') as HTMLElement;
 const playerControls = {
   playButton: document.getElementById('playerPlayBtn') as HTMLButtonElement,
@@ -1528,6 +1535,15 @@ const uploads: { name: string; song: Song }[] = [];
 const UPLOAD_PREFIX = 'upload:';
 // Bumped on every load, so a slow preset fetch can't replace a newer choice.
 let loadRequest = 0;
+
+// "Play in": the loaded file's own key and the key it's played in (KEYS
+// indices), and the actual shift between them. The shift is kept apart
+// because the flat/sharp buttons walk it up to an octave either way, while
+// the key alone only says where it landed.
+const MAX_TRANSPOSE = 12;
+let fileKeyIndex = 0;
+let playKeyIndex = 0;
+let transposeShift = 0;
 
 function setPlayerOpen(open: boolean): void {
   playerBody.hidden = !open;
@@ -1598,15 +1614,69 @@ function loadSong(song: Song, settings: FileSettings): void {
   setPlaybackActive(false);
   setErrorMessage(playerError, null);
   applyFileSettings(settings);
+  fileKeyIndex = Math.max(0, KEYS.findIndex(k => k.name === settings.key));
+  playKeyIndex = fileKeyIndex;
+  transposeShift = 0;
+  refreshTransposeControls();
   refreshPlayerControls();
 }
 
-type FileSettings = { key?: string; mode?: string; sound?: string };
+function refreshTransposeControls(): void {
+  const loaded = filePlayer !== null;
+  playerKeySelect.innerHTML = '';
+  if (loaded) {
+    KEYS.forEach((key, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = i === fileKeyIndex ? `${key.name} (original)` : key.name;
+      playerKeySelect.appendChild(opt);
+    });
+    playerKeySelect.value = String(playKeyIndex);
+  }
+  playerKeySelect.disabled = !loaded;
+  playerFlatBtn.disabled = !loaded || transposeShift <= -MAX_TRANSPOSE;
+  playerSharpBtn.disabled = !loaded || transposeShift >= MAX_TRANSPOSE;
+  playerTransposeLabel.textContent = loaded ? transpositionLabel(KEYS[fileKeyIndex], KEYS[playKeyIndex], transposeShift) : '';
+}
 
-// An uploaded file brings only its own key signature, if it has one.
+// Only the file's notes move; the Key setting follows so spelling and
+// Roman numerals are measured in the new key. Live, like a seek.
+function setTransposition(shift: number, keyIndex: number): void {
+  if (!filePlayer) return;
+  const delta = shift - transposeShift;
+  transposeShift = shift;
+  playKeyIndex = keyIndex;
+  filePlayer.transpose = shift;
+  pausedChord = pausedChord.map(m => m + delta);
+  keySelect.value = String(keyIndex);
+  refreshNoteNames();
+  refreshTransposeControls();
+}
+
+// Picking a key takes the short way there.
+playerKeySelect.addEventListener('change', () => {
+  const index = Number(playerKeySelect.value);
+  setTransposition(nearestShift(keyPitchClass(KEYS[fileKeyIndex]), keyPitchClass(KEYS[index])), index);
+});
+
+// A half step at a time, landing on each key's usual spelling (Db, not C#).
+function stepTransposition(step: number): void {
+  const shift = transposeShift + step;
+  if (Math.abs(shift) > MAX_TRANSPOSE) return;
+  const pc = (keyPitchClass(KEYS[fileKeyIndex]) + shift + 24) % 12;
+  setTransposition(shift, shift === 0 ? fileKeyIndex : standardKeyIndex(pc, currentMode));
+}
+
+playerFlatBtn.addEventListener('click', () => stepTransposition(-1));
+playerSharpBtn.addEventListener('click', () => stepTransposition(1));
+
+type FileSettings = { key: string; mode: string; sound?: string };
+
+// An uploaded file brings only its own key signature; without one it's
+// taken to be in C major, the most common.
 function uploadSettings(song: Song): FileSettings {
   const sig = song.keySignature;
-  return sig ? { key: sig.key, mode: sig.minor ? 'Aeolian' : 'Ionian' } : {};
+  return sig ? { key: sig.key, mode: sig.minor ? 'Aeolian' : 'Ionian' } : { key: 'C', mode: 'Ionian' };
 }
 
 function applyFileSettings({ key, mode, sound }: FileSettings): void {
@@ -1626,6 +1696,7 @@ function unloadSong(message: string | null): void {
   filePlayer = null;
   setPlaybackActive(false);
   setErrorMessage(playerError, message);
+  refreshTransposeControls();
   refreshPlayerControls();
 }
 
@@ -1739,6 +1810,7 @@ document.addEventListener('visibilitychange', () => {
 
 playerToggle.addEventListener('click', () => setPlayerOpen(playerBody.hidden));
 populatePlayerFileSelect('');
+refreshTransposeControls();
 refreshPlayerControls();
 
 // ?midi=<preset id> opens the player with that file loaded (paused: the

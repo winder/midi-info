@@ -13,9 +13,12 @@ import {
   diatonicRomanNumerals,
   isBlackPitch,
   keyPitchClass,
+  nearestShift,
   octaveOf,
   parseChordFormulas,
   romanNumeralLabel,
+  standardKeyIndex,
+  transpositionLabel,
 } from './theory';
 
 describe('isBlackPitch', () => {
@@ -342,5 +345,39 @@ describe('parseChordFormulas', () => {
   test('round-trips the full default chord library', () => {
     const roundTripped = parseChordFormulas(JSON.parse(JSON.stringify(DEFAULT_CHORD_FORMULAS)));
     assert.deepEqual(roundTripped, DEFAULT_CHORD_FORMULAS);
+  });
+});
+
+describe('transposition', () => {
+  const key = (name: string) => KEYS.find(k => k.name === name)!;
+  const IONIAN = MODES.find(m => m.name === 'Ionian')!;
+  const AEOLIAN = MODES.find(m => m.name === 'Aeolian')!;
+
+  test('nearestShift takes the short way round', () => {
+    assert.equal(nearestShift(0, 2), 2);
+    assert.equal(nearestShift(0, 5), 5);
+    assert.equal(nearestShift(0, 6), -6);
+    assert.equal(nearestShift(0, 7), -5);
+    assert.equal(nearestShift(2, 0), -2);
+  });
+
+  test('standardKeyIndex spells each key with the fewest accidentals', () => {
+    const names = (mode: typeof IONIAN) => Array.from({ length: 12 }, (_, pc) => KEYS[standardKeyIndex(pc, mode)].name);
+    assert.deepEqual(names(IONIAN), ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']);
+    assert.deepEqual(names(AEOLIAN), ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']);
+  });
+
+  test('transpositionLabel names the interval by letter as well as distance', () => {
+    assert.equal(transpositionLabel(key('C'), key('D'), 2), 'up a major 2nd');
+    assert.equal(transpositionLabel(key('C'), key('Db'), 1), 'up a minor 2nd');
+    assert.equal(transpositionLabel(key('C'), key('C#'), 1), 'up an augmented unison');
+    assert.equal(transpositionLabel(key('C'), key('G'), 7), 'up a perfect 5th');
+    assert.equal(transpositionLabel(key('C'), key('G'), -5), 'down a perfect 4th');
+    assert.equal(transpositionLabel(key('C'), key('F#'), 6), 'up an augmented 4th');
+    assert.equal(transpositionLabel(key('C'), key('Gb'), -6), 'down an augmented 4th');
+    assert.equal(transpositionLabel(key('C'), key('B'), -1), 'down a minor 2nd');
+    assert.equal(transpositionLabel(key('C'), key('C'), 12), 'up an octave');
+    assert.equal(transpositionLabel(key('D'), key('D'), 0), 'original key');
+    assert.equal(transpositionLabel(key('C#'), key('Db'), 0), 'same pitch, respelled');
   });
 });

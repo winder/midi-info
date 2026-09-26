@@ -155,6 +155,42 @@ describe('MIDI player', () => {
     }
   });
 
+  test('Play in transposes the file, live, and the Key setting follows', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    const selectedText = (sel: string) => page.$eval(sel, el => (el as HTMLSelectElement).selectedOptions[0].textContent);
+    try {
+      await openPlayer(page);
+      await upload(page, 'progression.mid', progression());
+      await page.waitForSelector('#playerPlayBtn:not([disabled])');
+      assert.equal(await selectedText('#playerKeySelect'), 'C (original)', 'a file without a key is taken as C major');
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'original key');
+
+      await page.click('#playerSharpBtn');
+      assert.equal(await selectedText('#playerKeySelect'), 'Db', 'a half step up lands on the usual spelling');
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'up a minor 2nd');
+      await page.click('#playerSharpBtn');
+      assert.equal(await selectedText('#playerKeySelect'), 'D');
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'up a major 2nd');
+      assert.equal(await selectedText('#keySelect'), 'D', 'the Key setting follows');
+
+      await page.click('#playerPlayBtn');
+      await page.waitForFunction(() => document.querySelector('#chordDisplay .chord-main')?.textContent?.trim() === 'D');
+      assert.deepEqual(await activeMidis(page), [62, 66, 69]);
+
+      // Live: the sounding chord is released and the rest plays in the new key.
+      await page.selectOption('#playerKeySelect', { label: 'G' });
+      assert.equal(await page.textContent('#playerTransposeLabel'), 'down a perfect 4th');
+      assert.equal(await playLabel(page), 'Pause');
+      await page.waitForFunction(() => document.querySelector('#chordDisplay .chord-main')?.textContent?.trim() === 'C');
+      // The file's F major (F4 A4 C5), a 4th down.
+      assert.deepEqual(await activeMidis(page), [60, 64, 67]);
+      assert.equal(await selectedText('#keySelect'), 'G');
+    } finally {
+      await app.close();
+    }
+  });
+
   test('the end of a file turns every note off', async () => {
     const app = await launchApp();
     const { page } = app;

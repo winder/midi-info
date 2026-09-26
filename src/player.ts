@@ -34,14 +34,15 @@ const SUSTAIN_CC = 64;
 // Key signatures by sharps (-7 flats .. +7 sharps). @tonejs/midi names a
 // signature by its major key even when the file marks it minor (A minor
 // reads as 'C' + 'minor'), so the minor tonic is looked up by position.
-const MAJOR_BY_SHARPS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+// The app has no Cb, so seven flats major reads as B, the same pitch.
+const MAJOR_BY_SHARPS = ['B', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const MINOR_BY_SHARPS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#'];
 
 function keySignature(sig: { key: string; scale: string } | undefined): KeySignature | null {
-  const i = sig ? MAJOR_BY_SHARPS.indexOf(sig.key) : -1;
+  const i = sig ? MAJOR_BY_SHARPS.indexOf(sig.key === 'Cb' ? 'B' : sig.key) : -1;
   if (!sig || i === -1) return null;
   const minor = sig.scale === 'minor';
-  return { key: minor ? MINOR_BY_SHARPS[i] : sig.key, minor };
+  return { key: minor ? MINOR_BY_SHARPS[i] : MAJOR_BY_SHARPS[i], minor };
 }
 
 // A parsed Song, or an error message for the user. The player plays one
@@ -99,8 +100,10 @@ export class MidiPlayer {
   private offset = 0; // position (s) when last paused or seeked
   private startedAt: number | null = null; // clock (ms) when play() began, null while paused
   private timer: ReturnType<typeof setTimeout> | null = null;
+  // Pitches struck and not yet released, as played (after transposing).
   private readonly sounding = new Set<number>();
   private pedalDown = false;
+  private shift = 0; // semitones added to every note
 
   constructor(
     readonly song: Song,
@@ -142,6 +145,19 @@ export class MidiPlayer {
     this.releaseAll();
   }
 
+  get transpose(): number {
+    return this.shift;
+  }
+
+  // Takes effect at once: what's sounding is released and playback carries
+  // on in the new key, as a seek would.
+  set transpose(semitones: number) {
+    const wasPlaying = this.playing;
+    this.pause();
+    this.shift = semitones;
+    if (wasPlaying) this.play();
+  }
+
   // Pause and go back to the start.
   stop(): void {
     this.pause();
@@ -157,9 +173,10 @@ export class MidiPlayer {
     if (wasPlaying) this.play();
   }
 
-  // The notes that span `seconds`, lowest first: what's sounding there.
+  // The notes that span `seconds`, transposed, lowest first: what's
+  // sounding there.
   notesAt(seconds: number): number[] {
-    const midis = this.song.notes.filter(n => n.start <= seconds && n.end > seconds).map(n => n.midi);
+    const midis = this.song.notes.filter(n => n.start <= seconds && n.end > seconds).map(n => n.midi + this.shift);
     return Array.from(new Set(midis)).sort((a, b) => a - b);
   }
 
@@ -195,12 +212,15 @@ export class MidiPlayer {
 
   private fire(event: PlayerEvent): void {
     if (event.kind === 'on') {
-      this.sounding.add(event.midi);
-      this.callbacks.noteOn(event.midi, event.velocity);
+      const midi = event.midi + this.shift;
+      if (midi < 0 || midi > 127) return;
+      this.sounding.add(midi);
+      this.callbacks.noteOn(midi, event.velocity);
     } else if (event.kind === 'off') {
-      // A note struck before a pause or seek was already released.
-      if (!this.sounding.delete(event.midi)) return;
-      this.callbacks.noteOff(event.midi);
+      // A note struck before a pause, seek or transpose was already released.
+      const midi = event.midi + this.shift;
+      if (!this.sounding.delete(midi)) return;
+      this.callbacks.noteOff(midi);
     } else {
       this.setPedal(event.down);
     }

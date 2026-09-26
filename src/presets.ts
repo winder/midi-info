@@ -2,14 +2,15 @@
 // dist/ by the build) and must hold a single instrument part. The id is the
 // ?midi=<id> link, so keep it stable once published. key, mode and sound
 // are applied when the file is loaded; key is a KEYS name, mode a MODES
-// name, sound a BUILT_IN_SOUNDS name.
+// name, sound a BUILT_IN_SOUNDS name. key is also what "Play in"
+// transposes from.
 
 export interface MidiPreset {
   id: string;
   name: string;
   file: string;
-  key?: string;
-  mode?: string;
+  key: string;
+  mode: string;
   sound?: string;
 }
 

@@ -79,6 +79,20 @@ describe('MidiPlayer', () => {
     assert.equal(h.ended(), 0);
   });
 
+  test('transposing mid-note releases it and carries on in the new key', () => {
+    const h = harness(SONG);
+    h.player.play();
+    h.advance(500);
+    h.player.transpose = 2;
+    assert.deepEqual(h.log, ['on 60 90', 'off 60']);
+    assert.equal(h.player.playing, true);
+    assert.deepEqual(h.player.notesAt(1.5), [66]);
+    h.advance(500);
+    assert.deepEqual(h.log.slice(2), ['pedal down', 'on 66 70']);
+    h.player.transpose = 0;
+    assert.deepEqual(h.log.slice(4), ['pedal up', 'off 66', 'pedal down']);
+  });
+
   test('seek while playing continues from notes that start later', () => {
     const h = harness(SONG);
     h.player.play();
@@ -185,6 +199,7 @@ describe('parseSong', () => {
       [0, false, { key: 'C', minor: false }],
       [-2, false, { key: 'Bb', minor: false }],
       [3, true, { key: 'F#', minor: true }],
+      [-7, false, { key: 'B', minor: false }], // Cb, which the app spells as B
     ];
     for (const [sharps, minor, expected] of cases) {
       const song = parseSong(keySignatureFile(sharps, minor));
