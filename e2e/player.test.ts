@@ -274,6 +274,52 @@ describe('MIDI player', () => {
     }
   });
 
+  test('the ?midi link stays paused, and &autoplay=1 starts it', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await page.goto(app.url + '/index.html?midi=ode-to-joy');
+      await page.waitForSelector('#playerPlayBtn:not([disabled])');
+      await page.waitForTimeout(1200);
+      assert.equal(await page.textContent('#playerElapsed'), '0:00');
+
+      await page.goto(app.url + '/index.html?midi=ode-to-joy&autoplay=1');
+      await page.waitForFunction(() => document.getElementById('playerElapsed')?.textContent !== '0:00');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('demo/ plays a piece in an embed that shows only the content and fits its frame', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    try {
+      await page.goto(app.url + '/demo/index.html');
+      await page.click('.piece[data-id="ode-to-joy"] .cover');
+      const frame = page.frameLocator('.piece.playing iframe');
+      await frame.locator('#piano').waitFor();
+      const inner = page.frames()[1];
+      await inner.waitForFunction(() => document.getElementById('playerElapsed')?.textContent !== '0:00');
+      assert.equal(await inner.$eval('#playerFileSelect', el => (el as HTMLSelectElement).value), 'ode-to-joy');
+      for (const id of ['#topBar', '#highlighterSection', '#explorerSection', '#playerToggle', '#playerTranspose']) {
+        assert.equal(await inner.isVisible(id), false, id);
+      }
+      await page.waitForFunction(() => {
+        const f = document.querySelector('.piece.playing iframe') as HTMLIFrameElement;
+        return f.style.height !== '' && Math.abs(parseFloat(f.style.height) - f.contentDocument!.body.scrollHeight) <= 1;
+      });
+
+      // Another piece replaces it; pressing it again stops it.
+      await page.click('.piece[data-id="greensleeves"] .cover');
+      assert.equal(await page.locator('.piece iframe').count(), 1);
+      assert.equal(await page.getAttribute('.piece.playing', 'data-id'), 'greensleeves');
+      await page.click('.piece[data-id="greensleeves"] .cover');
+      assert.equal(await page.locator('.piece iframe').count(), 0);
+    } finally {
+      await app.close();
+    }
+  });
+
   test('every preset loads', async () => {
     const app = await launchApp();
     const { page } = app;

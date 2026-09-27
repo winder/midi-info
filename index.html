@@ -1001,6 +1001,31 @@
     border-color: var(--ui-accent);
     color: var(--ui-accent);
   }
+  /* Embed mode (?embed=1, for an iframe such as demo/'s): only the content
+     stays, meaning the chord readout, the keyboard and the player's
+     transport. Settings, the other sections and file choice are left to
+     the full app. */
+  html.embed #topBar,
+  html.embed #highlighterSection,
+  html.embed #explorerSection,
+  html.embed #playerToggle,
+  html.embed #playerBody > label[for="playerFileSelect"],
+  html.embed #playerTranspose,
+  html.embed #playerDropZone {
+    display: none;
+  }
+  /* Sized to its content, which app.ts reports to the host page. */
+  html.embed body {
+    min-height: 0;
+  }
+  html.embed #playerSection {
+    border: none;
+    margin: 0 16px 12px;
+  }
+  html.embed #playerBody {
+    border-top: none;
+    padding: 0;
+  }
 </style>
 </head>
 <body>

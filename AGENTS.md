@@ -16,8 +16,9 @@ MIDI Piano: connects to a MIDI keyboard via the Web MIDI API and renders an on-s
 - `src/theory.test.ts`, `src/settle.test.ts`, `src/sound.test.ts`, `src/midi.test.ts`, `src/analytics.test.ts`, `src/player.test.ts` - unit tests. Only `theory.ts`, `settle.ts`, `player.ts`, the pure helpers in `sound.ts` and `midi.ts`, and the pure tracker in `analytics.ts` are unit-tested; `ui`/`app`/`midi` need a browser and are covered by e2e.
 - `e2e/` - Playwright tests against the built bundle. `fixtures.ts` (`launchApp`, `openSettings`) and `server.ts` are the shared bootstrap.
 - `chords.md` - source spec for the chord library. Check it before adding or changing chords.
+- `demo/index.html` - standalone mock producer portfolio (no build step, no app code), showing how the app can be embedded. Pressing play on a piece opens `../?midi=<preset id>&embed=1&autoplay=1` in an iframe under the card, so its ids must match `MIDI_PRESETS`. `embed=1` (`html.embed` in `index.html`) shows only the chord readout, keyboard and player transport, and posts `{ type: 'midi-piano:height' }` to the host so the frame fits. `autoplay=1` starts playback on load. Sound starts with it only because the iframe is created from a click on the host page with `allow="autoplay"`; a plain link that navigates to the app still needs a click there (Firefox), so don't go back to links.
 - `favicon.ico` - site icon, referenced from `index.html` and copied into `dist/` by the build.
-- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html`, `favicon.ico` and `midi/` into `dist/` (gitignored).
+- `build.mjs` - production build: bundles `src/app.ts` and copies `index.html`, `favicon.ico`, `midi/` and `demo/` into `dist/` (gitignored).
 
 Commands live in `Makefile` and `package.json` scripts. Read those rather than trusting a doc to stay in sync.
 

@@ -1979,18 +1979,23 @@ function pausePlayback(): void {
   refreshPlayerControls();
 }
 
-playerControls.playButton.addEventListener('click', () => {
-  if (!filePlayer) return;
-  if (filePlayer.playing) {
-    pausePlayback();
-    return;
-  }
+function startPlayback(): void {
+  if (!filePlayer || filePlayer.playing) return;
   synth.resume();
   if (!playbackActive) setPlaybackActive(true);
   pausedChord = [];
   render();
   filePlayer.play();
   followPlayback();
+}
+
+playerControls.playButton.addEventListener('click', () => {
+  if (!filePlayer) return;
+  if (filePlayer.playing) {
+    pausePlayback();
+    return;
+  }
+  startPlayback();
 });
 
 // Back to 0:00 with the file still loaded, and the highlighter back in charge.
@@ -2020,13 +2025,29 @@ populatePlayerFileSelect('');
 refreshTransposeControls();
 refreshPlayerControls();
 
-// ?midi=<preset id> opens the player with that file loaded (paused: the
-// browser won't play sound before a click anyway).
-const linkedPreset = MIDI_PRESETS.find(p => p.id === new URLSearchParams(location.search).get('midi'));
+// ?midi=<preset id> opens the player with that file loaded, paused.
+// Adding &autoplay=1 starts it too: the keys and readout run straight away,
+// and sound joins once the browser allows it. demo/ embeds the app in an
+// iframe with allow="autoplay" from a click on its own page, which lets
+// sound start at once; a plain link to the app still needs a click there.
+const linkParams = new URLSearchParams(location.search);
+// &embed=1 strips the page down to the content (see html.embed in index.html).
+const embedded = linkParams.get('embed') === '1';
+document.documentElement.classList.toggle('embed', embedded);
+// An iframe can't size itself, so an embed tells its host page how tall
+// its content is: { type: 'midi-piano:height', height } via postMessage.
+if (embedded && window.parent !== window) {
+  new ResizeObserver(() => {
+    window.parent.postMessage({ type: 'midi-piano:height', height: Math.ceil(document.body.scrollHeight) }, '*');
+  }).observe(document.body);
+}
+const linkedPreset = MIDI_PRESETS.find(p => p.id === linkParams.get('midi'));
 setPlayerOpen(linkedPreset !== undefined);
 if (linkedPreset) {
   playerFileSelect.value = linkedPreset.id;
-  loadPreset(linkedPreset);
+  loadPreset(linkedPreset).then(() => {
+    if (linkParams.get('autoplay') === '1' && !document.hidden) startPlayback();
+  });
 }
 
 // ---- Analytics ----

@@ -1,5 +1,6 @@
 // Production build for GitHub Pages: writes dist/app.js, dist/index.html,
-// dist/favicon.ico and the MIDI player's presets under dist/midi/.
+// dist/favicon.ico, the MIDI player's presets under dist/midi/ and the
+// portfolio demo page under dist/demo/.
 // The source index.html references a plain app.js; the copy under dist/ gets
 // a ?v=<commit> cache-buster so a deploy invalidates the old bundle. Local
 // serving (`make run`) uses esbuild's dev server instead and never writes here.
@@ -30,3 +31,4 @@ writeFileSync('dist/index.html', html.replace(tag, `<script src="app.js?v=${hash
 
 copyFileSync('favicon.ico', 'dist/favicon.ico');
 cpSync('midi', 'dist/midi', { recursive: true });
+cpSync('demo', 'dist/demo', { recursive: true });
