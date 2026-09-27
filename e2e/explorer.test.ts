@@ -94,6 +94,33 @@ describe('chord explorer', () => {
     }
   });
 
+  test('draws the chord on a grand staff', async () => {
+    const app = await launchApp();
+    try {
+      await openSettings(app.page);
+      await setLevel(app.page, 'nerd');
+      await closeSettings(app.page);
+      await openExplorer(app.page);
+      const staff = (selector: string) => app.page.locator(`#explorerSummary .explorer-staff ${selector}`);
+
+      // C major: middle C needs a ledger line, nothing needs an accidental.
+      await pick(app.page, 'explorerRootButtons', 'C');
+      await pick(app.page, 'explorerExtensionButtons', '5');
+      assert.equal(await staff('.staff-note').count(), 3);
+      assert.equal(await staff('.ledger').count(), 1);
+      assert.equal(await staff('.staff-accidental').count(), 0);
+
+      // G# harmonic minor 7th: G# B D# F##, spelled with its double sharp.
+      await pick(app.page, 'explorerRootButtons', 'G#');
+      await pick(app.page, 'explorerScaleButtons', 'Harmonic Minor');
+      await pick(app.page, 'explorerExtensionButtons', '7');
+      assert.equal(await staff('.staff-note').count(), 4);
+      assert.deepEqual((await staff('.staff-accidental').allTextContents()).sort(), ['\u266F', '\u266F', '\u{1D12A}'].sort());
+    } finally {
+      await app.close();
+    }
+  });
+
   test('shares the keyboard highlight with the Chord/Scale Display', async () => {
     const app = await launchApp();
     try {

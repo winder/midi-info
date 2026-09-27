@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Reenie+Beanie&display=swap" rel="stylesheet">
+<!-- Just the clefs and accidentals the Chord Explorer's staff draws. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap&text=%F0%9D%84%9E%F0%9D%84%A2%E2%99%AF%E2%99%AD%F0%9D%84%AA%F0%9D%84%AB" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   :root {
@@ -867,9 +869,31 @@
     word-spacing: 0.4em;
     color: var(--font-color);
   }
+  .explorer-staff-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 12px;
+  }
+  .explorer-staff {
+    color: var(--font-color);
+    flex: none;
+  }
+  .explorer-staff .staff-line {
+    stroke: currentColor;
+    stroke-width: 1;
+    opacity: 0.7;
+  }
+  .explorer-staff .staff-line.ledger {
+    opacity: 1;
+  }
+  .explorer-staff .staff-brace, .explorer-staff .staff-note, .explorer-staff .staff-glyph {
+    fill: currentColor;
+  }
   .explorer-tones {
     list-style: none;
-    margin: 12px 0 0;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;

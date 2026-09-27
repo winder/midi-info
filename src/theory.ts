@@ -628,3 +628,13 @@ export function buildExplorerChord(
   const bass = inverted ? '/' + tones[0].name : '';
   return { name: key.name + symbol + bass, tones };
 }
+
+// Where a spelled note sits on the staff: its diatonic step, counting
+// letters up from C-1 (C4, middle C, is 28; D4 29), plus its accidental
+// (+1 sharp, -1 flat, ±2 double). The octave follows the letter, not the
+// key: B#3 and C4 are the same key but a step apart on the staff.
+export function staffPosition(name: string, midi: number): { step: number; accidental: number } {
+  const accidental = (name.match(/#/g) ?? []).length - (name.match(/b/g) ?? []).length;
+  const natural = midi - accidental;
+  return { step: octaveOf(natural) * 7 + LETTERS.indexOf(name[0]), accidental };
+}

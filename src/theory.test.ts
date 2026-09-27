@@ -23,6 +23,7 @@ import {
   parseChordFormulas,
   romanNumeralLabel,
   spellDegree,
+  staffPosition,
   standardKeyIndex,
   transpositionLabel,
 } from './theory';
@@ -465,5 +466,19 @@ describe('degreeLabel / spellDegree', () => {
 
   test('spells double sharps rather than respelling', () => {
     assert.equal(spellDegree(KEYS.find(k => k.name === 'G#')!, 7, 11), 'F##');
+  });
+});
+
+describe('staffPosition', () => {
+  test('counts diatonic steps from C-1, middle C at 28', () => {
+    assert.deepEqual(staffPosition('C', 60), { step: 28, accidental: 0 });
+    assert.deepEqual(staffPosition('Eb', 63), { step: 30, accidental: -1 });
+    assert.deepEqual(staffPosition('G', 43), { step: 18, accidental: 0 }); // bass clef's bottom line
+  });
+
+  test('takes the octave from the letter, not the key', () => {
+    assert.deepEqual(staffPosition('B#', 60), { step: 27, accidental: 1 });
+    assert.deepEqual(staffPosition('Cb', 59), { step: 28, accidental: -1 });
+    assert.deepEqual(staffPosition('F##', 67), { step: 31, accidental: 2 });
   });
 });

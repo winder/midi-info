@@ -1,7 +1,7 @@
 // SVG generation and DOM rendering. Functions here take data in and update
 // the DOM; they don't own application state (see app.ts for that).
 
-import { ChordFormula, ExplorerChord, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel } from './theory';
+import { ChordFormula, ExplorerChord, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel, staffPosition } from './theory';
 import { formatTime } from './player';
 
 // Base key dimensions; also the reference for scaling every other
@@ -657,12 +657,127 @@ export function renderExplorerSummary(el: HTMLElement, chord: ExplorerChord | nu
   add('div', 'explorer-name', chord.name);
   add('div', 'explorer-position', position);
   add('div', 'explorer-notes', chord.tones.map(t => t.name).join(' '));
-  const list = add('ol', 'explorer-tones', '');
+  const row = add('div', 'explorer-staff-row', '');
+  row.appendChild(renderGrandStaff(chord.tones));
+  const list = add('ol', 'explorer-tones', '', row);
   chord.tones.slice().reverse().forEach(tone => {
     const li = add('li', '', '', list);
     add('span', 'explorer-tone-note', tone.name, li);
     add('span', 'explorer-tone-degree' + (tone.degree === 1 ? ' root' : ''), tone.label, li);
   });
+}
+
+// The chord drawn as whole notes on a grand staff. Positions are diatonic
+// steps (see staffPosition). Middle C and up go on the treble staff, the
+// rest on the bass staff, which sits STAFF_GAP lower than one continuous
+// scale would put it, so the two staves read apart. No key signature:
+// every altered note carries its own accidental.
+const STAFF_SPACE = 10;
+const TREBLE_TOP = 38; // F5, the treble staff's top line
+const BASS_BOTTOM = 18; // G2, the bass staff's bottom line
+const MIDDLE_C = 28;
+const STAFF_GAP = 2 * STAFF_SPACE;
+const STAFF_W = 150;
+const STAFF_LEFT = 14;
+const NOTE_X = 98;
+const NOTE_SHIFT = 13; // the upper note of a second sits to the right
+const ACCIDENTAL_GAP = 16;
+const ACCIDENTAL_W = 11;
+const MUSIC_FONT = '"Noto Music", "Bravura Text", "Segoe UI Symbol", "Apple Symbols", serif';
+const CLEF_DROP = { treble: STAFF_SPACE, bass: 2.4 * STAFF_SPACE };
+const ACCIDENTAL_DROP = 0.4 * STAFF_SPACE;
+const ACCIDENTAL_GLYPHS: Record<number, string> = { 1: '\u266F', [-1]: '\u266D', 2: '\u{1D12A}', [-2]: '\u{1D12B}' };
+
+function staffY(step: number): number {
+  return (TREBLE_TOP - step) * (STAFF_SPACE / 2) + (step < MIDDLE_C ? STAFF_GAP : 0);
+}
+
+function svgEl(tag: string, attrs: Record<string, string | number>, text?: string): SVGElement {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, String(v)));
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+// A whole note: a wide oval with a tilted hole, as one even-odd path.
+function wholeNotePath(cx: number, cy: number): string {
+  const [rx, ry, hx, hy, tilt] = [6.5, 4.6, 3.3, 2.5, -40];
+  const t = tilt * Math.PI / 180;
+  const [dx, dy] = [hx * Math.cos(t), hx * Math.sin(t)];
+  return `M${cx - rx},${cy} a${rx},${ry} 0 1,0 ${2 * rx},0 a${rx},${ry} 0 1,0 ${-2 * rx},0 Z ` +
+    `M${cx - dx},${cy - dy} a${hx},${hy} ${tilt} 1,0 ${2 * dx},${2 * dy} a${hx},${hy} ${tilt} 1,0 ${-2 * dx},${-2 * dy} Z`;
+}
+
+export function renderGrandStaff(tones: { name: string; midi: number }[]): SVGSVGElement {
+  const notes = tones.map(t => staffPosition(t.name, t.midi)).sort((a, b) => a.step - b.step);
+
+  // In a second the upper note moves right, unless the lower one already did.
+  const shifted: boolean[] = [];
+  notes.forEach((n, i) => { shifted[i] = i > 0 && n.step - notes[i - 1].step === 1 && !shifted[i - 1]; });
+
+  // Accidentals top down, each in the nearest column clear of the ones
+  // already placed within a 6th of it.
+  const columns: number[] = new Array(notes.length).fill(0);
+  const placed: { step: number; column: number }[] = [];
+  for (let i = notes.length - 1; i >= 0; i--) {
+    if (!notes[i].accidental) continue;
+    let column = 0;
+    while (placed.some(p => p.column === column && Math.abs(p.step - notes[i].step) < 6)) column++;
+    columns[i] = column;
+    placed.push({ step: notes[i].step, column });
+  }
+
+  const steps = notes.map(n => n.step);
+  const top = staffY(Math.max(TREBLE_TOP, ...steps)) - 2.5 * STAFF_SPACE;
+  const bottom = staffY(Math.min(BASS_BOTTOM, ...steps)) + 1.5 * STAFF_SPACE;
+  const svg = svgEl('svg', {
+    class: 'explorer-staff', width: STAFF_W, height: bottom - top, viewBox: `0 ${top} ${STAFF_W} ${bottom - top}`,
+    role: 'img', 'aria-label': 'The chord on a grand staff',
+  }) as SVGSVGElement;
+
+  [TREBLE_TOP, TREBLE_TOP - 2, TREBLE_TOP - 4, TREBLE_TOP - 6, TREBLE_TOP - 8,
+    BASS_BOTTOM + 8, BASS_BOTTOM + 6, BASS_BOTTOM + 4, BASS_BOTTOM + 2, BASS_BOTTOM].forEach(step => {
+    svg.appendChild(svgEl('line', { class: 'staff-line', x1: STAFF_LEFT, x2: STAFF_W - 4, y1: staffY(step), y2: staffY(step) }));
+  });
+  const [y1, y2] = [staffY(TREBLE_TOP), staffY(BASS_BOTTOM)];
+  svg.appendChild(svgEl('line', { class: 'staff-line', x1: STAFF_LEFT, x2: STAFF_LEFT, y1, y2 }));
+  // The brace: two mirrored curves, thick in the middle of each half.
+  const mid = (y1 + y2) / 2;
+  const q = (y2 - y1) / 4;
+  svg.appendChild(svgEl('path', {
+    class: 'staff-brace',
+    d: `M10,${y1} C3,${y1 + q * 0.6} 11,${mid - q * 0.8} 3,${mid} C11,${mid + q * 0.8} 3,${y2 - q * 0.6} 10,${y2} ` +
+      `C8,${y2 - q * 0.6} 15,${mid + q * 0.8} 3,${mid} C15,${mid - q * 0.8} 8,${y1 + q * 0.6} 10,${y1} Z`,
+  }));
+  // Offsets measured against Noto Music: its clefs sit above their line.
+  svg.appendChild(svgEl('text', { class: 'staff-glyph', x: 17, y: staffY(32) + CLEF_DROP.treble, 'font-size': 4.4 * STAFF_SPACE, 'font-family': MUSIC_FONT }, '\u{1D11E}'));
+  svg.appendChild(svgEl('text', { class: 'staff-glyph', x: 18, y: staffY(24) + CLEF_DROP.bass, 'font-size': 4 * STAFF_SPACE, 'font-family': MUSIC_FONT }, '\u{1D122}'));
+
+  // Ledger lines above the treble staff, below the bass staff, and for middle C.
+  const ledgers = new Set<number>();
+  steps.forEach(step => {
+    for (let l = TREBLE_TOP + 2; l <= step; l += 2) ledgers.add(l);
+    for (let l = BASS_BOTTOM - 2; l >= step; l -= 2) ledgers.add(l);
+    if (step === MIDDLE_C) ledgers.add(MIDDLE_C); // below the treble staff
+  });
+  ledgers.forEach(step => {
+    const wide = notes.some((n, i) => shifted[i] && Math.abs(n.step - step) <= 1);
+    svg.appendChild(svgEl('line', {
+      class: 'staff-line ledger', x1: NOTE_X - 10, x2: NOTE_X + 10 + (wide ? NOTE_SHIFT : 0), y1: staffY(step), y2: staffY(step),
+    }));
+  });
+
+  notes.forEach((n, i) => {
+    const x = NOTE_X + (shifted[i] ? NOTE_SHIFT : 0);
+    svg.appendChild(svgEl('path', { class: 'staff-note', d: wholeNotePath(x, staffY(n.step)), 'fill-rule': 'evenodd' }));
+    if (n.accidental) {
+      svg.appendChild(svgEl('text', {
+        class: 'staff-glyph staff-accidental', x: NOTE_X - ACCIDENTAL_GAP - columns[i] * ACCIDENTAL_W, y: staffY(n.step) + ACCIDENTAL_DROP,
+        'font-size': 4 * STAFF_SPACE, 'font-family': MUSIC_FONT, 'text-anchor': 'middle',
+      }, ACCIDENTAL_GLYPHS[n.accidental] ?? ''));
+    }
+  });
+  return svg;
 }
 
 // ---- Font family selection ----
