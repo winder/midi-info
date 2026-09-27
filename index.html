@@ -148,7 +148,7 @@
   #menuButton:hover {
     background: var(--ui-surface-hover);
   }
-  #topBar select, #highlighterSection select, #playerSection select {
+  #topBar select, #highlighterSection select, #explorerSection select, #playerSection select {
     padding: 3px 6px;
     background: var(--ui-control);
     color: var(--font-color);
@@ -738,13 +738,13 @@
   html.glow-enabled .key-glow {
     filter: drop-shadow(0 0 1px var(--active-key-color)) drop-shadow(0 0 3px var(--active-key-color));
   }
-  #highlighterSection, #playerSection {
+  #highlighterSection, #explorerSection, #playerSection {
     margin: 0 16px 24px 16px;
     border: 1px solid var(--ui-line);
     border-radius: 6px;
     color: var(--font-color);
   }
-  #highlighterToggle, #playerToggle {
+  #highlighterToggle, #explorerToggle, #playerToggle {
     width: 100%;
     display: flex;
     align-items: center;
@@ -758,29 +758,29 @@
     cursor: pointer;
     color: var(--font-color);
   }
-  #highlighterToggle:hover, #playerToggle:hover {
+  #highlighterToggle:hover, #explorerToggle:hover, #playerToggle:hover {
     background: var(--ui-surface-hover);
   }
   /* Square off the header's bottom corners while its body shows below. */
-  #highlighterToggle.open, #playerToggle.open {
+  #highlighterToggle.open, #explorerToggle.open, #playerToggle.open {
     border-radius: 6px 6px 0 0;
   }
-  #highlighterToggle .chevron, #playerToggle .chevron {
+  #highlighterToggle .chevron, #explorerToggle .chevron, #playerToggle .chevron {
     display: inline-block;
     transition: transform 0.15s ease;
     color: var(--ui-muted);
   }
-  #highlighterToggle.open .chevron, #playerToggle.open .chevron {
+  #highlighterToggle.open .chevron, #explorerToggle.open .chevron, #playerToggle.open .chevron {
     transform: rotate(90deg);
   }
-  #highlighterBody, #playerBody {
+  #highlighterBody, #explorerBody, #playerBody {
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 16px;
     border-top: 1px solid var(--ui-line);
   }
-  #highlighterBody[hidden], #playerBody[hidden] {
+  #highlighterBody[hidden], #explorerBody[hidden], #playerBody[hidden] {
     display: none;
   }
   .highlighter-group h4 {
@@ -790,7 +790,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .root-buttons, .type-buttons {
+  .root-buttons, .type-buttons, .explorer-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -820,8 +820,79 @@
   }
   /* While a MIDI file is playing or paused the highlighter steps aside
      (app.ts makes its body inert). */
-  #highlighterBody[inert] .highlighter-group {
+  #highlighterBody[inert] .highlighter-group,
+  #explorerBody[inert] .explorer-layout {
     opacity: 0.4;
+  }
+  /* Chord Explorer: the pickers in two columns and the chord's summary
+     card beside them, wrapping to a stack on narrow screens. */
+  .explorer-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+  }
+  .explorer-col {
+    flex: 1 1 280px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #explorerOctaveRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  #explorerSummary {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--ui-line);
+    border-radius: 6px;
+    background: var(--ui-control);
+  }
+  .explorer-name {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .explorer-position, .explorer-notes {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--ui-muted);
+  }
+  .explorer-notes {
+    font-size: 16px;
+    word-spacing: 0.4em;
+    color: var(--font-color);
+  }
+  .explorer-tones {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .explorer-tones li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .explorer-tone-note {
+    min-width: 2.2em;
+    text-align: right;
+    font-weight: 600;
+  }
+  .explorer-tone-degree {
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--ui-accent) 22%, transparent);
+  }
+  .explorer-tone-degree.root {
+    background: var(--ui-surface);
   }
   .section-note {
     margin: 0;
@@ -1179,6 +1250,39 @@
           <select id="chordTypeSelect"></select>
         </div>
         <p id="highlighterSuspendedNote" class="section-note" hidden>Paused while the MIDI Player has a file playing. Press Stop (&#9632;) to use it again.</p>
+      </div>
+    </div>
+
+    <div id="explorerSection">
+      <button id="explorerToggle" type="button" aria-expanded="false" aria-controls="explorerBody">
+        Chord Explorer <span class="chevron">&#9656;</span>
+      </button>
+      <div id="explorerBody" hidden>
+        <div class="explorer-layout">
+          <div class="explorer-col">
+            <div class="highlighter-group">
+              <h4>Root note</h4>
+              <div class="explorer-buttons" id="explorerRootButtons"></div>
+            </div>
+            <div class="highlighter-group">
+              <h4 title="The scale the chord is built from: its notes are stacked in thirds up this scale from the root.">Chord quality</h4>
+              <div class="explorer-buttons" id="explorerScaleButtons"></div>
+            </div>
+          </div>
+          <div class="explorer-col">
+            <div class="highlighter-group">
+              <h4 title="How far up the stack of thirds to go: 5 is a triad, 7 adds the 7th, and 9, 11 and 13 keep stacking. 6 adds the 6th to the triad instead.">Extension</h4>
+              <div class="explorer-buttons" id="explorerExtensionButtons"></div>
+            </div>
+            <div class="highlighter-group">
+              <h4 title="Which chord tone is in the bass. Each inversion moves the lowest note up above the rest.">Inversion</h4>
+              <div class="explorer-buttons" id="explorerInversionButtons"></div>
+            </div>
+            <label id="explorerOctaveRow" for="explorerOctaveSelect" title="The octave the root is played in. 4 puts C at middle C.">Octave <select id="explorerOctaveSelect"></select></label>
+          </div>
+          <div id="explorerSummary"></div>
+        </div>
+        <p id="explorerSuspendedNote" class="section-note" hidden>Paused while the MIDI Player has a file playing. Press Stop (&#9632;) to use it again.</p>
       </div>
     </div>
 

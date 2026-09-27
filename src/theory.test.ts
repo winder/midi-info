@@ -1,14 +1,18 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  CHORD_EXTENSIONS,
   DEFAULT_CHORD_FORMULAS,
+  HIGHLIGHT_SCALES,
   HIGHLIGHT_CHORDS,
   INTERVAL_NAMES,
   KEYS,
   MODES,
   buildChordVoicing,
+  buildExplorerChord,
   buildKeyNoteNames,
   chordLabel,
+  degreeLabel,
   detectChords,
   diatonicRomanNumerals,
   isBlackPitch,
@@ -18,6 +22,7 @@ import {
   octaveOf,
   parseChordFormulas,
   romanNumeralLabel,
+  spellDegree,
   standardKeyIndex,
   transpositionLabel,
 } from './theory';
@@ -390,5 +395,75 @@ describe('transposition', () => {
     assert.equal(transpositionLabel(key('C'), key('C'), 12), 'up an octave');
     assert.equal(transpositionLabel(key('D'), key('D'), 0), 'original key');
     assert.equal(transpositionLabel(key('C#'), key('Db'), 0), 'same pitch, respelled');
+  });
+});
+
+describe('buildExplorerChord', () => {
+  const key = (name: string) => KEYS.find(k => k.name === name)!;
+  const scale = (name: string) => HIGHLIGHT_SCALES.find(s => s.name === name)!;
+  const ext = (name: string) => CHORD_EXTENSIONS.find(e => e.name === name)!;
+  const build = (k: string, s: string, e: string, inversion = 0, octave = 4) =>
+    buildExplorerChord(key(k), scale(s), ext(e), inversion, octave, DEFAULT_CHORD_FORMULAS);
+
+  test('stacks thirds up the scale from the root in the chosen octave', () => {
+    const chord = build('C', 'Major', '7');
+    assert.equal(chord.name, 'CΔ7');
+    assert.deepEqual(chord.tones.map(t => t.midi), [60, 64, 67, 71]);
+    assert.deepEqual(chord.tones.map(t => t.name), ['C', 'E', 'G', 'B']);
+    assert.deepEqual(chord.tones.map(t => t.label), ['Root', '3rd', '5th', '7th']);
+  });
+
+  test('names chords with the chord table\'s symbols', () => {
+    assert.equal(build('D', 'Dorian', '7').name, 'D-7');
+    assert.equal(build('G', 'Mixolydian', '9').name, 'G9');
+    assert.equal(build('B', 'Locrian', '7').name, 'Bø7');
+    assert.equal(build('A', 'Harmonic Minor', '7').name, 'A-Δ7');
+    assert.equal(build('F', 'Lydian', '13').name, 'FΔ7(13, #11)');
+    assert.equal(build('C', 'Major', '6').name, 'C6');
+  });
+
+  test('falls back to the 7th chord plus tensions when the table has no match', () => {
+    assert.equal(build('E', 'Phrygian', '9').name, 'E-7(b9)');
+    assert.equal(build('C', 'Major', '11').name, 'CΔ7(9, 11)');
+    assert.equal(build('G', 'Mixolydian', '13').name, 'G7(9, 11, 13)');
+    assert.equal(build('A', 'Natural Minor', '6').name, 'A-(b6)');
+  });
+
+  test('spans more than an octave for extended chords', () => {
+    assert.deepEqual(build('C', 'Major', '13').tones.map(t => t.midi), [60, 64, 67, 71, 74, 77, 81]);
+  });
+
+  test('inversions move the lowest tones up an octave and name the bass', () => {
+    const first = build('C', 'Major', '7', 1);
+    assert.equal(first.name, 'CΔ7/E');
+    assert.deepEqual(first.tones.map(t => t.midi), [64, 67, 71, 72]);
+    assert.deepEqual(first.tones.map(t => t.label), ['3rd', '5th', '7th', 'Root']);
+    assert.equal(build('C', 'Major', '5', 2).name, 'C/G');
+    assert.deepEqual(build('C', 'Major', '5', 2).tones.map(t => t.midi), [67, 72, 76]);
+  });
+
+  test('spells tones by letter from the root', () => {
+    assert.deepEqual(build('Db', 'Major', '7').tones.map(t => t.name), ['Db', 'F', 'Ab', 'C']);
+    assert.deepEqual(build('C', 'Natural Minor', '7').tones.map(t => t.name), ['C', 'Eb', 'G', 'Bb']);
+    assert.deepEqual(build('F#', 'Major', '7').tones.map(t => t.name), ['F#', 'A#', 'C#', 'E#']);
+  });
+
+  test('drops an octave rather than run off the keyboard', () => {
+    const chord = build('B', 'Major', '13', 6, 5);
+    assert.ok(Math.max(...chord.tones.map(t => t.midi)) <= 108);
+    assert.equal(chord.tones[0].name, 'G#');
+  });
+});
+
+describe('degreeLabel / spellDegree', () => {
+  test('marks altered degrees against their major or perfect form', () => {
+    assert.equal(degreeLabel(3, 3), '♭3rd');
+    assert.equal(degreeLabel(5, 6), '♭5th');
+    assert.equal(degreeLabel(11, 6), '♯11th');
+    assert.equal(degreeLabel(9, 1), '♭9th');
+  });
+
+  test('spells double sharps rather than respelling', () => {
+    assert.equal(spellDegree(KEYS.find(k => k.name === 'G#')!, 7, 11), 'F##');
   });
 });

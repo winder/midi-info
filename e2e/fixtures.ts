@@ -156,6 +156,11 @@ export async function openHighlighter(page: Page): Promise<void> {
   await page.waitForSelector('#highlighterBody:not([hidden])');
 }
 
+export async function openExplorer(page: Page): Promise<void> {
+  await page.click('#explorerToggle');
+  await page.waitForSelector('#explorerBody:not([hidden])');
+}
+
 // MIDI numbers of the keys currently drawn as highlighted, ascending.
 export async function highlightedMidis(page: Page): Promise<number[]> {
   return page.$$eval('rect.highlighted', rects =>

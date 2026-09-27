@@ -38,8 +38,12 @@ import {
   vibratoHz,
 } from './sound';
 import {
+  CHORD_EXTENSIONS,
+  ChordExtension,
   ChordFormula,
   DEFAULT_CHORD_FORMULAS,
+  ExplorerChord,
+  INVERSION_NAMES,
   HIGHLIGHT_CHORDS,
   HIGHLIGHT_SCALES,
   HighlightChord,
@@ -49,6 +53,7 @@ import {
   MODES,
   Mode,
   buildChordVoicing,
+  buildExplorerChord,
   buildKeyNoteNames,
   diatonicRomanNumerals,
   keyPitchClass,
@@ -66,6 +71,8 @@ import {
   FontSizes,
   MAX_MIDI,
   MIN_MIDI,
+  renderButtonRow,
+  renderExplorerSummary,
   NamedTheme,
   Piano,
   Theme,
@@ -351,6 +358,18 @@ let chordTypeSymbol: string = HIGHLIGHT_CHORDS[0].symbol;
 // itself stays; picking a chord again shows them.
 let chordHighlightHidden = false;
 
+// The Chord Explorer builds a chord from a root, a scale to stack thirds
+// up, an extension, an inversion and an octave. It shares the keyboard
+// highlight with the Chord/Scale Display: picking in one clears the other.
+// No root means nothing is built.
+let explorerOpen = false;
+let explorerRootIndex: number | null = null;
+let explorerScaleName: string = HIGHLIGHT_SCALES[0].name;
+let explorerExtensionName = '7';
+let explorerInversion = 0;
+let explorerOctave = 4;
+const EXPLORER_OCTAVES = [1, 2, 3, 4, 5];
+
 // The MIDI player (see player.ts). Playback is active from the first Play
 // (or seek) until the file ends or another loads, paused or not; meanwhile
 // the highlighter steps aside. While paused mid-file, pausedChord is the
@@ -448,6 +467,16 @@ const soundNewBtn = document.getElementById('soundNewBtn') as HTMLButtonElement;
 const soundDeleteBtn = document.getElementById('soundDeleteBtn') as HTMLButtonElement;
 const soundPickerRow = document.getElementById('soundPickerRow') as HTMLElement;
 const soundPickerIcon = document.getElementById('soundPickerIcon') as HTMLElement;
+const explorerSection = document.getElementById('explorerSection') as HTMLElement;
+const explorerToggle = document.getElementById('explorerToggle') as HTMLButtonElement;
+const explorerBody = document.getElementById('explorerBody') as HTMLElement;
+const explorerRootButtonsEl = document.getElementById('explorerRootButtons') as HTMLElement;
+const explorerScaleButtonsEl = document.getElementById('explorerScaleButtons') as HTMLElement;
+const explorerExtensionButtonsEl = document.getElementById('explorerExtensionButtons') as HTMLElement;
+const explorerInversionButtonsEl = document.getElementById('explorerInversionButtons') as HTMLElement;
+const explorerOctaveSelect = document.getElementById('explorerOctaveSelect') as HTMLSelectElement;
+const explorerSummaryEl = document.getElementById('explorerSummary') as HTMLElement;
+const explorerSuspendedNote = document.getElementById('explorerSuspendedNote') as HTMLElement;
 
 versionInfoEl.textContent = `Build ${__COMMIT_HASH__}`;
 
@@ -552,10 +581,13 @@ function render(): void {
   renderRomanHints(piano, showRomanHints ? diatonicRomanNumerals(currentTonicPc, currentMode) : []);
   renderKeys();
   renderChord();
+  refreshExplorerSummary();
 }
 
 function highlightedKeys(): Set<number> {
   if (playbackActive) return new Set(pausedChord);
+  const explored = explorerChord();
+  if (explored) return new Set(explored.tones.map(t => t.midi));
   if (highlightMode === 'chord' && chordHighlightHidden) return new Set();
   return computeHighlightedNotes();
 }
@@ -952,6 +984,7 @@ function setLevel(level: Level): void {
   updateLevelButtons();
   populateModeSelect();
   refreshHighlighterUI();
+  refreshExplorerUI();
   refreshTransposeControls();
   refreshNoteNames();
 }
@@ -1431,6 +1464,7 @@ function renderRootButtonRow(container: HTMLElement, isActive: (index: number) =
 }
 
 function selectScaleRoot(index: number): void {
+  clearExplorer();
   highlightMode = highlightMode === 'scale' && scaleRootIndex === index ? null : 'scale';
   scaleRootIndex = index;
   refreshHighlighterUI();
@@ -1438,6 +1472,7 @@ function selectScaleRoot(index: number): void {
 }
 
 function selectScaleType(name: string): void {
+  clearExplorer();
   scaleTypeName = name;
   if (scaleRootIndex !== null) highlightMode = 'scale';
   refreshHighlighterUI();
@@ -1451,6 +1486,7 @@ function previewHighlightedChord(): void {
 }
 
 function selectChordRoot(index: number): void {
+  clearExplorer();
   chordHighlightHidden = false;
   highlightMode = highlightMode === 'chord' && chordRootIndex === index ? null : 'chord';
   chordRootIndex = index;
@@ -1460,6 +1496,7 @@ function selectChordRoot(index: number): void {
 }
 
 function selectChordType(symbol: string): void {
+  clearExplorer();
   chordHighlightHidden = false;
   chordTypeSymbol = symbol;
   if (chordRootIndex !== null) highlightMode = 'chord';
@@ -1511,6 +1548,108 @@ function setHighlighterOpen(open: boolean): void {
 highlighterToggle.addEventListener('click', () => setHighlighterOpen(!highlighterOpen));
 setHighlighterOpen(false);
 refreshHighlighterUI();
+
+// ---- Chord Explorer ----
+
+function availableExtensions(): ChordExtension[] {
+  return CHORD_EXTENSIONS.filter(e => levelAtLeast(currentLevel, e.minLevel));
+}
+
+// The picked scale and extension, or the first available when a Level
+// change has taken them away.
+function explorerScale(): HighlightScale {
+  const scales = availableScales();
+  return scales.find(s => s.name === explorerScaleName) ?? scales[0];
+}
+
+function explorerExtension(): ChordExtension {
+  const extensions = availableExtensions();
+  return extensions.find(e => e.name === explorerExtensionName) ?? extensions[0];
+}
+
+// The built chord, or null with no root picked.
+function explorerChord(): ExplorerChord | null {
+  if (explorerRootIndex === null) return null;
+  return buildExplorerChord(
+    KEYS[explorerRootIndex], explorerScale(), explorerExtension(), explorerInversion, explorerOctave, chordFormulas, MAX_MIDI
+  );
+}
+
+function clearExplorer(): void {
+  if (explorerRootIndex === null) return;
+  explorerRootIndex = null;
+  refreshExplorerUI();
+}
+
+function refreshExplorerSummary(): void {
+  const chord = explorerChord();
+  const position = explorerInversion === 0 ? 'root position' : `${INVERSION_NAMES[explorerInversion]} inversion`;
+  renderExplorerSummary(explorerSummaryEl, chord, position);
+}
+
+function refreshExplorerUI(): void {
+  const scale = explorerScale();
+  const extension = explorerExtension();
+  explorerInversion = Math.min(explorerInversion, extension.degrees.length - 1);
+  renderButtonRow(explorerRootButtonsEl, 'root-btn', KEYS.map((key, i) => ({
+    label: key.name,
+    active: explorerRootIndex === i,
+    onClick: () => updateExplorer(() => { explorerRootIndex = explorerRootIndex === i ? null : i; }),
+  })));
+  renderButtonRow(explorerScaleButtonsEl, 'type-btn', availableScales().map(s => ({
+    label: s.name,
+    active: s === scale,
+    onClick: () => updateExplorer(() => { explorerScaleName = s.name; }),
+  })));
+  renderButtonRow(explorerExtensionButtonsEl, 'type-btn', availableExtensions().map(e => ({
+    label: e.name,
+    active: e === extension,
+    onClick: () => updateExplorer(() => { explorerExtensionName = e.name; }),
+  })));
+  renderButtonRow(explorerInversionButtonsEl, 'type-btn', extension.degrees.map((_, i) => ({
+    label: INVERSION_NAMES[i],
+    active: i === explorerInversion,
+    onClick: () => updateExplorer(() => { explorerInversion = i; }),
+  })));
+  explorerOctaveSelect.value = String(explorerOctave);
+  refreshExplorerSummary();
+}
+
+// Every pick lights the chord on the keyboard and plays it, turning sound
+// on if it's off (as loading a MIDI file does: you asked to hear it).
+// Picking here takes the highlight over from the Chord/Scale Display.
+function updateExplorer(change: () => void): void {
+  change();
+  if (explorerRootIndex !== null && highlightMode !== null) {
+    highlightMode = null;
+    refreshHighlighterUI();
+  }
+  refreshExplorerUI();
+  renderKeys();
+  const chord = explorerChord();
+  if (!chord) return;
+  if (!soundEnabled) setSoundEnabled(true);
+  previewChord(chord.tones.map(t => t.midi));
+}
+
+EXPLORER_OCTAVES.forEach(octave => {
+  const opt = document.createElement('option');
+  opt.value = String(octave);
+  opt.textContent = octave === 4 ? '4 (middle C)' : String(octave);
+  explorerOctaveSelect.appendChild(opt);
+});
+explorerOctaveSelect.addEventListener('change', () => updateExplorer(() => { explorerOctave = Number(explorerOctaveSelect.value); }));
+
+function setExplorerOpen(open: boolean): void {
+  explorerOpen = open;
+  explorerBody.hidden = !open;
+  explorerToggle.setAttribute('aria-expanded', String(open));
+  explorerToggle.classList.toggle('open', open);
+}
+
+explorerToggle.addEventListener('click', () => setExplorerOpen(!explorerOpen));
+setExplorerOpen(false);
+refreshExplorerUI();
 
 // ---- MIDI player ----
 
@@ -1580,10 +1719,13 @@ function setPlaybackActive(active: boolean): void {
   pausedChord = [];
   highlighterBody.inert = active;
   highlighterSuspendedNote.hidden = !active;
-  // The section in use goes on top. The two are never in use together
-  // (playback sets the highlighter aside), so playback alone decides.
+  explorerBody.inert = active;
+  explorerSuspendedNote.hidden = !active;
+  // The section in use goes on top. The player is never in use together
+  // with the other two (playback sets them aside), so playback alone
+  // decides: the player above both, or back below the explorer.
   if (active) highlighterSection.before(playerSection);
-  else playerSection.before(highlighterSection);
+  else explorerSection.after(playerSection);
   render();
 }
 

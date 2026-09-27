@@ -514,3 +514,117 @@ export function modeShiftMap(from: Mode, to: Mode): number[] {
   });
   return deltas;
 }
+
+// ---- Chord Explorer ----
+
+// How far the Chord Explorer stacks thirds up the chosen scale: the scale
+// degrees in the chord, in stacking order. "6" is the triad plus the 6th
+// rather than a stack of thirds. Gated like HIGHLIGHT_CHORDS: triads are
+// basic, 6th and 7th chords intermediate, the extensions nerd.
+export interface ChordExtension {
+  name: string;
+  degrees: number[];
+  minLevel: Level;
+}
+
+export const CHORD_EXTENSIONS: ChordExtension[] = [
+  { name: '5', degrees: [1, 3, 5], minLevel: 'basic' },
+  { name: '6', degrees: [1, 3, 5, 6], minLevel: 'intermediate' },
+  { name: '7', degrees: [1, 3, 5, 7], minLevel: 'intermediate' },
+  { name: '9', degrees: [1, 3, 5, 7, 9], minLevel: 'nerd' },
+  { name: '11', degrees: [1, 3, 5, 7, 9, 11], minLevel: 'nerd' },
+  { name: '13', degrees: [1, 3, 5, 7, 9, 11, 13], minLevel: 'nerd' },
+];
+
+// Semitones above the root of each degree's major or perfect form.
+const DEGREE_REFERENCE: Record<number, number> = { 1: 0, 3: 4, 5: 7, 6: 9, 7: 11, 9: 2, 11: 5, 13: 9 };
+
+// How far a degree sits from its major/perfect form: -1 for a b3, +1 for a #11.
+function degreeAlteration(degree: number, semitones: number): number {
+  return ((semitones - DEGREE_REFERENCE[degree]) % 12 + 18) % 12 - 6;
+}
+
+function accidentalText(alteration: number, sharp: string, flat: string): string {
+  return alteration > 0 ? sharp.repeat(alteration) : flat.repeat(-alteration);
+}
+
+// A chord tone's role, as the Chord Explorer lists it: "Root", "♭3rd", "♯11th".
+export function degreeLabel(degree: number, semitones: number): string {
+  if (degree === 1) return 'Root';
+  return accidentalText(degreeAlteration(degree, semitones), '♯', '♭') + degree + (degree === 3 ? 'rd' : 'th');
+}
+
+// A chord tone spelled by letter from the root, so a 3rd is always a third
+// letter up: Eb in C minor, E# in C# major. Double sharps and flats are
+// spelled out (F## as the 7th of G# harmonic minor) rather than respelled.
+export function spellDegree(key: Key, degree: number, semitones: number): string {
+  const letter = LETTERS[(LETTERS.indexOf(key.tonicLetter) + degree - 1) % 7];
+  const pc = (keyPitchClass(key) + semitones) % 12;
+  const alteration = ((pc - NATURAL_PC[letter]) % 12 + 18) % 12 - 6;
+  return letter + accidentalText(alteration, '#', 'b');
+}
+
+export interface ChordTone {
+  degree: number;
+  semitones: number; // above the root, 0-11
+}
+
+// The symbol for a stack of chord tones: the chord table's own name when a
+// formula matches exactly with this root, so the explorer and the readout
+// agree. Otherwise the 7th chord (or triad) underneath is named from the
+// table and the rest are listed as tensions in the table's style, e.g.
+// C-7(b9) for a Phrygian 9th or CΔ7(9, 11) for a major 11th.
+export function explorerChordSymbol(tones: ChordTone[], chordFormulas: ChordFormula[]): string {
+  const tableSymbol = (list: ChordTone[]) =>
+    detectChords(list.map(t => t.semitones), chordFormulas, 0).find(m => m.root === 0)?.formula.symbol;
+  const exact = tableSymbol(tones);
+  if (exact !== undefined) return exact;
+  const core = tones.filter(t => [1, 3, 5, 7].includes(t.degree));
+  const coreSymbol = tableSymbol(core);
+  const extras = tones.filter(t => t.degree !== 1 && (coreSymbol === undefined || !core.includes(t)));
+  const tensions = extras.map(t => accidentalText(degreeAlteration(t.degree, t.semitones), '#', 'b') + t.degree);
+  return (coreSymbol ?? '') + (tensions.length ? `(${tensions.join(', ')})` : '');
+}
+
+export interface ExplorerTone extends ChordTone {
+  midi: number;
+  name: string; // spelled note name, e.g. "Eb"
+  label: string; // role, e.g. "♭3rd"
+}
+
+export interface ExplorerChord {
+  name: string; // e.g. "CΔ7", or "CΔ7/E" when inverted
+  tones: ExplorerTone[]; // as voiced, lowest first
+}
+
+export const INVERSION_NAMES = ['Root', '1st', '2nd', '3rd', '4th', '5th', '6th'];
+
+// The Chord Explorer's chord: thirds stacked up `scale` from the root in
+// `octave` (scientific pitch: 4 puts C at middle C), then the lowest
+// `inversion` tones moved up by octaves until they sit above the new bass
+// (a plain octave isn't enough once the chord spans more than one). A
+// voicing that would run off the top of the keyboard drops an octave.
+export function buildExplorerChord(
+  key: Key, scale: HighlightScale, extension: ChordExtension, inversion: number, octave: number,
+  chordFormulas: ChordFormula[], maxMidi = 108,
+): ExplorerChord {
+  const rootMidi = (octave + 1) * 12 + keyPitchClass(key);
+  let prev = rootMidi - 1;
+  const tones: ExplorerTone[] = extension.degrees.map(degree => {
+    const semitones = scale.steps[(degree - 1) % 7];
+    let midi = rootMidi + semitones;
+    while (midi <= prev) midi += 12;
+    prev = midi;
+    return { degree, semitones, midi, name: spellDegree(key, degree, semitones), label: degreeLabel(degree, semitones) };
+  });
+  const inverted = Math.max(0, Math.min(inversion, tones.length - 1));
+  const bassMidi = tones[inverted].midi;
+  tones.slice(0, inverted).forEach(t => {
+    while (t.midi <= bassMidi) t.midi += 12;
+  });
+  while (Math.max(...tones.map(t => t.midi)) > maxMidi) tones.forEach(t => { t.midi -= 12; });
+  tones.sort((a, b) => a.midi - b.midi);
+  const symbol = explorerChordSymbol(tones, chordFormulas);
+  const bass = inverted ? '/' + tones[0].name : '';
+  return { name: key.name + symbol + bass, tones };
+}

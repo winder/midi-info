@@ -1,7 +1,7 @@
 // SVG generation and DOM rendering. Functions here take data in and update
 // the DOM; they don't own application state (see app.ts for that).
 
-import { ChordFormula, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel } from './theory';
+import { ChordFormula, ExplorerChord, INTERVAL_NAMES, Mode, chordLabel, detectChords, isBlackPitch, octaveOf, romanNumeralLabel } from './theory';
 import { formatTime } from './player';
 
 // Base key dimensions; also the reference for scaling every other
@@ -613,6 +613,56 @@ export function renderPlayerControls(controls: PlayerControls, { playing, active
   controls.seek.value = String(position);
   controls.elapsed.textContent = formatTime(position);
   controls.duration.textContent = formatTime(duration ?? 0);
+}
+
+// ---- Chord Explorer ----
+
+// A row of toggle buttons (the explorer's pickers), `active` lit.
+export interface ButtonRowItem {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+export function renderButtonRow(container: HTMLElement, className: string, items: ButtonRowItem[]): void {
+  container.innerHTML = '';
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = className + (item.active ? ' active' : '');
+    btn.textContent = item.label;
+    btn.addEventListener('click', item.onClick);
+    container.appendChild(btn);
+  });
+}
+
+// The explorer's summary card: the chord's name, its position, the notes
+// low to high, and each tone's role listed top down like a staff.
+export function renderExplorerSummary(el: HTMLElement, chord: ExplorerChord | null, position: string): void {
+  el.innerHTML = '';
+  if (!chord) {
+    const hint = document.createElement('div');
+    hint.className = 'explorer-position';
+    hint.textContent = 'Pick a root note to build a chord.';
+    el.appendChild(hint);
+    return;
+  }
+  const add = (tag: string, className: string, text: string, parent: HTMLElement = el) => {
+    const node = document.createElement(tag);
+    node.className = className;
+    node.textContent = text;
+    parent.appendChild(node);
+    return node;
+  };
+  add('div', 'explorer-name', chord.name);
+  add('div', 'explorer-position', position);
+  add('div', 'explorer-notes', chord.tones.map(t => t.name).join(' '));
+  const list = add('ol', 'explorer-tones', '');
+  chord.tones.slice().reverse().forEach(tone => {
+    const li = add('li', '', '', list);
+    add('span', 'explorer-tone-note', tone.name, li);
+    add('span', 'explorer-tone-degree' + (tone.degree === 1 ? ' root' : ''), tone.label, li);
+  });
 }
 
 // ---- Font family selection ----
