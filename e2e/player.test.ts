@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Midi } from '@tonejs/midi';
 import { Page } from 'playwright';
-import { chordDisplayMain, highlightedMidis, launchApp, openHighlighter } from './fixtures';
+import { chordDisplayMain, closeSettings, highlightedMidis, launchApp, openHighlighter, openSettings, setLevel } from './fixtures';
 
 // C major for a second, then F major for a second.
 function progression(): Buffer {
@@ -196,6 +196,10 @@ describe('MIDI player', () => {
     const { page } = app;
     const selectedText = (sel: string) => page.$eval(sel, el => (el as HTMLSelectElement).selectedOptions[0].textContent);
     try {
+      // Basic names the modes Major/Minor rather than Ionian/Aeolian.
+      await openSettings(page);
+      await setLevel(page, 'basic');
+      await closeSettings(page);
       await openPlayer(page);
       await upload(page, 'progression.mid', progression());
       await page.waitForSelector('#playerPlayBtn:not([disabled])');

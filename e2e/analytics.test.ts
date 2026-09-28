@@ -47,7 +47,7 @@ describe('analytics', () => {
       assert.equal(config[1], 'G-E2ETEST');
       const props = (config[2] as { user_properties: Params }).user_properties;
       assert.deepEqual(props, {
-        level: 'basic',
+        level: 'nerd',
         theme: props.theme,
         visible_keys: 52,
         display_off: 'none',

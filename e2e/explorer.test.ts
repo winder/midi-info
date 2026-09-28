@@ -124,6 +124,10 @@ describe('chord explorer', () => {
   test('shares the keyboard highlight with the Chord/Scale Display', async () => {
     const app = await launchApp();
     try {
+      // Basic defaults the extension to a triad.
+      await openSettings(app.page);
+      await setLevel(app.page, 'basic');
+      await closeSettings(app.page);
       await openExplorer(app.page);
       await pick(app.page, 'explorerRootButtons', 'D');
       assert.equal(await summaryName(app.page), 'D');

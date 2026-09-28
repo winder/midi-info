@@ -117,7 +117,7 @@ function deleteCookie(name: string): void {
 
 function loadLevel(): Level {
   const raw = getCookie('level');
-  return raw === 'basic' || raw === 'intermediate' || raw === 'nerd' ? raw : 'basic';
+  return raw === 'basic' || raw === 'intermediate' || raw === 'nerd' ? raw : 'nerd';
 }
 
 function saveLevel(level: Level): void {
