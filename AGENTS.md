@@ -44,7 +44,8 @@ For any change a user would see, run it in the browser. The e2e harness is the w
 
 ## Deployment
 
-- **GitHub Pages** is the only deployment: `.github/workflows/pages.yml` runs on push to `master`, builds fresh, and uploads `dist/`. There are no binary releases or version tags.
+- **GitHub Pages** is the dev deployment: `.github/workflows/pages.yml` runs on push to `master`, builds fresh, and uploads `dist/`.
+- **app.vanrivermusic.com** is the release deployment: `.github/workflows/release.yml` runs on a pushed `v*` tag, runs unit tests, builds, and rsyncs `dist/` over SSH to DreamHost shared hosting (`--delete`, sparing `.well-known/`). The SSH key and pinned known_hosts are secrets, and the host, user and path are variables, all in the `production` GitHub environment (the workflow header lists them). DNS is at Wix: an `A` record for `app` points to the DreamHost server IP, so if DreamHost moves the site to another server, update that record. HTTPS is DreamHost's Let's Encrypt cert. Both hosts are in `TRACKED_HOSTS` and share one GA4 property.
 - **Local dev**: `make run` serves `http://localhost:8080` (see Build). `make stop` kills whatever holds that port, which a prior session often does.
 
 ## Git

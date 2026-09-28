@@ -16,8 +16,10 @@ function recordingTracker() {
 }
 
 describe('shouldTrack', () => {
-  test('only the public host with a measurement ID reports', () => {
+  test('only the public hosts with a measurement ID report', () => {
     assert.equal(shouldTrack('winder.github.io', 'G-TEST'), true);
+    assert.equal(shouldTrack('app.vanrivermusic.com', 'G-TEST'), true);
+    assert.equal(shouldTrack('www.app.vanrivermusic.com', 'G-TEST'), false);
     assert.equal(shouldTrack('localhost', 'G-TEST'), false);
     assert.equal(shouldTrack('winder.github.io', ''), false);
   });

@@ -1,0 +1,70 @@
+name: release
+
+# Tagged releases go to app.vanrivermusic.com on DreamHost. The GitHub Pages
+# site (pages.yml) keeps tracking master as the dev build.
+#
+# Push a tag to deploy:  git tag v1.0.0 && git push origin v1.0.0
+#
+# Needs, under Settings > Environments > production:
+#   secrets   DREAMHOST_SSH_KEY      private key whose .pub is in the DreamHost
+#                                    user's ~/.ssh/authorized_keys
+#             DREAMHOST_KNOWN_HOSTS  `ssh-keyscan <server>` output, pinned so a
+#                                    spoofed host can't receive the upload
+#   variables DREAMHOST_HOST         the server, e.g. iad1-shared-b7-01.dreamhost.com
+#             DREAMHOST_USER         the SFTP/SSH user that owns the site
+#             DREAMHOST_PATH         the web directory, e.g. app.vanrivermusic.com
+#                                    (relative to that user's home)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.vanrivermusic.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DREAMHOST_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DREAMHOST_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      # --delete prunes files from older releases. The excludes are DreamHost's
+      # own: Let's Encrypt challenges and the panel's diagnostics file.
+      - name: Upload
+        env:
+          HOST: ${{ vars.DREAMHOST_HOST }}
+          USER: ${{ vars.DREAMHOST_USER }}
+          DEST: ${{ vars.DREAMHOST_PATH }}
+        run: |
+          rsync -rlvz --delete --checksum \
+            --exclude '.well-known/' --exclude '.dh-diag*' \
+            dist/ "$USER@$HOST:$DEST/"

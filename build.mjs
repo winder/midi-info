@@ -1,4 +1,4 @@
-// Production build for GitHub Pages: writes dist/app.js, dist/index.html,
+// Production build for GitHub Pages and the tagged-release site: writes dist/app.js, dist/index.html,
 // dist/favicon.ico, the MIDI player's presets under dist/midi/ and the
 // portfolio demo page under dist/demo/.
 // The source index.html references a plain app.js; the copy under dist/ gets

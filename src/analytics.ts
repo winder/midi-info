@@ -1,5 +1,5 @@
 // Google Analytics (GA4). Loads gtag.js at runtime so index.html stays free of
-// inline JS. Only the public GitHub Pages host reports; the local dev server
+// inline JS. Only the public hosts report; the local dev server
 // and the e2e harness never load the tag.
 //
 // Beyond the automatic page_view, the app reports a small usage funnel plus a
@@ -27,7 +27,9 @@
 declare const __GA_MEASUREMENT_ID__: string;
 export const GA_MEASUREMENT_ID: string = typeof __GA_MEASUREMENT_ID__ === 'string' ? __GA_MEASUREMENT_ID__ : '';
 
-const TRACKED_HOSTS = ['winder.github.io'];
+// The GitHub Pages dev build and the tagged-release site share one GA4
+// property; filter reports by the Hostname dimension to tell them apart.
+const TRACKED_HOSTS = ['winder.github.io', 'app.vanrivermusic.com'];
 
 // GA4 limits: param values 100 chars, user property values 36 chars, and
 // events are dropped past ~500 per session. Playing a keyboard fires many
