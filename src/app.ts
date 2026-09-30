@@ -1666,6 +1666,9 @@ const playerModeSelect = document.getElementById('playerModeSelect') as HTMLSele
 const playerFlatBtn = document.getElementById('playerFlatBtn') as HTMLButtonElement;
 const playerSharpBtn = document.getElementById('playerSharpBtn') as HTMLButtonElement;
 const playerTransposeLabel = document.getElementById('playerTransposeLabel') as HTMLElement;
+const playerBpmInput = document.getElementById('playerBpmInput') as HTMLInputElement;
+const playerTempoResetBtn = document.getElementById('playerTempoResetBtn') as HTMLButtonElement;
+const playerTempoLabel = document.getElementById('playerTempoLabel') as HTMLElement;
 const highlighterSuspendedNote = document.getElementById('highlighterSuspendedNote') as HTMLElement;
 const playerControls = {
   playButton: document.getElementById('playerPlayBtn') as HTMLButtonElement,
@@ -1692,6 +1695,14 @@ let playKeyIndex = 0;
 let transposeShift = 0;
 let fileModeIndex = IONIAN_INDEX;
 let playModeIndex = IONIAN_INDEX;
+
+// Tempo: the loaded file's opening BPM (rounded, as shown) and the one
+// it's played at. Only the speed changes; the file's timeline, and so the
+// clock and seek bar, stay as written.
+const MIN_BPM = 20;
+const MAX_BPM = 400;
+let fileBpm = 120;
+let playBpm = 120;
 
 function setPlayerOpen(open: boolean): void {
   playerBody.hidden = !open;
@@ -1771,8 +1782,26 @@ function loadSong(song: Song, settings: FileSettings): void {
   const modeIndex = MODES.findIndex(m => m.name === settings.mode);
   fileModeIndex = modeIndex === -1 ? IONIAN_INDEX : modeIndex;
   playModeIndex = fileModeIndex;
+  fileBpm = Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(song.bpm)));
+  playBpm = fileBpm;
   refreshTransposeControls();
+  refreshTempoControls();
   refreshPlayerControls();
+}
+
+function refreshTempoControls(): void {
+  const loaded = filePlayer !== null;
+  playerBpmInput.disabled = !loaded;
+  playerBpmInput.value = loaded ? String(playBpm) : '';
+  playerTempoResetBtn.disabled = !loaded || playBpm === fileBpm;
+  playerTempoLabel.textContent = loaded && playBpm !== fileBpm ? `${Math.round((playBpm / fileBpm) * 100)}% of ${fileBpm}` : '';
+}
+
+function setPlayBpm(bpm: number): void {
+  if (!filePlayer) return;
+  if (Number.isFinite(bpm)) playBpm = Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
+  filePlayer.rate = playBpm / fileBpm;
+  refreshTempoControls();
 }
 
 function refreshTransposeControls(): void {
@@ -1874,6 +1903,10 @@ function stepTransposition(step: number): void {
   setTransposition(shift, shift === 0 ? fileKeyIndex : standardKeyIndex(pc, MODES[playModeIndex]));
 }
 
+// A blank or unreadable entry just puts the current tempo back.
+playerBpmInput.addEventListener('change', () => setPlayBpm(playerBpmInput.value === '' ? NaN : Number(playerBpmInput.value)));
+playerTempoResetBtn.addEventListener('click', () => setPlayBpm(fileBpm));
+
 playerFlatBtn.addEventListener('click', () => stepTransposition(-1));
 playerSharpBtn.addEventListener('click', () => stepTransposition(1));
 
@@ -1904,6 +1937,7 @@ function unloadSong(message: string | null): void {
   setPlaybackActive(false);
   setErrorMessage(playerError, message);
   refreshTransposeControls();
+  refreshTempoControls();
   refreshPlayerControls();
 }
 
@@ -2023,6 +2057,7 @@ document.addEventListener('visibilitychange', () => {
 playerToggle.addEventListener('click', () => setPlayerOpen(playerBody.hidden));
 populatePlayerFileSelect('');
 refreshTransposeControls();
+refreshTempoControls();
 refreshPlayerControls();
 
 // ?midi=<preset id> opens the player with that file loaded, paused.

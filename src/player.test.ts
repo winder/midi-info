@@ -25,6 +25,7 @@ const SONG: Song = {
   ],
   pedal: [{ time: 1, down: true }, { time: 2, down: false }],
   keySignature: null,
+  bpm: 120,
 };
 
 describe('MidiPlayer', () => {
@@ -130,6 +131,7 @@ describe('MidiPlayer', () => {
       notes: [{ midi: 60, start: 0, end: 1, velocity: 80 }],
       pedal: [{ time: 0, down: true }, { time: 1.5, down: false }],
       keySignature: null,
+      bpm: 120,
     };
     const h = harness(song);
     h.player.play();
@@ -153,6 +155,37 @@ describe('MidiPlayer', () => {
     h.advance(1000);
     assert.deepEqual(h.log, ['on 60 80', 'off 60', 'on 60 80']);
   });
+
+  test('a rate scales the timing without releasing anything', () => {
+    const h = harness(SONG);
+    h.player.rate = 0.5;
+    h.player.play();
+    h.advance(1999);
+    assert.deepEqual(h.log, ['on 60 90']);
+    assert.equal(h.player.position, 0.9995);
+    h.advance(1);
+    assert.deepEqual(h.log.slice(1), ['off 60', 'pedal down', 'on 64 70']);
+    h.advance(500);
+    h.log.length = 0;
+    h.player.rate = 2;
+    assert.deepEqual(h.log, [], 'the held note keeps sounding');
+    assert.equal(h.player.position, 1.25);
+    h.advance(374);
+    assert.deepEqual(h.log, []);
+    h.advance(1);
+    assert.deepEqual(h.log, ['off 64', 'pedal up']);
+    assert.equal(h.ended(), 1);
+  });
+
+  test('a rate set while paused applies on resume', () => {
+    const h = harness(SONG);
+    h.player.seek(1);
+    h.player.rate = 4;
+    assert.equal(h.player.position, 1);
+    h.player.play();
+    h.advance(250);
+    assert.equal(h.ended(), 1);
+  });
 });
 
 describe('parseSong', () => {
@@ -175,6 +208,17 @@ describe('parseSong', () => {
     assert.deepEqual(song.notes.map(n => [n.midi, n.start, n.end, n.velocity]), [[60, 0, 1, 63], [64, 0.5, 1, 127]]);
     assert.deepEqual(song.pedal, [{ time: 0, down: true }, { time: 1.25, down: false }]);
     assert.equal(song.duration, 1.25, 'the duration runs to the last pedal-up');
+    assert.equal(song.bpm, 120, 'no tempo event means MIDI\'s default');
+  });
+
+  test('reads the opening tempo', () => {
+    const bytes = midiBytes(midi => {
+      midi.header.setTempo(90);
+      midi.addTrack().addNote({ midi: 60, time: 0, duration: 1 });
+    });
+    const song = parseSong(bytes);
+    assert.ok(typeof song !== 'string');
+    assert.equal(Math.round(song.bpm), 90);
   });
 
   // Built by hand: @tonejs/midi's writer encodes key signatures wrongly.

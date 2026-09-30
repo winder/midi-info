@@ -958,10 +958,19 @@
     color: var(--ui-disabled);
     cursor: default;
   }
-  #playerTranspose {
+  #playerTranspose, #playerTempo {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+  #playerBpmInput {
+    width: 64px;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--ui-line);
+    border-radius: 4px;
+    padding: 3px 6px;
+    background: var(--ui-control);
+    color: var(--font-color);
   }
   .transpose-btn {
     width: 28px;
@@ -1011,6 +1020,7 @@
   html.embed #playerToggle,
   html.embed #playerBody > label[for="playerFileSelect"],
   html.embed #playerTranspose,
+  html.embed #playerTempo,
   html.embed #playerDropZone {
     display: none;
   }
@@ -1347,6 +1357,13 @@
           <span id="playerElapsed" class="player-time">0:00</span>
           <input type="range" id="playerSeek" min="0" max="0" step="0.01" value="0" aria-label="Position" disabled>
           <span id="playerDuration" class="player-time">0:00</span>
+        </div>
+        <div id="playerTempo">
+          <label for="playerBpmInput">Tempo</label>
+          <input type="number" id="playerBpmInput" min="20" max="400" step="1" title="Playback speed in beats per minute (20-400). Starts at the file's own tempo; files that change tempo speed up or slow down all alike." disabled>
+          <span class="player-time">BPM</span>
+          <button id="playerTempoResetBtn" type="button" class="transpose-btn" aria-label="Back to the file's tempo" title="Back to the file's tempo" disabled>&#8634;</button>
+          <span id="playerTempoLabel" class="player-time"></span>
         </div>
         <div id="playerTranspose">
           <label for="playerKeySelect">Play in</label>

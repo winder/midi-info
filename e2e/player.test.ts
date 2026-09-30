@@ -230,6 +230,46 @@ describe('MIDI player', () => {
     }
   });
 
+  test('the Tempo input changes the playback speed, and a new file resets it', async () => {
+    const app = await launchApp();
+    const { page } = app;
+    const setBpm = (value: string) => page.fill('#playerBpmInput', value).then(() => page.press('#playerBpmInput', 'Enter'));
+    try {
+      await openPlayer(page);
+      assert.equal(await page.isDisabled('#playerBpmInput'), true, 'nothing loaded yet');
+      await upload(page, 'progression.mid', progression());
+      await page.waitForSelector('#playerPlayBtn:not([disabled])');
+      assert.equal(await page.inputValue('#playerBpmInput'), '120', "a file without a tempo is MIDI's default");
+      assert.equal(await page.isDisabled('#playerTempoResetBtn'), true);
+
+      await setBpm('480');
+      assert.equal(await page.inputValue('#playerBpmInput'), '400', 'clamped to the maximum');
+      await setBpm('');
+      assert.equal(await page.inputValue('#playerBpmInput'), '400', 'a blank entry puts the tempo back');
+      await setBpm('240');
+      assert.equal(await page.textContent('#playerTempoLabel'), '200% of 120');
+
+      // At double speed the F chord comes at half a second, not one.
+      await page.click('#playerPlayBtn');
+      const started = Date.now();
+      await page.waitForFunction(() => document.querySelector('#chordDisplay .chord-main')?.textContent?.trim() === 'F');
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed < 900, `F came after ${elapsed} ms`);
+      await page.waitForFunction(() => document.getElementById('playerPlayBtn')?.getAttribute('aria-label') === 'Play');
+      assert.equal(await page.textContent('#playerDuration'), '0:02', 'the clock keeps the file\'s own timeline');
+
+      await page.click('#playerTempoResetBtn');
+      assert.equal(await page.inputValue('#playerBpmInput'), '120');
+      assert.equal(await page.textContent('#playerTempoLabel'), '');
+
+      await setBpm('60');
+      await upload(page, 'again.mid', progression());
+      await page.waitForFunction(() => (document.getElementById('playerBpmInput') as HTMLInputElement).value === '120');
+    } finally {
+      await app.close();
+    }
+  });
+
   test('the end of a file turns every note off', async () => {
     const app = await launchApp();
     const { page } = app;

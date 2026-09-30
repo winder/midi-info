@@ -27,6 +27,10 @@ export interface Song {
   notes: SongNote[];
   pedal: PedalChange[];
   keySignature: KeySignature | null;
+  // The file's opening tempo, in quarter notes a minute; 120 (MIDI's
+  // default) when it sets none. Later tempo changes are already in the
+  // note times, and a playback rate scales them all alike.
+  bpm: number;
 }
 
 const SUSTAIN_CC = 64;
@@ -75,6 +79,7 @@ export function parseSong(bytes: ArrayBuffer | Uint8Array): Song | string {
     notes,
     pedal,
     keySignature: keySignature(midi.header.keySignatures[0]),
+    bpm: midi.header.tempos[0]?.bpm ?? 120,
   };
 }
 
@@ -104,6 +109,7 @@ export class MidiPlayer {
   private readonly sounding = new Set<number>();
   private pedalDown = false;
   private map: (midi: number) => number = midi => midi;
+  private speed = 1;
 
   constructor(
     readonly song: Song,
@@ -125,7 +131,7 @@ export class MidiPlayer {
 
   // Seconds from the start, clamped to the song.
   get position(): number {
-    const elapsed = this.startedAt === null ? 0 : (this.now() - this.startedAt) / 1000;
+    const elapsed = this.startedAt === null ? 0 : ((this.now() - this.startedAt) / 1000) * this.speed;
     return Math.min(this.offset + elapsed, this.song.duration);
   }
 
@@ -153,6 +159,26 @@ export class MidiPlayer {
     this.pause();
     this.map = map;
     if (wasPlaying) this.play();
+  }
+
+  // Playback speed as a multiple of the file's own (2 is twice as fast).
+  // Position stays in the file's seconds, so the clock and seek bar keep
+  // measuring the file. Nothing is released: the timing just changes.
+  get rate(): number {
+    return this.speed;
+  }
+
+  set rate(rate: number) {
+    if (!(rate > 0)) return;
+    if (this.playing) {
+      this.offset = this.position;
+      this.startedAt = this.now();
+    }
+    this.speed = rate;
+    if (this.playing) {
+      this.clearTimer();
+      this.tick();
+    }
   }
 
   // Pause and go back to the start.
@@ -203,7 +229,7 @@ export class MidiPlayer {
       this.callbacks.onEnd();
       return;
     }
-    const waitMs = (this.events[this.next].time - position) * 1000;
+    const waitMs = ((this.events[this.next].time - position) * 1000) / this.speed;
     this.timer = setTimeout(() => this.tick(), waitMs);
   }
 
